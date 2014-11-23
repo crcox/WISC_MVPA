@@ -88,13 +88,27 @@ as is done by Lasso, SOS Lasso will penalize less within sets than
 across sets. It involves adding yet another component to the
 optimization:
 
-    f(y,X*b) + lambda*h(b) + alpha*g(s,b)
+    f(y,X*b) + lambda*h(b) + gamma*g(s,b)
 
 Where `s` contains the set label for each feature. Whereas the Lasso
 penalty `h()` evaluates to the sum of the absolute value of the
 weights in `b`, `g()` effectively loops over groups, takes the square
 root of the sum of the weights within each group, and then sums over
 those.
+
+The formulation above was simply illustrative, and actually differs from
+the implementation in an important respect. Rather than having a totally
+independent free parameter on each component, we have formulated to
+penalty so that lambda scales the sum of `h()` and `g()`, and a second
+parameter alpha titrates between the importance of `h()` vs. `g()`:
+
+    f(y,X*b) + lambda*( (1-alpha*h(b)) + alpha*g(s,b) )
+
+This has the advantage of bounding `alpha` and making it a little more
+interpretable: if `alpha=1`, then the value of `h()` is set to zero and
+the only thing that matters is `g()`, the "sets penalty", while if
+`alpha=0`, the optimization reduces to Lasso (because `g()` will be set
+to zero).
 
 #### Prefering features from the same set
 Consider a simple case where there are 2 groups, and 2 alternative
@@ -113,8 +127,8 @@ gval1 = zeros(1,2);
 gval2 = zeros(1,2);
 
 for i = 1:2
-  gval1[i] = sqrt(sum(b1(s==i)));
-  gval2[i] = sqrt(sum(b2(s==i)));
+  gval1(i) = sqrt(sum(b1(s==i)));
+  gval2(i) = sqrt(sum(b2(s==i)));
 end
 
 sum(gval1)
