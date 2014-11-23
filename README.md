@@ -98,9 +98,9 @@ those.
 
 The formulation above was simply illustrative, and actually differs from
 the implementation in an important respect. Rather than having a totally
-independent free parameter on each component, we have formulated to
-penalty so that lambda scales the sum of `h()` and `g()`, and a second
-parameter alpha titrates between the importance of `h()` vs. `g()`:
+independent free parameter on each component, we have formulated the
+penalty so that `lambda` scales the sum of `h()` and `g()`, and a second
+parameter `alpha` titrates between the importance of `h()` vs. `g()`:
 
     f(y,X*b) + lambda*( (1-alpha*h(b)) + alpha*g(s,b) )
 
