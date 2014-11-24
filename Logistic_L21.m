@@ -124,7 +124,7 @@ function [W, funcVal,iter] = Logistic_L21(X, Y, GroupInfo, rho_L2,lambda,alpha,o
 			if ( funcVal(end)<= tol)
 				break;
 			end
-		  case 3
+		case 3
 			if iter>=maxIter
 				break;
 			end
