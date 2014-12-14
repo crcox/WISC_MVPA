@@ -52,5 +52,11 @@ for i,config in enumerate(itertools.product(*x)):
     with open(paramsPath,'wb') as f:
         json.dump(params,f,sort_keys=True,indent=2,separators=(',',': '))
 
+
+try:
+    os.makedirs('shared')
+except OSError:
+    pass
+
 with open('MASTER.json','wb') as f:
     json.dump(jdat,f,sort_keys=True,indent=2,separators=(',',': '))
