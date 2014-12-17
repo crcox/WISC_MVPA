@@ -112,7 +112,11 @@ if not os.path.isdir(archivedir):
 #           Copy source and binary files into place         #
 #############################################################
 shutil.copy(jdat['binary'],sharedir)
-shutil.copytree(jdat['srcdir'],sharedir)
+src_files = os.listdir(jdat['srcdir'])
+for file_name in src_files:
+    full_file_name = os.path.join(jdat['srcdir'], file_name)
+    if (os.path.isfile(full_file_name)):
+        shutil.copy(full_file_name, sharedir)
 
 #############################################################
 #                     Write URLS file                       #
