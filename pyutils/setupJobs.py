@@ -98,6 +98,17 @@ except KeyError:
     pass
 
 #############################################################
+#                 Setup directory structure                 #
+#############################################################
+sharedir = os.path.join(rootdir,'shared')
+if not os.path.isdir(sharedir):
+    os.makedirs(sharedir)
+
+archivedir = os.path.join(rootdir,'archive')
+if not os.path.isdir(archivedir):
+    os.makedirs(archivedir)
+
+#############################################################
 #           Copy source and binary files into place         #
 #############################################################
 shutil.copyfile(jdat['binary'],sharedir)
@@ -115,16 +126,8 @@ with open(URLS,'w') as f:
     f.write(p+'\n')
 
 #############################################################
-#         Setup directory structure and specify jobs        #
+#        Loop over configs (if condor, do setup only)       #
 #############################################################
-sharedir = os.path.join(rootdir,'shared')
-if not os.path.isdir(sharedir):
-    os.makedirs(sharedir)
-
-archivedir = os.path.join(rootdir,'archive')
-if not os.path.isdir(archivedir):
-    os.makedirs(archivedir)
-
 for i, cfg in enumerate(allConfigs):
     # Reset to defaults on each loop
     currentConfig = jdat.copy()
