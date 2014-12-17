@@ -98,6 +98,23 @@ except KeyError:
     pass
 
 #############################################################
+#           Copy source and binary files into place         #
+#############################################################
+shutil.copyfile(jdat['binary'],sharedir)
+shutil.copytree(jdat['srcdir'],sharedir)
+
+#############################################################
+#                     Write URLS file                       #
+#############################################################
+URLS = os.path.join(sharedir,'URLS')
+with open(URLS,'w') as f:
+    for x in jdata['data']:
+        p = os.path.join(jdat['squid'],x)
+        f.write(p+'\n')
+    p = os.path.join(jdat['squid'],jdat['metadata'])
+    f.write(p+'\n')
+
+#############################################################
 #         Setup directory structure and specify jobs        #
 #############################################################
 sharedir = os.path.join(rootdir,'shared')
