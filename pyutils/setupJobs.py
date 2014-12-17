@@ -123,7 +123,7 @@ for file_name in src_files:
 #############################################################
 URLS = os.path.join(sharedir,'URLS')
 with open(URLS,'w') as f:
-    for x in jdata['data']:
+    for x in jdat['data']:
         p = os.path.join(jdat['squid'],x)
         f.write(p+'\n')
     p = os.path.join(jdat['squid'],jdat['metadata'])
