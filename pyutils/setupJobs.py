@@ -111,7 +111,7 @@ if not os.path.isdir(archivedir):
 #############################################################
 #           Copy source and binary files into place         #
 #############################################################
-shutil.copyfile(jdat['binary'],os.path.join(sharedir,jdat['binary']))
+shutil.copy(jdat['binary'],sharedir)
 shutil.copytree(jdat['srcdir'],sharedir)
 
 #############################################################
