@@ -36,7 +36,7 @@ except ImportError:
     #   If you specify a logical value, this means that the flag
     #   takes no inputs, and it's presence will flip this default
     #   value.
-    tmp = {'run',False}
+    tmp = {'run':False}
 
     # Parse inputs and arguments
     lst = sys.argv[2:]
