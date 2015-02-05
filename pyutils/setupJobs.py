@@ -7,6 +7,7 @@ import sys
 from datetime import datetime
 import tarfile
 import shutil
+import pycon
 
 try:
     import argparse
@@ -16,18 +17,6 @@ try:
         help="In addition to setting up the directory structure, run all analyses. Useful when the analysis is being done locally.")
     args = p.parse_args()
 except ImportError:
-    class Args:
-        def __init__(self):
-            self.master = ''
-            self.run = False
-    args = Args()
-
-    # Log required positional args
-    args.master = sys.argv[1]
-
-    # Specify translation from valid flags to valid arguments.
-    flagDict  = {'-r':'run','--r':'run'}
-
     # Specify type of input associated with argument:
     #   If you specify an integer, that declares the expected
     #   number of inputs.
@@ -36,36 +25,15 @@ except ImportError:
     #   If you specify a logical value, this means that the flag
     #   takes no inputs, and it's presence will flip this default
     #   value.
-    tmp = {'run':False}
+    pargnames = ['master']
+    argtype = {'run':False}
 
-    # Parse inputs and arguments
-    lst = sys.argv[2:]
-    while len(lst) > 0:
-        flag = lst.pop(0)
-        try:
-            arg = flagDict[flag]
-        except KeyError:
-            print '\nERROR: {f} is not a known flag\n'.format(f=flag)
-            raise KeyError
+    # Specify translation from valid flags to valid arguments.
+    flags = {'-r':'run','--r':'run'}
 
-        if isinstance(tmp[arg],list):
-            while lst[0] not in tmp.keys():
-                val = lst.pop(0)
-                tmp[arg].append(val)
-        elif isinstance(tmp[arg],int):
-            n = tmp[arg]
-            if n == 1:
-                val = lst.pop(0)
-                tmp[arg] = val
-            elif n > 1:
-                tmp[arg]=[0]*n
-                for i in range(n):
-                    tmp[arg][i] = lst.pop(0)
-        elif isinstance(tmp[arg],bool):
-            tmp[arg] = not temp[arg]
-
-    # Assign inputs into an args object as would be produced by argparse.
-    args.run = tmp['run']
+    # Parse the arguments
+    arglst = sys.argv[1:]
+    args = pycon.argparse(arglst, pargnames, argtype, flags)
 
 #############################################################
 #   Load data and parameters from the "master" json file    #
@@ -84,7 +52,7 @@ except KeyError:
     # This just ensures there is a list to loop over.
     # The idea is to initialize currentConfig with defaults and then update
     # those with the paramaters from each config dict.
-    allConfigs = [jdat['config']]
+    allConfigs = [jdat]
 
 #############################################################
 #  Define a root folder (current directory if not a condor  #
@@ -109,25 +77,59 @@ if not os.path.isdir(archivedir):
     os.makedirs(archivedir)
 
 #############################################################
-#           Copy source and binary files into place         #
+#      Copy shared source and binary files into place       #
 #############################################################
-shutil.copy(jdat['binary'],sharedir)
-src_files = os.listdir(jdat['srcdir'])
-for file_name in src_files:
-    full_file_name = os.path.join(jdat['srcdir'], file_name)
-    if (os.path.isfile(full_file_name)):
-        shutil.copy(full_file_name, sharedir)
+try:
+    shutil.copy(jdat['binary'],sharedir)
+except KeyError:
+    print "No shared binary indicated."
+
+try:
+    src_files = os.listdir(jdat['srcdir'])
+    for file_name in src_files:
+        full_file_name = os.path.join(jdat['srcdir'], file_name)
+        if (os.path.isfile(full_file_name)):
+            shutil.copy(full_file_name, sharedir)
+except KeyError:
+    print "No shared source directory indicated."
 
 #############################################################
-#                     Write URLS file                       #
+#       Copy shared data / Write shared URLS file           #
 #############################################################
 URLS = os.path.join(sharedir,'URLS')
-with open(URLS,'w') as f:
-    for x in jdat['data']:
-        p = os.path.join(jdat['squid'],x)
-        f.write(p+'\n')
-    p = os.path.join(jdat['squid'],jdat['metadata'])
-    f.write(p+'\n')
+try:
+    if isinstance(jdat['data'],list):
+        datalst = jdat['data']
+    else:
+        datalst = [jdat['data']]
+
+    with open(URLS,'w') as f:
+        for x in datalist:
+            pathparts = os.path.split(x)
+            if pathparts[0] == '/squid':
+                p = os.path.join('/',*pathparts[1:])
+                f.write(p+'\n')
+            else:
+                shutil.copy(x,sharedir)
+except KeyError:
+    print "No shared data files indicated."
+
+try:
+    if isinstance(jdat['metadata'],list):
+        datalst = jdat['metadata']
+    else:
+        datalst = [jdat['metadata']]
+
+    with open(URLS,'a') as f:
+        for x in datalist:
+            pathparts = os.path.split(x)
+            if pathparts[0] == '/squid':
+                p = os.path.join('/',*pathparts[1:])
+                f.write(p+'\n')
+            else:
+                shutil.copy(x,sharedir)
+except KeyError:
+    print "No shared metadata indicated."
 
 #############################################################
 #        Loop over configs (if condor, do setup only)       #
@@ -148,5 +150,61 @@ for i, cfg in enumerate(allConfigs):
     os.makedirs(jobdir)
 
     cfgfile = os.path.join(jobdir,'params.json')
+
+    #############################################################
+    #       Copy job source and binary files into place         #
+    #############################################################
+    try:
+        shutil.copy(cfg['binary'],sharedir)
+    except KeyError:
+        pass
+
+    try:
+        src_files = os.listdir(cfg['srcdir'])
+        for file_name in src_files:
+            full_file_name = os.path.join(cfg['srcdir'], file_name)
+            if (os.path.isfile(full_file_name)):
+                shutil.copy(full_file_name, sharedir)
+    except KeyError:
+        pass
+
+    #############################################################
+    #          Copy job data / Write shared URLS file           #
+    #############################################################
+    URLS = os.path.join(sharedir,'URLS')
+    try:
+        if isinstance(cfg['data'],list):
+            datalst = cfg['data']
+        else:
+            datalst = [cfg['data']]
+
+        with open(URLS,'w') as f:
+            for x in datalist:
+                pathparts = os.path.split(x)
+                if pathparts[0] == '/squid':
+                    p = os.path.join('/',*pathparts[1:])
+                    f.write(p+'\n')
+                else:
+                    shutil.copy(x,sharedir)
+    except KeyError:
+        pass
+
+    try:
+        if isinstance(cfg['metadata'],list):
+            datalst = cfg['metadata']
+        else:
+            datalst = [cfg['metadata']]
+
+        with open(URLS,'a') as f:
+            for x in datalist:
+                pathparts = os.path.split(x)
+                if pathparts[0] == '/squid':
+                    p = os.path.join('/',*pathparts[1:])
+                    f.write(p+'\n')
+                else:
+                    shutil.copy(x,sharedir)
+    except KeyError:
+        pass
+
     with open(cfgfile,'wb') as f:
         json.dump(currentConfig, f, sort_keys=True, indent=2, separators=(',', ': '))

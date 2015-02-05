@@ -62,7 +62,7 @@ function [fitObj,fitObjRaw] = cvsoslasso_condor(X,Y,CV,LAMSET,MU,GroupInfo,opts)
 			Ytrain{ss} = y;
 		end
 	end
-	
+
   function fitObj = evaluateAndStoreModel(B)
 	  betas = cell(size(X));
 	  a0 = cell(size(X));
