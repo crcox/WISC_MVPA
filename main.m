@@ -77,7 +77,7 @@ function [fitObj,GroupInfo,metadata, X] = main()
 	params = init_opts(params);
 
 	%% Set up Y
-	Y = {metadata.(params.TargetCategory)};
+	Y = {metadata.(params.TargetCategory)}';
 
 	%% Project subjects' data in to Shared Space and create GroupInfo.
 	% We do not want the intercept unit to belong to a group, so add it after
@@ -95,7 +95,7 @@ function [fitObj,GroupInfo,metadata, X] = main()
 	if isfield(params,'lambda') && ~isempty(params.lambda)
 		LAMSET = params.lambda; % Scales overall regularization strength
 	else
-		LAMSET = lambdaseq(X,Y,100);
+		LAMSET = lambdaseq(X,Y,ALPHA,100);
 	end
 
 	%% CV selections
