@@ -15,7 +15,7 @@ for ss = 1:nSubjects
 		end
 	end
 end
-save('testdata/metadata.mat','metadata');
+save('metadata.mat','metadata');
 
 %% Set up X
 % Here is where you would load your data.
@@ -23,11 +23,11 @@ X = cell(nSubjects,1);
 actVox = false(250,10);
 for ss = 1:nSubjects
 	s.X = randn(100,250);
+    s.Y = metadata(ss).TrueFaces;
 	metadata(ss).actVox = pdist2([4.5,4.5,4.5],metadata(ss).xyz_tlrc)<2;
-	s.X(Y{ss},metadata(ss).actVox) = s.X(Y{ss},metadata(ss).actVox) + 3;
+	s.X(s.Y,metadata(ss).actVox) = s.X(s.Y,metadata(ss).actVox) + 3;
 	X{ss} = bsxfun(@minus,s.X,mean(s.X));
 	X{ss} = bsxfun(@rdivide,X{ss},std(X{ss}));
 end
 clear s;
-save('testdata/alldata.mat', 'X');
-save(
+save('alldata.mat', 'X');
