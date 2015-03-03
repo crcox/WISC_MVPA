@@ -1,4 +1,4 @@
-function [fitObj,fitObjRaw] = cvsoslasso_condor(X,Y,CV,LAMSET,MU,GroupInfo,opts)
+function [fitObj,fitObjRaw] = cvsoslasso_condor(X,Y,CV,LAMSET,ALPHA,GroupInfo,opts)
 % X : Nx1 Cell array, where N is the number of subjects.
 % Y : Nx1 Cell array, where N is the number of subjects.
 
@@ -26,7 +26,8 @@ function [fitObj,fitObjRaw] = cvsoslasso_condor(X,Y,CV,LAMSET,MU,GroupInfo,opts)
 			a = sub2ind([nsubj,ncv,nlam],1,cc,ll);
 			b = sub2ind([nsubj,ncv,nlam],nsubj,cc,ll);
 
-			[B(:,a:b),B_raw(:,a:b),W] = overlap_2stage(Ytrain,Xtrain,GroupInfo,LAMBDA,MU,opts);
+      % overlap_2stage returns matrices with one column per subject.
+			[B(:,a:b),B_raw(:,a:b),W] = overlap_2stage(Ytrain,Xtrain,GroupInfo,LAMBDA,ALPHA,opts);
 			opts.W0=W(2:end,:); % Warm start
 			opts.C0=W(1,:); % Warm start
 			opts.init=2; % set to 1 to let warm start happen.
@@ -64,36 +65,25 @@ function [fitObj,fitObjRaw] = cvsoslasso_condor(X,Y,CV,LAMSET,MU,GroupInfo,opts)
 	end
 
 	function fitObj = evaluateAndStoreModel(B)
-		betas = cell(size(X));
-		a0 = cell(size(X));
-		Yh = cell(size(X));
-		dp = cell(size(X));
-		dpt = cell(size(X));
-		SubjectLabels = mod(0:(b-1),nsubj)+1;
+    % Data model:
+    % Each subject is an element of a structured array.
+    fitObj(nsubj,ncv) = struct('betas',[],'a0',[],'Y',[],'Yh',[],'lambda',[],'alpha',[],'omit',[]);
+		SubjectLabels = mod(0:(size(B,2)-1),nsubj)+1;
 		for ss = 1:nsubj
-			z = SubjectLabels == ss;
-			a0{ss} = B(1,z);
-			betas{ss} = B(2:end,z);
-			Yh{ss} = full(X{ss} * B(:,z));
-			dp{ss} = reshape(dprimeCV(Y{ss}>0,Yh{ss}>0, CV{ss}), ncv, nlam);
-			dpt{ss} = reshape(dprimeCV(Y{ss},Yh{ss}, ~CV{ss}), ncv, nlam);
+      for cc = 1:ncv
+				svox = [false;GroupInfo.SubjectMask(:,ss)]; % adjusted for bias unit. 
+        z = SubjectLabels == ss;
+        fitObj(ss,cc).a0 = B(1,z);
+        fitObj(ss,cc).betas = B(svox,z);
+				fitObj(ss,cc).Y = Y{ss};
+        fitObj(ss,cc).Yh = full(X{ss} * B(:,z));
+        fitObj(ss,cc).lambda = LAMSET;
+        fitObj(ss,cc).alpha = ALPHA;
+        fitObj(ss,cc).testset = CV{ss}(:,cc);
+      end
 		end
-
-		[~,bestLambdaInd] = max(mean(cell2mat(dp)));
-		bestLambda = LAMSET(bestLambdaInd);
-
-		fitObj.betas = betas;
-		fitObj.a0 = a0;
-		fitObj.lambda = LAMSET;
-		fitObj.mu = MU;
-		fitObj.bestLambda = bestLambda;
-		fitObj.bestLambdaInd = bestLambdaInd;
-		fitObj.dp = dp;
-		fitObj.dpt = dpt;
-		fitObj.Yh = Yh;
-		fitObj.Y = Y;
-		fitObj.CV = CV;
 	end
+
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

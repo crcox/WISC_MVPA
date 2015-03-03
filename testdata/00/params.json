@@ -6,9 +6,9 @@
   "GroupShift": 2,
   "SharedSpaceVoxelSize": 1,
   "lambda": 50,
-  "alpha": 0.75,
-	"data": "testdata/alldata.mat",
-	"metadata": "testdata/metadata.mat",
+  "alpha": 0.5,
+	"data": "../alldata.mat",
+	"metadata": "../metadata.mat",
 	"UseIntercept": false,
-  "SaveRawResults": true
+  "SaveRawResults": false
 }
