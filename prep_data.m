@@ -2,7 +2,7 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 	%% Parameters
 	nSubjects  = length(X);
 	GroupSize  = params.GroupSize;
-	GroupShift = params.GroupShift; 
+	GroupShift = params.GroupShift;
 	XYZ_tlrc   = cell(nSubjects,1);
 
 	%% Round coordinates to nearest multiple of SharedSpaceVoxelSize.
@@ -63,7 +63,7 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 	end
 	fprintf('\n')
 
-	%% Define Range 
+	%% Define Range
 	if all(XYZ_tlrc_mat(:,1)==1)
 		irange = 1;
 	else
@@ -99,7 +99,7 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 		temp = sub2ind([I,J,K], G_ijk(:,1),G_ijk(:,2),G_ijk(:,3))';
 		G{i} = uint32(temp(NZ_tlrc(temp)));
 	end
-	
+
 	% This will just stick any voxels that aren't yet in a group into a group
 	% together.
 	CatchallGroup = setdiff(IND_tlrc_vec,cell2mat(G'));

@@ -36,7 +36,7 @@ function [Xhat,Wndb,W,iter] = overlap_2stage(Y,X,GroupInfo,lambda, alpha, opts)
 	T = length(Y);
 	Xhat = zeros(n,T);
 
-	% Dummy variables are used to full non-cortical space for each subject.
+	% Dummy variables are used to fill non-cortical space for each subject.
 	% Identify whether a dummy variable exists and chuck it
   for k = 1:m
     t = G{k};
