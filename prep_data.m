@@ -68,16 +68,25 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 		irange = 1;
 	else
 		irange = 1:GroupShift(1):(I-GroupSize(1));
+		if irange == 1 && GroupSize(1) < I %#ok<BDSCI>
+			irange = uint32([1, GroupShift(1)+1]);
+		end
 	end
 	if all(XYZ_tlrc_mat(:,2)==1)
 		jrange = 1;
 	else
 		jrange = 1:GroupShift(2):(J-GroupSize(2));
+		if jrange == 1 && GroupSize(2) < J %#ok<BDSCI>
+			jrange = uint32([1, GroupShift(2)+1]);
+		end
 	end
 	if all(XYZ_tlrc_mat(:,3)==1)
 		krange = 1;
 	else
 		krange = 1:GroupShift(3):(K-GroupSize(3));
+		if krange == 1 && GroupSize(3) < K %#ok<BDSCI>
+			krange = uint32([1, GroupShift(3)+1]);
+		end
 	end
 
 	%% Generate Grid of Corners

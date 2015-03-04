@@ -1,8 +1,8 @@
 {
   "Debias": true,
   "FinalHoldoutSet": 1,
-  "GroupShift": 2,
-  "GroupSize": 6,
+  "GroupShift": 3,
+  "GroupSize": 4,
   "SaveRawResults": false,
   "SharedSpaceVoxelSize": 1,
   "TargetCategory": "TrueFaces",

@@ -7,8 +7,12 @@
   "SharedSpaceVoxelSize": 1,
   "TargetCategory": "TrueFaces",
   "UseIntercept": false,
-  "alpha": 0.5,
+  "alpha": 0.25,
   "data": "../alldata.mat",
-  "lambda": 50,
+  "lambda": [
+    30,
+    40,
+    50
+  ],
   "metadata": "../metadata.mat"
 }

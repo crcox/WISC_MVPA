@@ -1,7 +1,7 @@
 {
   "Debias": true,
   "FinalHoldoutSet": 1,
-  "GroupShift": 2,
+  "GroupShift": 3,
   "GroupSize": 6,
   "SaveRawResults": false,
   "SharedSpaceVoxelSize": 1,

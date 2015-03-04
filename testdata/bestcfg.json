@@ -1,0 +1,14 @@
+{
+	"Debias": 1,
+	"FinalHoldoutSet": 1,
+	"SaveRawResults": 0,
+	"SharedSpaceVoxelSize": 1,
+	"TargetCategory": "TrueFaces",
+	"UseIntercept": 0,
+	"data": "../alldata.mat",
+	"lambda": 30,
+	"metadata": "../metadata.mat",
+	"alpha": 0.5,
+	"GroupShift": 2,
+	"GroupSize": 4
+}
