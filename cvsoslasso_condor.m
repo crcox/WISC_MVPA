@@ -68,14 +68,14 @@ function [fitObj,fitObjRaw] = cvsoslasso_condor(X,Y,CV,LAMSET,ALPHA,GroupInfo,op
     % Data model:
     % Each subject is an element of a structured array.
     fitObj(nsubj,ncv) = struct('betas',[],'a0',[],'Y',[],'Yh',[],'lambda',[],'alpha',[],'omit',[]);
-		SubjectLabels = mod(0:(size(B,2)-1),nsubj)+1;
-		for ss = 1:nsubj
+    [SubjectLabels,cvLabels,~] = ind2sub([nsubj,ncv,nlam],1:size(B,2));
+    for ss = 1:nsubj
       for cc = 1:ncv
-				svox = [false;GroupInfo.SubjectMask(:,ss)]; % adjusted for bias unit. 
-        z = SubjectLabels == ss;
+        svox = [false;GroupInfo.SubjectMask(:,ss)]; % adjusted for bias unit. 
+        z = (SubjectLabels == ss) & (cvLabels == cc);
         fitObj(ss,cc).a0 = B(1,z);
         fitObj(ss,cc).betas = B(svox,z);
-				fitObj(ss,cc).Y = Y{ss};
+        fitObj(ss,cc).Y = Y{ss};
         fitObj(ss,cc).Yh = full(X{ss} * B(:,z));
         fitObj(ss,cc).lambda = LAMSET;
         fitObj(ss,cc).alpha = ALPHA;
