@@ -38,6 +38,10 @@ function [fitObj,GroupInfo,metadata, X] = main()
 	% the remaining blocks of performed to find the best alpha and lambda.
 
 	params = loadjson('params.json');
+    if ~isfield(params,'isFinal')
+        params.isFinal = false;
+    end
+    
 	load(params.metadata);
 	nSubjects = length(metadata);
 	for i = 1:nSubjects
@@ -108,11 +112,13 @@ function [fitObj,GroupInfo,metadata, X] = main()
 		Xtrain{i} = X{i}(~test{i},:);
 		Ytrain{i} = Y{i}(~test{i});
 		CV{i} = metadata(i).CVBLOCKS(~test{i},(1:ncv_total)~=OMIT);
-	end
-
- 	[fitObj,fitObj_raw] = cvsoslasso_condor(Xtrain,Ytrain,CV,LAMSET,ALPHA,GroupInfo,params);
-%		 save(sprintf('jlp+soslasso_mu%02d_cv_%02d.mat',WhichMu,OMIT),'fitObj','fitObjRaw','OMIT','WhichMu');
-%		 [fitObj, fitObjRaw] = deal(0);
+    end
+    
+    if params.isFinal
+        [fitObj,fitObj_raw] = cvsoslasso_condor(X,Y,test,LAMSET,ALPHA,GroupInfo,params);
+    else
+        [fitObj,fitObj_raw] = cvsoslasso_condor(Xtrain,Ytrain,CV,LAMSET,ALPHA,GroupInfo,params);
+    end
 
   [fitObj.omit] = deal(OMIT);
   save('fitObj.mat','fitObj');
