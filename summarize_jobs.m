@@ -88,7 +88,8 @@ function S=summarize_jobs()
 	end
 	if isfield(config,'GroupSize')
 		BestCfg.GroupSize = config(MaxCfgInd).GroupSize;
-	end
+    end
+    BestCfg.isFinal = true;
 	
 	disp(BestCfg);
 	savejson('',BestCfg,'bestcfg.json');
