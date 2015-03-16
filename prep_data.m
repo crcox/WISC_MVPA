@@ -68,7 +68,7 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 		irange = 1;
 	else
 		irange = 1:GroupShift(1):(I-GroupSize(1));
-		if irange == 1 && GroupSize(1) < I %#ok<BDSCI>
+    if irange(end) == 1 && GroupSize(1) < I %#ok<BDSCI>
 			irange = uint32([1, GroupShift(1)+1]);
 		end
 	end
@@ -76,7 +76,7 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 		jrange = 1;
 	else
 		jrange = 1:GroupShift(2):(J-GroupSize(2));
-		if jrange == 1 && GroupSize(2) < J %#ok<BDSCI>
+    if jrange(end) == 1 && GroupSize(2) < J %#ok<BDSCI>
 			jrange = uint32([1, GroupShift(2)+1]);
 		end
 	end
@@ -84,7 +84,7 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 		krange = 1;
 	else
 		krange = 1:GroupShift(3):(K-GroupSize(3));
-		if krange == 1 && GroupSize(3) < K %#ok<BDSCI>
+		if krange(end) == 1 && GroupSize(3) < K %#ok<BDSCI>
 			krange = uint32([1, GroupShift(3)+1]);
 		end
 	end
