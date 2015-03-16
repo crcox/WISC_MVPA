@@ -2,7 +2,7 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 	%% Parameters
 	nSubjects  = length(X);
 	GroupSize  = params.GroupSize;
-	GroupShift = params.GroupShift; 
+	GroupShift = params.GroupShift;
 	XYZ_tlrc   = cell(nSubjects,1);
 
 	%% Round coordinates to nearest multiple of SharedSpaceVoxelSize.
@@ -63,21 +63,30 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 	end
 	fprintf('\n')
 
-	%% Define Range 
+	%% Define Range
 	if all(XYZ_tlrc_mat(:,1)==1)
 		irange = 1;
 	else
 		irange = 1:GroupShift(1):(I-GroupSize(1));
+		if irange == 1 && GroupSize(1) < I %#ok<BDSCI>
+			irange = uint32([1, GroupShift(1)+1]);
+		end
 	end
 	if all(XYZ_tlrc_mat(:,2)==1)
 		jrange = 1;
 	else
 		jrange = 1:GroupShift(2):(J-GroupSize(2));
+		if jrange == 1 && GroupSize(2) < J %#ok<BDSCI>
+			jrange = uint32([1, GroupShift(2)+1]);
+		end
 	end
 	if all(XYZ_tlrc_mat(:,3)==1)
 		krange = 1;
 	else
 		krange = 1:GroupShift(3):(K-GroupSize(3));
+		if krange == 1 && GroupSize(3) < K %#ok<BDSCI>
+			krange = uint32([1, GroupShift(3)+1]);
+		end
 	end
 
 	%% Generate Grid of Corners
@@ -99,7 +108,7 @@ function [X,GroupInfo] = prep_data(X,metadata,params)
 		temp = sub2ind([I,J,K], G_ijk(:,1),G_ijk(:,2),G_ijk(:,3))';
 		G{i} = uint32(temp(NZ_tlrc(temp)));
 	end
-	
+
 	% This will just stick any voxels that aren't yet in a group into a group
 	% together.
 	CatchallGroup = setdiff(IND_tlrc_vec,cell2mat(G'));

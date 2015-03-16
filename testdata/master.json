@@ -1,0 +1,77 @@
+{
+  "Debias": true,
+  "FinalHoldoutSet": 1,
+  "SaveRawResults": false,
+  "SharedSpaceVoxelSize": 1,
+  "TargetCategory": "TrueFaces",
+  "UseIntercept": false,
+  "config": [
+    {
+      "GroupShift": 2,
+      "GroupSize": 4,
+      "alpha": 0.25
+    },
+    {
+      "GroupShift": 2,
+      "GroupSize": 6,
+      "alpha": 0.25
+    },
+    {
+      "GroupShift": 3,
+      "GroupSize": 4,
+      "alpha": 0.25
+    },
+    {
+      "GroupShift": 3,
+      "GroupSize": 6,
+      "alpha": 0.25
+    },
+    {
+      "GroupShift": 2,
+      "GroupSize": 4,
+      "alpha": 0.5
+    },
+    {
+      "GroupShift": 2,
+      "GroupSize": 6,
+      "alpha": 0.5
+    },
+    {
+      "GroupShift": 3,
+      "GroupSize": 4,
+      "alpha": 0.5
+    },
+    {
+      "GroupShift": 3,
+      "GroupSize": 6,
+      "alpha": 0.5
+    },
+    {
+      "GroupShift": 2,
+      "GroupSize": 4,
+      "alpha": 0.75
+    },
+    {
+      "GroupShift": 2,
+      "GroupSize": 6,
+      "alpha": 0.75
+    },
+    {
+      "GroupShift": 3,
+      "GroupSize": 4,
+      "alpha": 0.75
+    },
+    {
+      "GroupShift": 3,
+      "GroupSize": 6,
+      "alpha": 0.75
+    }
+  ],
+  "data": "../alldata.mat",
+  "lambda": [
+    30,
+    40,
+    50
+  ],
+  "metadata": "../metadata.mat"
+}

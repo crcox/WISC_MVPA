@@ -38,6 +38,10 @@ function [fitObj,GroupInfo,metadata, X] = main()
 	% the remaining blocks of performed to find the best alpha and lambda.
 
 	params = loadjson('params.json');
+    if ~isfield(params,'isFinal')
+        params.isFinal = false;
+    end
+    
 	load(params.metadata);
 	nSubjects = length(metadata);
 	for i = 1:nSubjects
@@ -51,6 +55,7 @@ function [fitObj,GroupInfo,metadata, X] = main()
 			end
 		end
 	end
+
 	if iscellstr(params.data)
 		nDatafiles = length(params.data);
 		if nDatafiles ~= nSubjects
@@ -107,22 +112,34 @@ function [fitObj,GroupInfo,metadata, X] = main()
 		Xtrain{i} = X{i}(~test{i},:);
 		Ytrain{i} = Y{i}(~test{i});
 		CV{i} = metadata(i).CVBLOCKS(~test{i},(1:ncv_total)~=OMIT);
-	end
-%
- 	[fitObj,fitObj_raw] = cvsoslasso_condor(Xtrain,Ytrain,CV,LAMSET,ALPHA,GroupInfo,params);
-%		 save(sprintf('jlp+soslasso_mu%02d_cv_%02d.mat',WhichMu,OMIT),'fitObj','fitObjRaw','OMIT','WhichMu');
-%		 [fitObj, fitObjRaw] = deal(0);
+    end
+    
+    if params.isFinal
+        [fitObj,fitObj_raw] = cvsoslasso_condor(X,Y,test,LAMSET,ALPHA,GroupInfo,params);
+    else
+        [fitObj,fitObj_raw] = cvsoslasso_condor(Xtrain,Ytrain,CV,LAMSET,ALPHA,GroupInfo,params);
+    end
 
-	writeResults('results',fitObj)
-	if params.SaveRawResults == true
-		writeResults('results_NoDebiasing',fitObj_raw);
-	end
+  [fitObj.omit] = deal(OMIT);
+  save('fitObj.mat','fitObj');
+% 	writeResults('results',fitObj)
+% 	if params.SaveRawResults == true
+%    [fitObj_raw.omit] = deal(OMIT);
+% 		writeResults('results_NoDebiasing',fitObj_raw);
+% 	end
 
 	f=fopen('ALL_DONE','w');
 	fclose(f);
 
 	function writeResults(outdir,fitObj)
+    % FitObj is subject x cv structured array
+
+    % First, save the full fitObj
 		mkdir(outdir);
+		save(fullfile(outdir,'fitObj.mat'),'fitObj');
+
+    % Then create a directory for each subject, 
+
 		pathBin = @(x,y,z) fullfile(x,sprintf('%s_%02d.bin',y, z));
 		save(fullfile(outdir,'fitObj.mat'),'fitObj');
 		for i = 1:nSubjects
