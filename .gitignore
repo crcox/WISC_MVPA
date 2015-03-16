@@ -8,3 +8,7 @@
 **/*.BRIK
 **/*.HEAD
 **/*.nii
+bin/
+binaries.tar.gz
+log/
+source_code.tar.gz
