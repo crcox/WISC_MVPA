@@ -113,7 +113,7 @@ function [fitObj,GroupInfo,metadata, X] = main()
 		Ytrain{i} = Y{i}(~test{i});
 		CV{i} = metadata(i).CVBLOCKS(~test{i},(1:ncv_total)~=OMIT);
     end
-    
+
     if params.isFinal
         [fitObj,fitObj_raw] = cvsoslasso_condor(X,Y,test,LAMSET,ALPHA,GroupInfo,params);
     else
