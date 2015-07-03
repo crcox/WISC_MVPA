@@ -38,10 +38,10 @@ function [fitObj,GroupInfo,metadata, X] = main()
 	% the remaining blocks of performed to find the best alpha and lambda.
 
 	params = loadjson('params.json');
-    if ~isfield(params,'isFinal')
-        params.isFinal = false;
-    end
-    
+  if ~isfield(params,'isFinal')
+    params.isFinal = false;
+  end
+
 	load(params.metadata);
 	nSubjects = length(metadata);
 	for i = 1:nSubjects
@@ -114,11 +114,11 @@ function [fitObj,GroupInfo,metadata, X] = main()
 		CV{i} = metadata(i).CVBLOCKS(~test{i},(1:ncv_total)~=OMIT);
     end
 
-    if params.isFinal
-        [fitObj,fitObj_raw] = cvsoslasso_condor(X,Y,test,LAMSET,ALPHA,GroupInfo,params);
-    else
-        [fitObj,fitObj_raw] = cvsoslasso_condor(Xtrain,Ytrain,CV,LAMSET,ALPHA,GroupInfo,params);
-    end
+  if params.isFinal
+    [fitObj,fitObj_raw] = cvsoslasso_condor(X,Y,test,LAMSET,ALPHA,GroupInfo,params);
+  else
+    [fitObj,fitObj_raw] = cvsoslasso_condor(Xtrain,Ytrain,CV,LAMSET,ALPHA,GroupInfo,params);
+  end
 
   [fitObj.omit] = deal(OMIT);
   save('fitObj.mat','fitObj');
@@ -131,62 +131,63 @@ function [fitObj,GroupInfo,metadata, X] = main()
 	f=fopen('ALL_DONE','w');
 	fclose(f);
 
-	function writeResults(outdir,fitObj)
-    % FitObj is subject x cv structured array
-
-    % First, save the full fitObj
-		mkdir(outdir);
-		save(fullfile(outdir,'fitObj.mat'),'fitObj');
-
-    % Then create a directory for each subject, 
-
-		pathBin = @(x,y,z) fullfile(x,sprintf('%s_%02d.bin',y, z));
-		save(fullfile(outdir,'fitObj.mat'),'fitObj');
-		for i = 1:nSubjects
-			writeBinMatrix(pathBin(outdir,'beta',i), full([fitObj.a0{i};fitObj.betas{i}]));
-			writeBinMatrix(pathBin(outdir,'fittedVals',i), full(fitObj.Yh{i}));
-			writeBinMatrix(pathBin(outdir,'dprime_test',i), full(fitObj.dp{i}));
-			writeBinMatrix(pathBin(outdir,'dprime_train',i), full(fitObj.dpt{i}));
-		end
-		cvind = 1:ncv_total;
-		cvind(OMIT) = [];
-		[cv,lam,subj,train,omit,alpha] = ndgrid(cvind,LAMSET,1:nSubjects,[1,0],OMIT,ALPHA);
-		dpvec = [cell2mat(cellfun(@(x) x(:), fitObj.dp,'unif',false)); ...
-						 cell2mat(cellfun(@(x) x(:), fitObj.dpt,'unif',false))];
-		dptbl = [cv(:),lam(:),subj(:),train(:),omit(:),alpha(:),dpvec];
-		dptbl_header = {'cv','lam','subj','test','omit'};
-		save(fullfile(outdir,'dprime_table.mat'),'dptbl','dptbl_header');
-		csvwrite(fullfile(outdir,'dprime_table.csv'),dptbl);
-		writeBinTable(fullfile(outdir,'dprime_table.bin'),dptbl,'compress',false);
-		% NB Cannot compress on CONDOR since that would require java.
-	end
+%	function writeResults(outdir,fitObj)
+%    % FitObj is subject x cv structured array
+%
+%    % First, save the full fitObj
+%		mkdir(outdir);
+%		save(fullfile(outdir,'fitObj.mat'),'fitObj');
+%
+%    % Then create a directory for each subject,
+%
+%		pathBin = @(x,y,z) fullfile(x,sprintf('%s_%02d.bin',y, z));
+%		save(fullfile(outdir,'fitObj.mat'),'fitObj');
+%		for i = 1:nSubjects
+%			writeBinMatrix(pathBin(outdir,'beta',i), full([fitObj.a0{i};fitObj.betas{i}]));
+%			writeBinMatrix(pathBin(outdir,'fittedVals',i), full(fitObj.Yh{i}));
+%			writeBinMatrix(pathBin(outdir,'dprime_test',i), full(fitObj.dp{i}));
+%			writeBinMatrix(pathBin(outdir,'dprime_train',i), full(fitObj.dpt{i}));
+%		end
+%
+%		cvind = 1:ncv_total;
+%		cvind(OMIT) = [];
+%		[cv,lam,subj,train,omit,alpha] = ndgrid(cvind,LAMSET,1:nSubjects,[1,0],OMIT,ALPHA);
+%		dpvec = [cell2mat(cellfun(@(x) x(:), fitObj.dp,'unif',false)); ...
+%						 cell2mat(cellfun(@(x) x(:), fitObj.dpt,'unif',false))];
+%		dptbl = [cv(:),lam(:),subj(:),train(:),omit(:),alpha(:),dpvec];
+%		dptbl_header = {'cv','lam','subj','test','omit'};
+%		save(fullfile(outdir,'dprime_table.mat'),'dptbl','dptbl_header');
+%		csvwrite(fullfile(outdir,'dprime_table.csv'),dptbl);
+%		writeBinTable(fullfile(outdir,'dprime_table.bin'),dptbl,'compress',false);
+%		% NB Cannot compress on CONDOR since that would require java.
+%	end
 end
 
-function writeBinMatrix(filename,X)
-% Column-major order.
-	f = fopen(fullfile(filename),'w');
-	fwrite(f,size(X), 'int', 'ieee-le'); % 4 byte
-	fwrite(f, X, 'double', 'ieee-le');   % 8 byte
-	fclose(f);
-end
-function writeBinTable(filename,tbl,varargin)
-% Column-major order
-% Cannot compress on CONDOR since that would require java.
-	p = inputParser;
-	p.addOptional('compress',false,@islogical);
-	parse(p, varargin{:});
-	f = fopen(filename,'w');
-	fwrite(f,size(tbl), 'uint', 'ieee-le');    % 4 byte, dims
-	fwrite(f, tbl(:,1), 'uint8', 'ieee-le');   % 1 byte, cv
-	fwrite(f, tbl(:,2), 'float', 'ieee-le');   % 4 byte, lam
-	fwrite(f, tbl(:,3), 'uint8', 'ieee-le');   % 1 byte, subj
-	fwrite(f, tbl(:,4), 'uint8', 'ieee-le');   % 1 byte, isTest
-	fwrite(f, tbl(:,5), 'uint8', 'ieee-le');   % 1 byte, omit
-	fwrite(f, tbl(:,6), 'float', 'ieee-le');   % 4 byte, alpha
-	fwrite(f, tbl(:,7), 'float', 'ieee-le');   % 4 byte, dprime
-	fclose(f);
-	if p.Results.compress == true
-		gzip(filename);
-		delete(filename)
-	end
-end
+%function writeBinMatrix(filename,X)
+%% Column-major order.
+%	f = fopen(fullfile(filename),'w');
+%	fwrite(f,size(X), 'int', 'ieee-le'); % 4 byte
+%	fwrite(f, X, 'double', 'ieee-le');   % 8 byte
+%	fclose(f);
+%end
+%function writeBinTable(filename,tbl,varargin)
+%% Column-major order
+%% Cannot compress on CONDOR since that would require java.
+%	p = inputParser;
+%	p.addOptional('compress',false,@islogical);
+%	parse(p, varargin{:});
+%	f = fopen(filename,'w');
+%	fwrite(f,size(tbl), 'uint', 'ieee-le');    % 4 byte, dims
+%	fwrite(f, tbl(:,1), 'uint8', 'ieee-le');   % 1 byte, cv
+%	fwrite(f, tbl(:,2), 'float', 'ieee-le');   % 4 byte, lam
+%	fwrite(f, tbl(:,3), 'uint8', 'ieee-le');   % 1 byte, subj
+%	fwrite(f, tbl(:,4), 'uint8', 'ieee-le');   % 1 byte, isTest
+%	fwrite(f, tbl(:,5), 'uint8', 'ieee-le');   % 1 byte, omit
+%	fwrite(f, tbl(:,6), 'float', 'ieee-le');   % 4 byte, alpha
+%	fwrite(f, tbl(:,7), 'float', 'ieee-le');   % 4 byte, dprime
+%	fclose(f);
+%	if p.Results.compress == true
+%		gzip(filename);
+%		delete(filename)
+%	end
+%end
