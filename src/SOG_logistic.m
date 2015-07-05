@@ -1,4 +1,4 @@
-function [W, obj] = SOS_logistic(X, Y,alpha,lambda,groups,group_arr,varargin)
+function [W, obj] = SOG_logistic(X, Y,alpha,lambda,groups,group_arr,varargin)
 
 % function solves
 % min \sum_t log(1 + exp(-Yt.*XtW(:,t))) + alpha Omega(W)
@@ -37,7 +37,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,groups,group_arr,varargin)
   addParameter(p , 'opts'      , struct() , @isstruct );
   parse(p, X, Y, alpha, lambda, groups, group_arr, varargin{:});
 
-  X         = p.Results.X;
+  X         = cellfun(@transpose, p.Results.X, 'Unif', 0);
   Y         = p.Results.Y;
   lambda    = p.Results.lambda;
   alpha     = p.Results.alpha;
@@ -53,12 +53,13 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,groups,group_arr,varargin)
   addParameter(o , 'maxiter' , 1000 ,    @isscalar);
   addParameter(o , 'tol'     , 1e-8 ,    @isscalar);
   parse(o, optcell{:});
+  
+  maxiter = o.Results.maxiter;
+  l2      = o.Results.l2;
+  tol     = o.Results.tol;
 
   num_tasks  = length(X);
   dimension = size(X{1}, 1);
-  for i = 1:num_tasks
-    X{i} = X{i}';
-  end
 
   % initialize (can provide your own initialization)
   W0 = zeros(dimension, num_tasks);
@@ -154,7 +155,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,groups,group_arr,varargin)
 		Xtemp = max(Xtemp - lam,0); % this is the multiplying factor
 		Xtemp = Xtemp./(Xtemp + lam);
 		Xtemp = Xtemp(groups);
-		Xtemp = repmat(Xtemp,1,size(X,2));
+		Xtemp = repmat(Xtemp,1,size(X_soft,2));
 		Wshr = X_soft(1:end-1,:).*Xtemp;
 
 	end

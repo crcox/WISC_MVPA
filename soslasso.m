@@ -1,4 +1,4 @@
-function [fitObj,fitObjRaw] = cvsoslasso_condor(X,Y,CV,LAMSET,ALPHA,GroupInfo,opts)
+function [fitObj,fitObjRaw] = soslasso(X,Y,CV,LAMSET,ALPHA,GroupInfo,opts)
 % X : Nx1 Cell array, where N is the number of subjects.
 % Y : Nx1 Cell array, where N is the number of subjects.
 
@@ -71,8 +71,7 @@ function [fitObj,fitObjRaw] = cvsoslasso_condor(X,Y,CV,LAMSET,ALPHA,GroupInfo,op
     [SubjectLabels,cvLabels,~] = ind2sub([nsubj,ncv,nlam],1:size(B,2));
     for ss = 1:nsubj
       for cc = 1:ncv
-%         svox = [false;GroupInfo.SubjectMask(:,ss)]; % adjusted for bias unit. 
-        svox = GroupInfo.SubjectMask(:,ss);
+        svox = [false;GroupInfo.SubjectMask(:,ss)]; % adjusted for bias unit. 
         z = (SubjectLabels == ss) & (cvLabels == cc);
         fitObj(ss,cc).a0 = B(1,z);
         fitObj(ss,cc).betas = B(svox,z);

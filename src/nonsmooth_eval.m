@@ -6,7 +6,9 @@ function val = nonsmooth_eval(Wz,lam,alpha,groups)
 	val = sum(sum(abs(Wz)))*OverallSparse;
 
 	% Group sparse component
-	Wz = [Wz; zeros(1,size(Wz,2))]; % for the dummy
+  if max(max(groups)) > size(Wz,1)
+    Wz = [Wz; zeros(1,size(Wz,2))]; % for the dummy
+  end
 	groups(isnan(groups)) = size(Wz,1);
 	Wz = sum(Wz.^2,2); 
 	Wz = sum(Wz(groups),2);

@@ -32,7 +32,8 @@ function [Xhat,Wndb,W,iter] = overlap_2stage(Y,X,GroupInfo,lambda, alpha, opts)
 	for k = 1:m
     n(k) = max(G{k});
 	end
-	n = max(n)+1; % to account for bias weight
+	%n = max(n)+1; % to account for bias weight
+  n = max(n);
 	T = length(Y);
 	Xhat = zeros(n,T);
 
@@ -40,7 +41,8 @@ function [Xhat,Wndb,W,iter] = overlap_2stage(Y,X,GroupInfo,lambda, alpha, opts)
 	% Identify whether a dummy variable exists and chuck it
   for k = 1:m
     t = G{k};
-    s = group_arr(k,:)+1; % to account for bias weight
+%     s = group_arr(k,:)+1; % to account for bias weight
+    s = group_arr(k,:);
     s = s(~isnan(s));
     Xhat(t,:) = Xhat(t,:) + W(s,:);
 	end

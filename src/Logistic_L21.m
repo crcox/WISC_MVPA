@@ -25,7 +25,8 @@
 function [W, funcVal,iter] = Logistic_L21(X, Y, GroupInfo, rho_L2,lambda,alpha,opts)
 	group_arr = GroupInfo.group_arr;
 	groups = GroupInfo.groups;
-	RepIndex = [1, GroupInfo.RepIndex+1]; % to account for bias term
+	%RepIndex = [1, GroupInfo.RepIndex+1]; % to account for bias term
+  RepIndex = GroupInfo.RepIndex;
 
 	task_num  = length(X);
 	for i = 1:task_num
@@ -70,8 +71,12 @@ function [W, funcVal,iter] = Logistic_L21(X, Y, GroupInfo, rho_L2,lambda,alpha,o
 		while true
 			% This is the function that applies the SOS LASSO shrinkage.
 			% Don't shrink the intercept term.
-			x = Ws(2:end,:) - gWs(2:end,:)/gamma;
-			Wzp = [Ws(1,:); soslasso_shrink_logistic(x,group_arr,groups,lambda/gamma,alpha)];
+% 			x = Ws(2:end,:) - gWs(2:end,:)/gamma; % account for bias
+      x = Ws - gWs/gamma;
+% 			Wzp = [Ws(1,:);
+% 			soslasso_shrink_logistic(x,group_arr,groups,lambda/gamma,alpha)]; %
+% 			account for bias term
+      Wzp = soslasso_shrink_logistic(x,group_arr,groups,lambda/gamma,alpha);
 
 			% This nested function references X, Y, and RepIndex.
 			Fzp = funVal_eval_PV(Wzp);
@@ -100,7 +105,8 @@ function [W, funcVal,iter] = Logistic_L21(X, Y, GroupInfo, rho_L2,lambda,alpha,o
 		Wz_old = Wz;
 		Wz = Wzp;
 
-		funcVal = cat(1, funcVal, Fzp + nonsmooth_eval(Wz(2:end,:), lambda,alpha,group_arr));
+% 		funcVal = cat(1, funcVal, Fzp + nonsmooth_eval(Wz(2:end,:), lambda,alpha,group_arr));
+    funcVal = cat(1, funcVal, Fzp + nonsmooth_eval(Wz, lambda,alpha,group_arr));
 
 		if (bFlag)
 			break;
