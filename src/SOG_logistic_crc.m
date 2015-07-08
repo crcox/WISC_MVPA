@@ -44,25 +44,35 @@ function [W, obj] = SOG_logistic(X, Y,alpha,lambda,G,varargin)
   opts      = p.Results.opts;
   optfields = fieldnames(opts);
   optcell   = [optfields'; struct2cell(opts)'];
-  
+
   % Setup group indexes
-  RepIndex  = group2vec(G);
-  group_arr = group2mat(G);
-  groups    = group2lab(G);
-  
-  %% Parse optional options structure
+  RepIndex  = cell(size(X,1));
+  GROUP_ARR = cell(size(X,1));
+  groups    = cell(size(X,1));
+  for s = 1:size(X,1);
+    RepIndex{s}  = group2vec(G(s,:));
+    GROUP_ARR{s} = group2mat(G(s,:));
+    GROUPS{s}    = group2lab(G(s,:));
+  end
+  gmaxsize = max(cell2mat(cellfun('length', G)));
+  tmp = arrayfun(@(n) 1:n, gmaxsize, 'Unif', 0);
+  group_arr = group2mat(tmp);
+
+
+
+  %% Parse options structure
   %                name        default   validation
   addParameter(o , 'l2'      , 0    ,    @isscalar);
   addParameter(o , 'maxiter' , 1000 ,    @isscalar);
   addParameter(o , 'tol'     , 1e-8 ,    @isscalar);
   parse(o, optcell{:});
-  
+
   maxiter = o.Results.maxiter;
   l2      = o.Results.l2;
   tol     = o.Results.tol;
 
-  num_tasks  = length(X);
-  dimension = size(X{1}, 1);
+  num_tasks = size(X,1);
+  dimension = length(groups);
 
   % initialize (can provide your own initialization)
   W0 = zeros(dimension, num_tasks);
