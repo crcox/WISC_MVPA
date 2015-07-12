@@ -8,4 +8,5 @@ function M = group2mat(G)
         c = n(i) + s(i);
         M(i,1:a) = b:c;
     end
+    M(isnan(M)) = max(M(:)) + 1;
 end
