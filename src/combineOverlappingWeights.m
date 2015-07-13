@@ -2,7 +2,7 @@ function W = combineOverlappingWeights(Wc, G)
   % Create indexes into the replicated weight matrix.
   S = subjectfilters(G);
   % Combine (and, in the process, sort into subject order).
-  N = max(cellfun(@max, G));
+  N = cellmax(G);
   W = cell(1,size(G,2));
   fprintf('%8s%8s%8s\n','subject','nnz','unique');
   for j = 1:size(G,2)
@@ -32,4 +32,9 @@ function S = subjectfilters(G)
       S{i,j} = (a:b)';
     end
   end
+end
+
+function N = cellmax(C)
+  C(cellfun('isempty',C)) = {uint32(0)}; %handle empty cells
+  N = uint32(max(cellfun(@max, C)));
 end

@@ -10,7 +10,7 @@ function [Gc,ix] = commonGrouping(G)
       end
     end
     ix = cell2mat(G);
-    
+
     Gc = cell(size(G,1),1);
     for i = 1:length(Gc)
         a = c(i) + 1;
