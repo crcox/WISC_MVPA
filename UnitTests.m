@@ -8,10 +8,11 @@ classdef UnitTests < matlab.unittest.TestCase
     end
     methods (TestClassSetup)
         function LoadData(testCase)
+            addpath('src');
             testCase.OMIT = 1;
             load('testdata/metadata.mat');
             testCase.metadata = metadata; %#ok<CPROP>
-            params = loadjson('testdata/params.json'); %#ok<PROP>
+            params = loadjson('testdata/000/params.json'); %#ok<PROP>
             params = init_opts(params); %#ok<PROP>
             testCase.params = params; %#ok<PROP>
             load('testdata/alldata.mat', 'X');
@@ -19,12 +20,6 @@ classdef UnitTests < matlab.unittest.TestCase
 %             Y = {testCase.metadata.TrueFaces}';
         end
     end
-
-%     methods (TestClassTeardown)
-%         function ClearData(testCase)
-%             clear testCase
-%         end
-%     end
 
     %% Test Method Block
     methods (Test)

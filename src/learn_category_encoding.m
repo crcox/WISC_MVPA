@@ -1,4 +1,4 @@
-function [results,info] = learn_similarity_encoding(Y, X, Gtype, varargin)
+function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   p = inputParser();
   addRequired(p  , 'Y'                         );
   addRequired(p  , 'X'                         );
