@@ -46,7 +46,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
   parse(p, X, Y, alpha, lambda, G, varargin{:});
 
   X         = p.Results.X;
-  Y         = p.Results.Y;
+  Y         = cellfun(@checkY, p.Results.Y, 'Unif', 0);;
   alpha     = p.Results.alpha;
   lambda    = p.Results.lambda;
   G         = p.Results.G;
@@ -249,4 +249,10 @@ function [ funcVal ] = unit_funcVal_eval( w, x, y)
   aa = -y.*(x'*w);
   bb = max( aa, 0);
   funcVal = weight'* ( log( exp(-bb) +  exp(aa-bb) ) + bb );
+end
+
+function y = checkY(y)
+  if islogical(y)
+    y = sign(y-0.5);
+  end
 end

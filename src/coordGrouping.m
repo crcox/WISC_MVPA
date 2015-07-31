@@ -26,7 +26,7 @@ function G = coordGrouping(coords, diameter, overlap, shape)
     addRequired(p, 'overlap',  @isnumeric);
     addRequired(p, 'shape',    @isvalidshape);
     parse(p, coords, diameter, overlap, shape);
-    
+
     coords   = p.Results.coords;
     diameter = p.Results.diameter(:)';
     overlap  = p.Results.overlap(:)';
@@ -43,10 +43,10 @@ function G = coordGrouping(coords, diameter, overlap, shape)
         d = size(coords,2);
         N = 1;
     end
-       
+
     assert(length(diameter) == 1 || length(diameter) == d);
     assert(length(overlap) == 1 || length(overlap) == d);
-    
+
     r = diameter ./ 2;
     x = diameter - overlap;
 
