@@ -35,11 +35,90 @@ function [fitObj,GroupInfo,metadata, X] = main()
 
 	% This is the variable I am using to specify which part of the data to
 	% omit entirely, for use as a final hold out set. Cross validation over
-	% the remaining blocks of performed to find the best alpha and lambda.
+	% the remaining blocks is performed to find the best alpha and lambda.
+  p = inputParser;
+  p.KeepUnmatched = false;
+  % ----------------------Set parameters-----------------------------------------------
+  addParameter(p , 'debug'            , false     , @islogicallike );
+  addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
+  addParameter(p , 'Gtype'            , 'soslasso', @ischar        );
+  addParameter(p , 'normalize'        , false                      );
+  addParameter(p , 'bias'             , false     , @islogicallike );
+  addParameter(p , 'filters'          , []                         );
+  addParameter(p , 'data'             , []                         );
+  addParameter(p , 'metadata'         , []        , @ischar        );
+  addParameter(p , 'data_varname'     , []                         );
+  addParameter(p , 'metadata_varname' , []        , @ischar        );
+  addParameter(p , 'cvfile'           , []        , @ischar        );
+  addParameter(p , 'cv_varname'       , []        , @ischar        );
+  addParameter(p , 'cvscheme'         , []        , @isintegerlike );
+  addParameter(p , 'cvholdout'        , []        , @isintegerlike );
+  addParameter(p , 'finalholdout'     , 0         , @isintegerlike );
+  addParameter(p , 'lambda'           , []        , @isnumeric     );
+  addParameter(p , 'alpha'            , []        , @isnumeric     );
+  addParameter(p , 'AdlasOpts'        , struct()  , @isstruct      );
+  addParameter(p , 'environment'      , 'condor'  , @ischar        );
+  % Parameters below this line are unused in the analysis, but may exist in the
+  % parameter file because other progams use them.
+  addParameter(p , 'COPY'             , []                         );
+  addParameter(p , 'URLS'             , []                         );
+  addParameter(p , 'executable'       , []                         );
+  addParameter(p , 'wrapper'          , []                         );
 
-	params = loadjson('params.json');
-  if ~isfield(params,'isFinal')
-    params.isFinal = false;
+  if nargin > 0
+    parse(p, varargin{:});
+  else
+    jdat = loadjson('params.json');
+    fields = fieldnames(jdat);
+    jcell = [fields'; struct2cell(jdat)'];
+    parse(p, jcell{:});
+  end
+
+  % private function.
+  assertRequiredParameters(p.Results);
+
+  DEBUG            = p.Results.debug;
+  SmallFootprint   = p.Results.SmallFootprint;
+  Gtype            = p.Results.Gtype;
+  normalize        = p.Results.normalize;
+  BIAS             = p.Results.bias;
+  filter_labels    = p.Results.filters;
+  datafile         = p.Results.data;
+  data_varname     = p.Results.data_varname;
+  cvfile           = p.Results.cvfile;
+  cv_varname       = p.Results.cv_varname;
+  cvscheme         = p.Results.cvscheme;
+  cvholdout        = p.Results.cvholdout;
+  finalholdoutInd  = p.Results.finalholdout;
+  metafile         = p.Results.metadata;
+  meta_varname     = p.Results.metadata_varname;
+  lambda           = p.Results.lambda;
+  alpha            = p.Results.alpha;
+  opts             = p.Results.AdlasOpts;
+  environment      = p.Results.environment;
+
+  % If values originated in a YAML file, and scientific notation is used, the
+  % value may have been parsed as a string. Check and correct.
+  if isfield(opts, 'tolInfeas')
+    if ischar(opts.tolInfeas)
+      opts.tolInfeas = sscanf(opts.tolInfeas, '%e');
+    end
+  end
+  if isfield(opts, 'tolRelGap')
+    if ischar(opts.tolRelGap)
+      opts.tolRelGap = sscanf(opts.tolRelGap, '%e');
+    end
+  end
+
+  if iscell(datafile)
+    if length(datafile) == 1
+      datafile = datafile{1};
+    end
+  end
+  if iscell(metafile)
+    if length(metafile) == 1
+      metafile = metafile{1};
+    end
   end
 
 	load(params.metadata);
@@ -163,6 +242,32 @@ function [fitObj,GroupInfo,metadata, X] = main()
 %	end
 end
 
+function assertRequiredParameters(params)
+  required = {'Gtype'    , 'simfile' , 'sim_varname'   , 'data', ...
+              'metadata' , 'cvfile'  , 'cvscheme'  ,'cvholdout' , 'finalholdout'};
+  N = length(required);
+  for i = 1:N
+    req = required{i};
+    assert(isfield(params,req), '%s must exist in params structure! Exiting.',req);
+    assert(~isempty(params.(req)), '%s must be set. Exiting.',req);
+  end
+end
+
+function b = islogicallike(x)
+  b = any(x == [1,0]);
+end
+
+function b = isintegerlike(x)
+  b = mod(x,1) == 0;
+end
+
+function r = forceRowVec(v)
+  r = v(1:end);
+end
+
+function c = forceColVec(v)
+  c = v(:);
+end
 %function writeBinMatrix(filename,X)
 %% Column-major order.
 %	f = fopen(fullfile(filename),'w');

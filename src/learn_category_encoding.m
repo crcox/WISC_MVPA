@@ -25,7 +25,6 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   options   = p.Results.AdlasOpts;
   SMALL     = p.Results.SmallFootprint;
 
-  [n,d] = size(X);
   Xorig = X;
 
   if isempty(lambda)
@@ -35,9 +34,9 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   end
 
   if isempty(alpha)
-    nlam1 = 1;
+    nalpha = 1;
   else
-    nlam1 = length(alpha);
+    nalpha = length(alpha);
   end
 
   ncv = max(cvind);
@@ -47,18 +46,18 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
     cvset = holdout;
   end
 
-  h1      = cell(ncv,nlam,nlam1);
-  f1      = cell(ncv,nlam,nlam1);
-  d1      = cell(ncv,nlam,nlam1);
-  d2      = cell(ncv,nlam,nlam1);
-  dp1     = cell(ncv,nlam,nlam1);
-  dp2     = cell(ncv,nlam,nlam1);
-  err1    = cell(ncv,nlam,nlam1);
-  err2    = cell(ncv,nlam,nlam1);
-  nz_rows = cell(ncv,nlam,nlam1);
-  BzAll   = cell(ncv,nlam,nlam1);
-  if nlam > 1 || nlam1 > 1
-    nz_rows = squeeze(mat2cell(nz_rows, ncv, d, ones(1,nlam), ones(1,nlam1)));
+  h1      = cell(ncv,nlam,nalpha);
+  f1      = cell(ncv,nlam,nalpha);
+  d1      = cell(ncv,nlam,nalpha);
+  d2      = cell(ncv,nlam,nalpha);
+  dp1     = cell(ncv,nlam,nalpha);
+  dp2     = cell(ncv,nlam,nalpha);
+  err1    = cell(ncv,nlam,nalpha);
+  err2    = cell(ncv,nlam,nalpha);
+  nz_rows = cell(ncv,nlam,nalpha);
+  BzAll   = cell(ncv,nlam,nalpha);
+  if nlam > 1 || nalpha > 1
+    nz_rows = squeeze(mat2cell(nz_rows, ncv, d, ones(1,nlam), ones(1,nalpha)));
   end
 
   % Set number of tasks (i.e., subjects)
@@ -77,8 +76,26 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
     train_set = ~test_set;
     fprintf('cv %3d: ', i)
 
-    if normalize == 1
-      X = cellfun(@doNormalization, X, 'unif', 0);
+    for ii = 1:numel(X);
+      switch normalize
+        case 'zscore_train'
+          mm = mean(X{ii}(train_set,:),1);
+          ss = std(X{ii}(train_set,:),0,1);
+        case 'zscore'
+          mm = mean(X{ii},1);
+          ss = std(X{ii},0,1);
+        case 'stdev'
+          mm = 0;
+          ss = std(X{ii},0,1);
+        case '2norm'
+          mm = mean(X{ii},1);
+          ss = norm(X{ii});
+        otherwise
+          mm = 0;
+          ss = 1;
+      end
+      X{ii} = bsxfun(@minus,X{ii}, mm);
+      X{ii} = bsxfun(@rdivide,X{ii}, ss);
     end
 
     for j = 1:nalpha
@@ -98,9 +115,11 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
         else
           switch Gtype
           case 'lasso'
-            [Bz, info] = SOG_logistic(X(train_set,:), Y(train_set), 0, lambda(k), [], [], options);
+            [Bz, info] = SOG_logistic(subsetAll(X, train_set), subsetAll(Y, train_set), ...
+                                      0, lambda(k), [], [], options);
 
           case 'soslasso'
+
             [Bz, info] = SOG_logistic(subsetAll(X, train_set), subsetAll(Y, train_set), ...
                                       alpha(j), lambda(k), ...
                                       groups, group_arr, options);
