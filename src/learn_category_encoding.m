@@ -5,16 +5,18 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   addRequired(p  , 'Gtype'                     );
   addParameter(p , 'lambda'         , []       );
   addParameter(p , 'alpha'          , 0        );
+  addParameter(p , 'groups'         , {}       );
   addParameter(p , 'cvind'          , []       );
   addParameter(p , 'cvholdout'      , []       );
   addParameter(p , 'normalize'      , []       );
   addParameter(p , 'DEBUG'          , false    );
   addParameter(p , 'AdlasOpts'      , struct() );
   addParameter(p , 'SmallFootprint' , false    );
-  parse(p, S, X, Gtype, varargin{:});
+  parse(p, Y, X, Gtype, varargin{:});
 
-  S         = p.Results.S;
+  Y         = p.Results.Y;
   X         = p.Results.X;
+  G         = p.Results.groups;
   Gtype     = p.Results.Gtype;
   LAMBDA    = p.Results.lambda;
   ALPHA     = p.Results.alpha;
@@ -26,39 +28,51 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   SMALL     = p.Results.SmallFootprint;
 
   Xorig = X;
+  
+  % For cases like lasso, the group structure is irrelevant, but in the
+  % spirit of running every analysis through the same function, noG defines
+  % a single group for each subject that contains all voxels.
+  noG = cell(1,numel(X));
+  for i = 1:numel(noG)
+    noG{i} = 1:size(X{i},2);
+  end
 
-  if isempty(lambda)
+  if isempty(LAMBDA)
     nlam = 1;
   else
-    nlam = length(lambda);
+    nlam = length(LAMBDA);
   end
 
-  if isempty(alpha)
+  if isempty(ALPHA)
     nalpha = 1;
   else
-    nalpha = length(alpha);
+    nalpha = length(ALPHA);
   end
 
-  ncv = max(cvind);
+  ncv = max(cvind{1});
   if isempty(holdout)
     cvset = 1:ncv;
   else
     cvset = holdout;
   end
 
-  h1      = cell(ncv,nlam,nalpha);
-  f1      = cell(ncv,nlam,nalpha);
-  d1      = cell(ncv,nlam,nalpha);
-  d2      = cell(ncv,nlam,nalpha);
-  dp1     = cell(ncv,nlam,nalpha);
-  dp2     = cell(ncv,nlam,nalpha);
-  err1    = cell(ncv,nlam,nalpha);
-  err2    = cell(ncv,nlam,nalpha);
-  nz_rows = cell(ncv,nlam,nalpha);
-  BzAll   = cell(ncv,nlam,nalpha);
-  if nlam > 1 || nalpha > 1
-    nz_rows = squeeze(mat2cell(nz_rows, ncv, d, ones(1,nlam), ones(1,nalpha)));
-  end
+  zz = zeros(ncv,nalpha,nlam);
+  h1 = cell(size(X)); [h1{:}] = deal(zz);
+  h2 = cell(size(X)); [h2{:}] = deal(zz);
+  f1 = cell(size(X)); [f1{:}] = deal(zz);
+  f2 = cell(size(X)); [f2{:}] = deal(zz);
+  m1 = cell(size(X)); [m1{:}] = deal(zz);
+  m2 = cell(size(X)); [m2{:}] = deal(zz);
+  c1 = cell(size(X)); [c1{:}] = deal(zz);
+  c2 = cell(size(X)); [c2{:}] = deal(zz);
+  err1 = cell(size(X)); [err1{:}] = deal(zz);
+  err2 = cell(size(X)); [err2{:}] = deal(zz);
+  clear zz;
+  
+  cc = cell(ncv,nalpha,nlam);
+  BzAll   = cell(size(X)); [BzAll{:}] = deal(cc);
+  YzAll   = cell(size(X)); [YzAll{:}] = deal(cc);
+  clear cc;
 
   % Set number of tasks (i.e., subjects)
   if iscell(X)
@@ -67,12 +81,11 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
     t = 1;
   end
 
-  fprintf('%8s%6s%11s %11s  %11s  %11s  %11s  %11s  %11s %11s  \n', '','lambda','alpha','test err','train err','test diff','cor train','n vox')
-  for i = cvset
+  fprintf('%8s%6s%11s %11s  %11s  %11s  %11s  %11s  \n', '','lambda','alpha','test err','train err','test diff','train diff','n vox')
+	for i = cvset
     X = Xorig;
 
-    CVsize = nnz(cvind==i);
-    test_set  = cvind==i;
+    test_set  = cvind{1}==i; % THIS IS NOT WHAT I ACTUALLY WANT. (maybe)
     train_set = ~test_set;
     fprintf('cv %3d: ', i)
 
@@ -99,100 +112,102 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
     end
 
     for j = 1:nalpha
-      if isempty(alpha)
+      if isempty(ALPHA)
         alpha = nan(1);
+      elseif length(ALPHA) > 1
+        alpha = ALPHA(j);
+      else
+        alpha = ALPHA;
       end
 
       for k = 1:nlam
-        if isempty(lambda)
+        if isempty(LAMBDA)
           lambda = nan(1);
+        elseif length(LAMBDA) > 1
+          lambda = LAMBDA(k);
+        else
+          lambda = LAMBDA;
         end
 
         if DEBUG
-          Bz = randn(d,t);
+          Bz = cell(size(X));
+          for ii = 1:numel(X);
+            Bz{ii} = randn(size(X{ii},2),1);
+          end
           info.message = 'DEBUG';
           info.iter    = 0;
         else
           switch Gtype
           case 'lasso'
-            [Bz, info] = SOG_logistic(subsetAll(X, train_set), subsetAll(Y, train_set), ...
-                                      0, lambda(k), [], [], options);
+            [Bz, info] = SOS_logistic( ...
+              subsetAll(X, train_set), ...
+              subsetAll(Y, train_set), ...
+                     0, lambda(k),noG, ...
+              'l2'      ,    0, ...
+              'maxiter' , 1000, ...
+              'tol'     , 1e-8, ...
+              'W0'      ,   []);
 
           case 'soslasso'
-
-            [Bz, info] = SOG_logistic(subsetAll(X, train_set), subsetAll(Y, train_set), ...
-                                      alpha(j), lambda(k), ...
-                                      groups, group_arr, options);
+            [Bz, info] = SOS_logistic( ...
+              subsetAll(X, train_set), ...
+              subsetAll(Y, train_set), ...
+              alpha,       lambda,  G, ...
+              'l2'      ,    0, ...
+              'maxiter' , 1000, ...
+              'tol'     , 1e-8, ...
+              'W0'      ,   []);
           end
         end
-
-        BzAll{i,j,k} = Bz;
-
-        k1 = nnz(Bz)/t;
-        Yz = X*Bz;
-
-        SzAll{i,j,k} = Sz;
-
-        %store results
-        if nlam > 1 || nalpha > 1
-          nz_rows{j,k}(i,:) = any(Bz,2);
-        else
-          nz_rows(i,:) = any(Bz,2);
+        for ii = 1:numel(X);
+          BzAll{ii}{i,j,k} = Bz{ii};
+          YzAll{ii}{i,j,k} = X{ii}*Bz{ii};
+          Yz = YzAll{ii}{i,j,k};
+          h1{ii}(i,j,k)   = nnz( Y{ii}(test_set)  & Yz(test_set)  ) / nnz( Y{ii}(test_set));
+          h2{ii}(i,j,k)   = nnz( Y{ii}(train_set) & Yz(train_set) ) / nnz( Y{ii}(train_set));
+          f1{ii}(i,j,k)   = nnz(~Y{ii}(test_set)  & Yz(test_set)  ) / nnz(~Y{ii}(test_set));
+          f2{ii}(i,j,k)   = nnz(~Y{ii}(train_set) & Yz(train_set) ) / nnz(~Y{ii}(train_set));
+          err1{ii}(i,j,k) = nnz( Y{ii}(test_set)  == Yz(test_set) ) / length(Y{ii});
+          err2{ii}(i,j,k) = nnz( Y{ii}(train_set) == Yz(train_set)) / length(Y{ii});
         end
+        k1 = sum(cellfun(@nnz,Bz))/t;
 
-        % Comparison to true Y
-        h1(i,j,k)   = nnz( Y(test_set)  & Yz(test_set)  / nnz( Y(test_set));
-        h2(i,j,k)   = nnz( Y(train_set) & Yz(train_set) / nnz( Y(train_set));
-        f1(i,j,k)   = nnz(~Y(test_set)  & Yz(test_set)  / nnz(~Y(test_set));
-        f2(i,j,k)   = nnz(~Y(train_set) & Yz(train_set) / nnz(~Y(train_set));
-        d1(i,j,k)   = h1(i,j,k) - f1(i,j,k);
-        d2(i,j,k)   = h2(i,j,k) - f2(i,j,k);
-        dp1(i,j,k)  = norminv(h1(i,j,k)) - norminv(f1(i,j,k));
-        dp2(i,j,k)  = norminv(h2(i,j,k)) - norminv(f2(i,j,k));
-        err1(i,j,k) = nnz( Y(test_set)  == Yz(test_set)  ) / length(Y);
-        err2(i,j,k) = nnz( Y(train_set) == Yz(train_set) ) / length(Y);
-
-        if isempty(lambda)
+        if isempty(LAMBDA)
           lambda_j = nan;
         else
-          lambda_j = lambda(j);
+          lambda_j = LAMBDA(j);
         end
-        if isempty(alpha)
+        if isempty(ALPHA)
           alpha_k = nan;
         else
-          alpha_k = alpha(k);
+          alpha_k = ALPHA(k);
         end
 
-        fprintf('%6.2f | %6.2f | %10.2f | %10.2f | %10.2f | %10.2f | %10.2f | %10.2f | %10d\n', ...
-          lambda_j,alpha_k,err1(i,j,k),err2(i,j,k),p1(i,j,k),p2(i,j,k),cor1(i,j,k),cor2(i,j,k),k1);
+        fprintf('%6.2f | %6.2f | %10.2f | %10.2f | %10.2f | %10.2f | %10d\n', ...
+          lambda_j,alpha_k,err1{ii}(i,j,k),err2{ii}(i,j,k),h1{ii}(i,j,k)-f1{ii}(i,j,k),h2{ii}(i,j,k)-f2{ii}(i,j,k),k1);
 
         fprintf('Exit status -- %s (%d iterations)\n', info.message, info.iter);
       end % lamba loop
     end % alpha loop
-  end % cv loop
+	end % cv loop
   if ~SMALL
-    results.Bz = UzAll;
-    results.Sz = SzAll;
+    results(i).Bz = BzAll{ii}(cvset,:,:);
+    results(ii).Yz = YzAll{ii}(cvset,:,:);
   end
-  if ~iscell(nz_rows);
-    results.nz_rows = nz_rows(cvset,:,:);
-  else
-    results.nz_rows = nz_rows;
-  end
-  results.h1   = t1(cvset,:,:);
-  results.h2   = t2(cvset,:,:);
-  results.f1   = f1(cvset,:,:);
-  results.f2   = f2(cvset,:,:);
-  results.d1   = d1(cvset,:,:);
-  results.d2   = d2(cvset,:,:);
-  results.dp1  = dp1(cvset,:,:);
-  results.dp2  = dp2(cvset,:,:);
-  results.err1 = err1(cvset,:,:);
-  results.err2 = err2(cvset,:,:);
-  results.iter = info.iter;
-end % learn_similarity_encoding
+  results(ii).h1   = h1{ii}(cvset,:,:);
+  results(ii).h2   = h2{ii}(cvset,:,:);
+  results(ii).f1   = f1{ii}(cvset,:,:);
+  results(ii).f2   = f2{ii}(cvset,:,:);
+  results(ii).m1   = m1{ii}(cvset,:,:);
+  results(ii).m2   = m2{ii}(cvset,:,:);
+  results(ii).c1   = c1{ii}(cvset,:,:);
+  results(ii).c2   = c2{ii}(cvset,:,:);
+  results(ii).err1 = err1{ii}(cvset,:,:);
+  results(ii).err2 = err2{ii}(cvset,:,:);
+  results(ii).subject = i;
+end
 
-function X = doNormalization(X, train_set)
+function X = doNormalization(X, train_set) %#ok<DEFNU>
   mm = ones(n,1)*mean(X(train_set,:),1);
   ss = ones(n,1)*std(X(train_set,:),1);
   if all(X(:,end)==1)

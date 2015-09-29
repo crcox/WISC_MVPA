@@ -34,6 +34,7 @@ function G = coordGrouping(coords, diameter, overlap, shape)
     if iscell(coords)
         d = cellfun(@(x) size(x,2), coords);
         n = cellfun(@(x) size(x,1), coords);
+        n = n(:)'; % force row vec
         N = length(coords(:));
         assert(all(d(1) == d));
         coords = cell2mat(coords(:));

@@ -1,4 +1,11 @@
-addpath('~/src/soslasso/src');
+SOSLASSODIR = '~/src/soslasso';
+if ~exist(SOSLASSODIR,'dir')
+  SOSLASSODIR = 'C:\Users\chris\Documents\soslasso';
+end
+addpath(fullfile(SOSLASSODIR,'src'));
+addpath(fullfile(SOSLASSODIR,'util'));
+addpath(fullfile(SOSLASSODIR,'simulations'));
+
 nvox = 1000;
 nsubj = 10;
 nitem = 100;
@@ -33,7 +40,7 @@ Bz = cell(1,length(lambda));
 err = @(yz) mean(mean(y~=(yz>0)));
 errc = @(yz) mean(y~=(yz>0));
 for i = 1:length(lambda)
-  Bz{i} = SOG_logistic( ...
+  Bz{i} = SOS_logistic( ...
   subsetAll(X,[],[]), ...
   subsetAll(Y,[],[]), ...
   alpha, ...

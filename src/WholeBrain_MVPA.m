@@ -7,8 +7,8 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'Gtype'            , []        , @ischar        );
   addParameter(p , 'normalize'        , false     , @islogicallike );
   addParameter(p , 'bias'             , false     , @islogicallike );
-  addParameter(p , 'rowfilters'       , []        , @ischarlike    );
-  addParameter(p , 'colfilters'       , []        , @ischarlike    );
+  addParameter(p , 'filters'          , []        , @ischarlike    );
+  addParameter(p , 'filters_OR'       , []        , @ischarlike    );
   addParameter(p , 'target'           , []        , @ischar        );
   addParameter(p , 'data'             , []        , @ischarlike    );
   addParameter(p , 'data_var'         , 'X'       , @ischar        );
@@ -18,8 +18,10 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'cv_var'           , 'CV'      , @ischar        );
   addParameter(p , 'cvscheme'         , []        , @isintegerlike );
   addParameter(p , 'cvholdout'        , []        , @isintegerlike );
-  addParameter(p , 'coords_file'      , []        , @ischar        );
-  addParameter(p , 'coords_var'       , []        , @ischar        );
+  addParameter(p , 'orientation'      , []        , @ischar        );
+  addParameter(p , 'diameter'         , []        , @isnumeric     );
+  addParameter(p , 'overlap'          , []        , @isnumeric     );
+  addParameter(p , 'shape'            , []        , @ischar        );
   addParameter(p , 'finalholdout'     , 0         , @isintegerlike );
   addParameter(p , 'lambda'           , []        , @isnumeric     );
   addParameter(p , 'alpha'            , []        , @isnumeric     );
@@ -49,27 +51,30 @@ function WholeBrain_MVPA(varargin)
   Gtype            = p.Results.Gtype;
   normalize        = p.Results.normalize;
   BIAS             = p.Results.bias;
-  rowfilters       = p.Results.rowfilters;
-  colfilters       = p.Results.colfilters;
+  filter_labels    = p.Results.filters;
+  filter_labels_or = p.Results.filters_OR;
   target           = p.Results.target;
   datafile         = p.Results.data;
-  data_var      = p.Results.data_var;
+  data_var         = p.Results.data_var;
   cvfile           = p.Results.cvfile;
-  cv_var        = p.Results.cv_var;
+  cv_var           = p.Results.cv_var;
   cvscheme         = p.Results.cvscheme;
   cvholdout        = p.Results.cvholdout;
+  orientation      = p.Results.orientation;
+  diameter         = p.Results.diameter;
+  overlap          = p.Results.overlap;
+  shape            = p.Results.shape;
   finalholdoutInd  = p.Results.finalholdout;
   metafile         = p.Results.metadata;
-  metadata_var      = p.Results.metadata_var;
+  metadata_var     = p.Results.metadata_var;
   lambda           = p.Results.lambda;
-  alpha            = p.Results.lambda1;
-  LambdaSeq        = p.Results.LambdaSeq;
+  alpha            = p.Results.alpha;
   opts             = p.Results.AdlasOpts;
   environment      = p.Results.environment;
-  SanityCheckData  = p.Results.SanityCheckData;
+  SanityCheckData  = p.Results.SanityCheckData; %#ok<NASGU>
 
   % Check that the correct parameters are passed, given the desired algorithm
-  [lam, alpha] = verifyLambdaSetup(Gtype, lambda, alpha);
+  [lambda, alpha] = verifyLambdaSetup(Gtype, lambda, alpha);
 
   % If values originated in a YAML file, and scientific notation is used, the
   % value may have been parsed as a string. Check and correct.
@@ -98,11 +103,6 @@ function WholeBrain_MVPA(varargin)
     matfilename = 'results.mat';
     infofilename = 'info.mat';
   case 'chris'
-    root = './';
-    datadir = fullfile(root,'data');
-    datafile = updateFilePath(datafile, datadir);
-    metafile = updateFilePath(metafile, datadir);
-    cvpath   = updateFilePath(cvfile,datadir);
     matfilename = 'results.mat';
     infofilename = 'info.mat';
 
@@ -126,32 +126,45 @@ function WholeBrain_MVPA(varargin)
       rowfilter{i} = true(1,n(i));
       colfilter{i} = true(1,d(i));
     else
-      [rowfilter{i},colfilter{i}] = composeFilters(metadata(i).filter, filter_labels);
+      [rowfilter{i},colfilter{i}] = composeFilters(metadata(i).filter, filter_labels, 'logic', @all);
     end
   end
+  
+  rowfilter_or  = cell(N,1);
+  colfilter_or  = cell(N,1);
+  for i = 1:N
+    if isempty(filter_labels_or)
+      rowfilter_or{i} = true(1,n(i));
+      colfilter_or{i} = true(1,d(i));
+    else
+      [rowfilter_or{i},colfilter_or{i}] = composeFilters(metadata(i).filter, filter_labels_or, 'logic', @any);
+      rowfilter{i} = rowfilter{i} & rowfilter_or{i};
+      colfilter{i} = colfilter{i} & colfilter_or{i};
+    end
+  end
+  clear rowfilter_or colfilter_or
 
   % Load CV indexes, and identify the final holdout set.
   % N.B. the final holdout set is excluded from the rowfilter.
   cvind = loadCV(cvfile, cv_var, cvscheme, N);
   for i = 1:N
     finalholdout = cvind{i} == finalholdoutInd;
-    rowfilter{i} = rowfilter{i} & ~finalholdout;
+    rowfilter{i} = forceRowVec(rowfilter{i}) & forceRowVec(~finalholdout);
     cvind{i} = cvind{i}(rowfilter{i});
-  end
-
-  if finalholdoutInd > 0
-    cvind(cvind>finalholdoutInd) = cvind(cvind>finalholdoutInd) - 1;
-    % Adjust the cv holdout index(es) down if they are higher than the final holdout.
-    if ~isempty(cvholdout)
-      cvholdout(cvholdout>finalholdoutInd) = cvholdout(cvholdout>finalholdoutInd) - 1;
+    
+    if finalholdoutInd > 0
+      cvind{i}(cvind{i}>finalholdoutInd) = cvind{i}(cvind{i}>finalholdoutInd) - 1;
+      % Adjust the cv holdout index(es) down if they are higher than the final holdout.
+      if ~isempty(cvholdout)
+        cvholdout(cvholdout>finalholdoutInd) = cvholdout(cvholdout>finalholdoutInd) - 1;
+      end
     end
   end
 
   % Load data and select targets
-  [X,subjix] = loadData(datafile, data_var, rowfilter, colfilter);
+  [X,subjix] = loadData(datafile, data_var, rowfilter, colfilter,metadata);
   metadata   = metadata(subjix);
   rowfilter  = rowfilter(subjix);
-  colfilter  = colfilter(subjix);
 
   Y = selectTargets(metadata, target, rowfilter);
 
@@ -183,8 +196,7 @@ function WholeBrain_MVPA(varargin)
     msg = 'YES';
   end
   fprintf('[%3s]\n', msg);
-
-
+  
   fprintf('Data loaded and processed.\n');
 
   %% ---------------------Setting algorithm parameters-------------------------
@@ -201,9 +213,14 @@ function WholeBrain_MVPA(varargin)
                       'AdlasOpts'      , opts); %#ok<ASGLU>
 
   case 'soslasso'
-    StagingContainer = load(coords_file,coords_var);
-    xyz = {StagingContainer.(coords_var)};
+    xyz = cell(numel(metadata),1);
+    for i = 1:numel(xyz)
+      z = strcmp({metadata(i).coords.orientation}, orientation);
+      xyz{i} = metadata(i).coords(z).xyz;
+    end
+    G = coordGrouping(xyz, diameter, overlap, shape);
     [results,info] = learn_category_encoding(Y, X, Gtype, ...
+                      'groups'         , G              , ...
                       'lambda'         , lambda         , ...
                       'alpha'          , alpha          , ...
                       'cvind'          , cvind          , ...
@@ -212,7 +229,7 @@ function WholeBrain_MVPA(varargin)
                       'DEBUG'          , DEBUG          , ...
                       'SmallFootprint' , SmallFootprint , ...
                       'AdlasOpts'      , opts); %#ok<ASGLU>
-
+  end
   fprintf('Saving:\n');
   fprintf('\t%s\n',matfilename);
   fprintf('\t%s\n',infofilename);
@@ -223,7 +240,7 @@ function WholeBrain_MVPA(varargin)
   fprintf('Done!\n');
 end
 
-function [lambda, alpha] = verifyLambdaSetup(Gtype, lambda, alpha);
+function [lambda, alpha] = verifyLambdaSetup(Gtype, lambda, alpha)
 % Each algorithm requires different lambda configurations. This private
 % function ensures that everything has been properly specified.
   switch Gtype
@@ -232,7 +249,6 @@ function [lambda, alpha] = verifyLambdaSetup(Gtype, lambda, alpha);
       warning('Lasso does not use the alpha parameter. It is being ignored.');
     end
     assert(~isempty(lambda) , 'Lasso requires lambda.');
-    lambda = lambda;
     alpha  = [];
 
   case 'iterativelasso'
@@ -240,14 +256,11 @@ function [lambda, alpha] = verifyLambdaSetup(Gtype, lambda, alpha);
       warning('Lasso does not use the alpha parameter. It is being ignored.');
     end
     assert(~isempty(lambda) , 'Iterative Lasso requires lambda.');
-    lambda = lambda;
     alpha  = [];
 
   case 'soslasso'
     assert(~isempty(lambda) , 'SOS Lasso requires lambda.');
     assert(~isempty(alpha)  , 'SOS Lasso requires alpha.');
-    lambda = alpha;
-    alpha  = alpha;
   end
 end
 
@@ -272,27 +285,27 @@ function b = ischarlike(x)
   b = ischar(x) || iscellstr(x);
 end
 
-function filter = combineFilters(filters,n)
-  if ~isempty(filters)
-    filters = ascell(filters)
-    N       = length(filters);
-    filter  = false(n,1);
-    for i = 1:N
-      key = filters{i};
-      z   = metadata.(key);
-      filter(z) = true;
-    end
-  else
-    filter = true(n,1);
-  end
-end
+% function filter = combineFilters(filters,n)
+%   if ~isempty(filters)
+%     filters = ascell(filters)
+%     N       = length(filters);
+%     filter  = false(n,1);
+%     for i = 1:N
+%       key = filters{i};
+%       z   = metadata.(key);
+%       filter(z) = true;
+%     end
+%   else
+%     filter = true(n,1);
+%   end
+% end
 
 function r = rankind(ind)
   [~,ix] = sort(ind);
   [~,r]  = sort(ix);
 end
 
-function [X,subjix] = loadData(datafile,data_var,rowfilter,colfilter)
+function [X,subjix] = loadData(datafile,data_var,rowfilter,colfilter,metadata)
   % Load data for multiple subjects, and apply filters.
   datafile  = ascell(datafile);
   rowfilter = ascell(rowfilter);
@@ -306,7 +319,6 @@ function [X,subjix] = loadData(datafile,data_var,rowfilter,colfilter)
     subjix(i) = find([metadata.subject] == subjid);
     tmp       = load(datafile{i}, data_var);
     X{i}      = tmp.(data_var); clear tmp;
-    n         = size(X{i},1);
     X{i}      = X{i}(rowfilter{subjix(i)},colfilter{subjix(i)});
   end
   X = uncell(X);
@@ -321,7 +333,7 @@ function Y = selectTargets(metadata, target, rowfilter)
   Y = uncell(Y);
 end
 
-function cvind = loadCV(cvfile, cv_var, cvscheme, N);
+function cvind = loadCV(cvpath, cv_var, cvscheme, N)
   % In this dataset, trials are ordered the same way across subjects, so each
   % subject gets a copy of the same CV scheme.
   tmp = load(cvpath, cv_var);
@@ -335,9 +347,10 @@ function cvind = loadCV(cvfile, cv_var, cvscheme, N);
 end
 
 function id = extractSubjectID(datafile)
-  [path,fname,ext] = fileparts(datafile);
-  id = sscanf(fname, 's%d');
-  if ~isempty(id)
+  [~,fname,~] = fileparts(datafile);
+  str = regexp(fname,'[0-9]+','match');
+  id = sscanf(str{1},'%d');
+  if isempty(id)
     error('Failed to extract subject id from data filename %s. Exiting...', datafile);
   end
 end
@@ -347,31 +360,32 @@ function filepath = updateFilePath(file, path, suffix)
   N        = length(file);
   filepath = cell(1,N);
   for i = 1:N
-    [p,f,e] = fileparts(file{i});
+    [~,f,e] = fileparts(file{i});
     if nargin>2
-      f = sprintf('%s_%s.%s',f,suffix,e);
+      f = sprintf('%s_%s%s',f,suffix,e);
     else
-      f = sprintf('%s.%s',f,e);
+      f = sprintf('%s%s',f,e);
     end
-    filepath{i} = fullfile(path,);
+    filepath{i} = fullfile(path,f);
   end
-  X = uncell(X);
+  if N == 1
+    filepath = filepath{1};
+  end
 end
-
-function X = shuffleData(X,rowfilter)
+ 
+function X = shuffleData(X,rowfilter) %#ok<DEFNU>
   X = ascell(X);
   N = length(X);
   n = length(rowfilter{1});
-  shuffledIndex = randperm(n)
+  shuffledIndex = randperm(n);
   for i = 1:N
     ix   = rankind(shuffledIndex(rowfilter{i}));
-    X{i} = X{i}(ix,:)
+    X{i} = X{i}(ix,:);
   end
-  else
   X = uncell(X);
 end
 
-function X = randomizeData(X)
+function X = randomizeData(X) %#ok<DEFNU>
   X = ascell(X);
   N = length(X);
   for i = 1:N
@@ -403,6 +417,7 @@ end
 function M = uncell(C)
   % If C is a cell with one element, extract that element and descard the cell
   % casing.
+  M = C;
   if iscell(C)
     if length(C) == 1
       M = C{1};
@@ -410,7 +425,21 @@ function M = uncell(C)
   end
 end
 
-function [rowfilter, colfilter] = composeFilters(filterset,labels)
+function b = isfunction_handle(x)
+  if isa(x, 'function_handle');
+    b = true;
+  else
+    b = false;
+  end
+end
+
+function [rowfilter, colfilter] = composeFilters(filterset,labels,varargin)
+  p = inputParser;
+  p.KeepUnmatched = false;
+  addParameter(p , 'logic', @all, @isfunction_handle);
+  parse(p, varargin{:});
+  combinelogic = p.Results.logic;
+  
   labels = ascell(labels);
 
   % metadata.filter points to a structured array of filters.
@@ -424,10 +453,13 @@ function [rowfilter, colfilter] = composeFilters(filterset,labels)
   for f = labels;
     z(strcmp(f, {filterset.label})) = true;
   end
-  z = z & strcmp(data_varname, {filterset.subset});
 
   filters.row = filterset(z & [filterset.dimension]==1);
   filters.col = filterset(z & [filterset.dimension]==2);
-  rowfilter = all(cat(1, filters.row.filter),1);
-  colfilter = all(cat(1, filters.col.filter),1);
+  rowfilter = combinelogic(cat(1, filters.row.filter),1);
+  colfilter = combinelogic(cat(1, filters.col.filter),1);
+end
+
+function r = forceRowVec(x)
+  r = x(:)';
 end
