@@ -67,6 +67,10 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   c2 = cell(size(X)); [c2{:}] = deal(zz);
   err1 = cell(size(X)); [err1{:}] = deal(zz);
   err2 = cell(size(X)); [err2{:}] = deal(zz);
+  nt1 = cell(size(X)); [err2{:}] = deal(zz);
+  nt2 = cell(size(X)); [err2{:}] = deal(zz);
+  nd1 = cell(size(X)); [err2{:}] = deal(zz);
+  nd2 = cell(size(X)); [err2{:}] = deal(zz);
   clear zz;
   
   cc = cell(ncv,nalpha,nlam);
@@ -167,12 +171,16 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           BzAll{ii}{i,j,k} = Bz{ii};
           YzAll{ii}{i,j,k} = X{ii}*Bz{ii};
           Yz = YzAll{ii}{i,j,k};
-          h1{ii}(i,j,k)   = nnz( Y{ii}(test_set{ii})  & (Yz(test_set{ii})>0)  ) / nnz( Y{ii}(test_set{ii}));
-          h2{ii}(i,j,k)   = nnz( Y{ii}(train_set{ii}) & (Yz(train_set{ii})>0) ) / nnz( Y{ii}(train_set{ii}));
-          f1{ii}(i,j,k)   = nnz(~Y{ii}(test_set{ii})  & (Yz(test_set{ii})>0)  ) / nnz(~Y{ii}(test_set{ii}));
-          f2{ii}(i,j,k)   = nnz(~Y{ii}(train_set{ii}) & (Yz(train_set{ii})>0) ) / nnz(~Y{ii}(train_set{ii}));
-          err1{ii}(i,j,k) = nnz( Y{ii}(test_set{ii})  ~= (Yz(test_set{ii})>0 )) / length(Y{ii}(test_set{ii}));
-          err2{ii}(i,j,k) = nnz( Y{ii}(train_set{ii}) ~= (Yz(train_set{ii})>0)) / length(Y{ii}(train_set{ii}));
+          h1{ii}(i,j,k)   = nnz( Y{ii}(test_set{ii})  & (Yz(test_set{ii})>0)  );
+          h2{ii}(i,j,k)   = nnz( Y{ii}(train_set{ii}) & (Yz(train_set{ii})>0) );
+          f1{ii}(i,j,k)   = nnz(~Y{ii}(test_set{ii})  & (Yz(test_set{ii})>0)  );
+          f2{ii}(i,j,k)   = nnz(~Y{ii}(train_set{ii}) & (Yz(train_set{ii})>0) );
+          err1{ii}(i,j,k) = nnz( Y{ii}(test_set{ii})  ~= (Yz(test_set{ii})>0 ));
+          err2{ii}(i,j,k) = nnz( Y{ii}(train_set{ii}) ~= (Yz(train_set{ii})>0));
+          nt1{ii}(i,j,k)  = nnz(Y{ii}(test_set{ii})>0);
+          nt2{ii}(i,j,k)  = nnz(Y{ii}(train_set{ii})>0);
+          nd1{ii}(i,j,k)  = nnz(Y{ii}(train_set{ii})<=0);
+          nd2{ii}(i,j,k)  = nnz(Y{ii}(train_set{ii})<=0);
         end
         k1 = sum(cellfun(@nnz,Bz))/t;
 
@@ -197,23 +205,58 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
       end % lamba loop
     end % alpha loop
 	end % cv loop
+  iii = 0;
   for ii = 1:numel(X)
-    if ~SMALL
-      results(ii).Bz = BzAll{ii}(cvset,:,:);
-      results(ii).Yz = YzAll{ii}(cvset,:,:);
+    for i = cvset
+      for j = 1:nalpha
+        if isempty(ALPHA)
+          alpha = nan(1);
+        elseif length(ALPHA) > 1
+          alpha = ALPHA(j);
+        else
+          alpha = ALPHA;
+        end
+        for k = 1:nlam
+          if isempty(LAMBDA)
+            lambda = nan(1);
+          elseif length(LAMBDA) > 1
+            lambda = LAMBDA(k);
+          else
+            lambda = LAMBDA;
+          end
+          
+          iii = iii + 1;
+      
+          if ~SMALL
+            results(iii).Bz = BzAll{ii}(cvset,:,:);
+            results(iii).Yz = YzAll{ii}(cvset,:,:);
+          end
+          
+          results(iii).subject = ii;
+          results(iii).cvholdout = i;
+          results(iii).finalholdout = 0;
+          results(iii).alpha = alpha;
+          results(iii).lambda = lambda;
+          results(iii).diameter = 0;
+          results(iii).overlap = 0;
+          results(iii).shape = '';
+          results(iii).nt1  = nt1{ii}(i,j,k);
+          results(iii).nt2  = nt1{ii}(i,j,k);
+          results(iii).nd1  = nd1{ii}(i,j,k);
+          results(iii).nd2  = nd1{ii}(i,j,k);
+          results(iii).h1   = h1{ii}(i,j,k);
+          results(iii).h2   = h2{ii}(i,j,k);
+          results(iii).f1   = f1{ii}(i,j,k);
+          results(iii).f2   = f2{ii}(i,j,k);
+          results(iii).m1   = m1{ii}(i,j,k);
+          results(iii).m2   = m2{ii}(i,j,k);
+          results(iii).c1   = c1{ii}(i,j,k);
+          results(iii).c2   = c2{ii}(i,j,k);
+          results(iii).err1 = err1{ii}(i,j,k);
+          results(iii).err2 = err2{ii}(i,j,k);
+        end
+      end
     end
-    results(ii).h1   = h1{ii}(cvset,:,:);
-    results(ii).h2   = h2{ii}(cvset,:,:);
-    results(ii).f1   = f1{ii}(cvset,:,:);
-    results(ii).f2   = f2{ii}(cvset,:,:);
-    results(ii).m1   = m1{ii}(cvset,:,:);
-    results(ii).m2   = m2{ii}(cvset,:,:);
-    results(ii).c1   = c1{ii}(cvset,:,:);
-    results(ii).c2   = c2{ii}(cvset,:,:);
-    results(ii).err1 = err1{ii}(cvset,:,:);
-    results(ii).err2 = err2{ii}(cvset,:,:);
-    results(ii).subject = ii;
-    results(ii).note = 'Matrix dims = 1:cv 2:alpha 3:lambda';
   end
 end
 

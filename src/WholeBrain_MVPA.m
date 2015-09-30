@@ -1,7 +1,7 @@
 function WholeBrain_MVPA(varargin)
   p = inputParser;
   p.KeepUnmatched = false;
-  % ----------------------Set parameters-----------------------------------------------
+  %% Parse and set parameters
   addParameter(p , 'debug'            , false     , @islogicallike );
   addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
   addParameter(p , 'Gtype'            , []        , @ischar        );
@@ -36,7 +36,12 @@ function WholeBrain_MVPA(varargin)
   if nargin > 0
     parse(p, varargin{:});
   else
-    jdat = loadjson('params.json');
+    try
+      jdat = loadjson('./params.json');
+    catch ME
+      disp('Current directory does not contain "params.json".');
+      rethrow(ME);
+    end
     fields = fieldnames(jdat);
     jcell = [fields'; struct2cell(jdat)'];
     parse(p, jcell{:});
@@ -111,14 +116,14 @@ function WholeBrain_MVPA(varargin)
 
   end
 
-  % Load metadata
+  %% Load metadata
   StagingContainer = load(metafile, metadata_var);
   metadata = StagingContainer.(metadata_var); clear StagingContainer;
   N = length(metadata);
   n = [metadata.nrow];
   d = [metadata.ncol];
 
-  % Compile filters
+  %% Compile filters
   rowfilter  = cell(N,1);
   colfilter  = cell(N,1);
   for i = 1:N
@@ -144,7 +149,7 @@ function WholeBrain_MVPA(varargin)
   end
   clear rowfilter_or colfilter_or
 
-  % Load CV indexes, and identify the final holdout set.
+  %% Load CV indexes, and identify the final holdout set.
   % N.B. the final holdout set is excluded from the rowfilter.
   cvind = loadCV(cvfile, cv_var, cvscheme, rowfilter);
   for i = 1:N
@@ -166,25 +171,14 @@ function WholeBrain_MVPA(varargin)
     end
   end
 
-  % Load data and select targets
+  %% Load data and select targets
   [X,subjix] = loadData(datafile, data_var, rowfilter, colfilter, metadata);
   metadata   = metadata(subjix);
   rowfilter  = rowfilter(subjix);
 
   Y = selectTargets(metadata, target, rowfilter);
 
-  % metadata should contain:
-  % - Filters (including outliers)
-  % - Coordinates
-  % NB: Use the input parameter ``sorted'' to indicate whether the data
-  % provided are already sorted or not. Default is ``true''.
-  % - Sort indexes (if the rows of data for each subject are in the same order,
-  % these will just be 1:nrow. If each subject is in a different order for some
-  % reason, then these indexes will reorder the rows into a common order.
-  % - Unsort indexes (if a sort had to be applied, then these indexes should undo that sort).
-  % - Warp data (for translating coordinates to Tlrc or MNI space).
-
-  % Include voxel for bias
+  %% Include voxel for bias (conditional)
   fprintf('%-26s', 'Including Bias Unit');
   msg = 'NO';
   if BIAS
@@ -208,7 +202,7 @@ function WholeBrain_MVPA(varargin)
   
   fprintf('Data loaded and processed.\n');
 
-  %% ---------------------Setting algorithm parameters-------------------------
+  %% Plug in the parameters and run
   switch Gtype
   case 'lasso'
     [results,info] = learn_category_encoding(Y, X, Gtype, ...
@@ -243,12 +237,22 @@ function WholeBrain_MVPA(varargin)
   fprintf('\t%s\n',matfilename);
   fprintf('\t%s\n',infofilename);
 
+  %% Revise cv indexes
+  % Add the final holdout index to all results.
+  [results.finalholdout] = deal(finalholdoutInd);
+  % Adjust the cvholdout indexes to accomodate the final holdout index.
+  cvholdout = [results.cvholdout];
+  z = cvholdout >= finalholdoutInd;
+  cvholdout(z) = cvholdout(z) + 1;
+  cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
+  [results.cvholdout] = deal(cvholdout{:});
+  
+  %% Save results
   save(matfilename,'results');
-%  save(infofilename,'-struct','info');
-
   fprintf('Done!\n');
 end
 
+%% Local functions
 function [lambda, alpha] = verifyLambdaSetup(Gtype, lambda, alpha)
 % Each algorithm requires different lambda configurations. This private
 % function ensures that everything has been properly specified.
@@ -293,21 +297,6 @@ end
 function b = ischarlike(x)
   b = ischar(x) || iscellstr(x);
 end
-
-% function filter = combineFilters(filters,n)
-%   if ~isempty(filters)
-%     filters = ascell(filters)
-%     N       = length(filters);
-%     filter  = false(n,1);
-%     for i = 1:N
-%       key = filters{i};
-%       z   = metadata.(key);
-%       filter(z) = true;
-%     end
-%   else
-%     filter = true(n,1);
-%   end
-% end
 
 function r = rankind(ind)
   [~,ix] = sort(ind);
