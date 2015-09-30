@@ -80,14 +80,17 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   else
     t = 1;
   end
-
-  fprintf('%8s%6s%11s %11s  %11s  %11s  %11s  %11s  \n', '','lambda','alpha','test err','train err','test diff','train diff','n vox')
+  fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n', '','subj','lambda','alpha','test err','train err','test diff','train diff','n vox')
 	for i = cvset
     X = Xorig;
-
-    test_set  = cvind{1}==i; % THIS IS NOT WHAT I ACTUALLY WANT. (maybe)
-    train_set = ~test_set;
-    fprintf('cv %3d: ', i)
+    
+    test_set = cell(size(cvind));
+    train_set = cell(size(cvind));
+    for ii = 1:numel(cvind)
+      test_set{ii}  = cvind{ii}==i;
+      train_set{ii} = ~test_set{ii};
+    end
+    
 
     for ii = 1:numel(X);
       switch normalize
@@ -163,12 +166,12 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           BzAll{ii}{i,j,k} = Bz{ii};
           YzAll{ii}{i,j,k} = X{ii}*Bz{ii};
           Yz = YzAll{ii}{i,j,k};
-          h1{ii}(i,j,k)   = nnz( Y{ii}(test_set)  & Yz(test_set)  ) / nnz( Y{ii}(test_set));
-          h2{ii}(i,j,k)   = nnz( Y{ii}(train_set) & Yz(train_set) ) / nnz( Y{ii}(train_set));
-          f1{ii}(i,j,k)   = nnz(~Y{ii}(test_set)  & Yz(test_set)  ) / nnz(~Y{ii}(test_set));
-          f2{ii}(i,j,k)   = nnz(~Y{ii}(train_set) & Yz(train_set) ) / nnz(~Y{ii}(train_set));
-          err1{ii}(i,j,k) = nnz( Y{ii}(test_set)  == Yz(test_set) ) / length(Y{ii});
-          err2{ii}(i,j,k) = nnz( Y{ii}(train_set) == Yz(train_set)) / length(Y{ii});
+          h1{ii}(i,j,k)   = nnz( Y{ii}(test_set{ii})  & (Yz(test_set{ii})>0)  ) / nnz( Y{ii}(test_set{ii}));
+          h2{ii}(i,j,k)   = nnz( Y{ii}(train_set{ii}) & (Yz(train_set{ii})>0) ) / nnz( Y{ii}(train_set{ii}));
+          f1{ii}(i,j,k)   = nnz(~Y{ii}(test_set{ii})  & (Yz(test_set{ii})>0)  ) / nnz(~Y{ii}(test_set{ii}));
+          f2{ii}(i,j,k)   = nnz(~Y{ii}(train_set{ii}) & (Yz(train_set{ii})>0) ) / nnz(~Y{ii}(train_set{ii}));
+          err1{ii}(i,j,k) = nnz( Y{ii}(test_set{ii})  ~= (Yz(test_set{ii})>0 )) / length(Y{ii}(test_set{ii}));
+          err2{ii}(i,j,k) = nnz( Y{ii}(train_set{ii}) ~= (Yz(train_set{ii})>0)) / length(Y{ii}(train_set{ii}));
         end
         k1 = sum(cellfun(@nnz,Bz))/t;
 
@@ -183,10 +186,12 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           alpha_k = ALPHA(k);
         end
 
-        fprintf('%6.2f | %6.2f | %10.2f | %10.2f | %10.2f | %10.2f | %10d\n', ...
-          lambda_j,alpha_k,err1{ii}(i,j,k),err2{ii}(i,j,k),h1{ii}(i,j,k)-f1{ii}(i,j,k),h2{ii}(i,j,k)-f2{ii}(i,j,k),k1);
+        for ii = 1:numel(X)
+          fprintf('cv %3d: %3d |%6.2f |%6.2f |%10.2f |%10.2f |%10.2f |%10.2f |%10.2f |\n', ...
+            i,ii,lambda_j,alpha_k,err1{ii}(i,j,k),err2{ii}(i,j,k),h1{ii}(i,j,k)-f1{ii}(i,j,k),h2{ii}(i,j,k)-f2{ii}(i,j,k),nnz(BzAll{ii}{i,j,k}));
+        end
 
-        fprintf('Exit status -- %s (%d iterations)\n', info.message, info.iter);
+%        fprintf('Exit status -- %s (%d iterations)\n', info.message, info.iter);
       end % lamba loop
     end % alpha loop
 	end % cv loop

@@ -1,9 +1,9 @@
-function X = subsetAll(X, rows, cols)
+function X = subsetAll(X, rows, varargin)
   p = inputParser;
   addRequired(p, 'X');
-  addOptional(p, 'rows', [], @islogicallikeOrEmpty);
-  addOptional(p, 'cols', [], @islogicallikeOrEmpty);
-  parse(p, X, rows, cols);
+  addOptional(p, 'rows', []);
+  addOptional(p, 'cols', []);
+  parse(p, X, rows, varargin{:});
 
   X = p.Results.X;
   N = length(X);

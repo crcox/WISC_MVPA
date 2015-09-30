@@ -34,19 +34,20 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
   p = inputParser;
   %% Parse function inputs
   %                name         default     validation
-  addRequired(p  , 'X'                                );
-  addRequired(p  , 'Y'                                );
-  addRequired(p  , 'alpha'                , @isscalar );
-  addRequired(p  , 'lambda'               , @isscalar );
-  addRequired(p  , 'G'                    , @iscell   );
-  addParameter(p , 'l2'      , 0          , @isscalar );
-  addParameter(p , 'maxiter' , 1000       , @isscalar );
-  addParameter(p , 'tol'     , 1e-8       , @isscalar );
-  addParameter(p , 'W0'      , []         , @iscell   );
+  addRequired(p  , 'X'                                 );
+  addRequired(p  , 'Y'                                 );
+  addRequired(p  , 'alpha'                , @isscalar  );
+  addRequired(p  , 'lambda'               , @isscalar  );
+  addRequired(p  , 'G'                    , @iscell    );
+  addParameter(p , 'l2'      , 0          , @isscalar  );
+  addParameter(p , 'maxiter' , 1000       , @isscalar  );
+  addParameter(p , 'tol'     , 1e-8       , @isscalar  );
+  addParameter(p , 'W0'      , []         , @validateW0);
+  addParameter(p , 'verbose' , false                    );
   parse(p, X, Y, alpha, lambda, G, varargin{:});
 
   X         = p.Results.X;
-  Y         = cellfun(@checkY, p.Results.Y, 'Unif', 0);;
+  Y         = cellfun(@checkY, p.Results.Y, 'Unif', 0);
   alpha     = p.Results.alpha;
   lambda    = p.Results.lambda;
   G         = p.Results.G;
@@ -54,6 +55,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
   l2        = p.Results.l2;
   tol       = p.Results.tol;
   W0        = p.Results.W0;
+  verbose   = p.Results.verbose;
   
   % Setup group indexes
   [Gc, ix]  = commonGrouping(G);
@@ -164,7 +166,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
   W = Wzp;
   obj(iter+1:end) = [];
       
-  W = combineOverlappingWeights(W,G);
+  W = combineOverlappingWeights(W,G,'verbose',verbose);
   % private functions
 
   function Wshr = soslasso_projection(W,lamSOS,lamL1,group_arr,groups)
@@ -180,7 +182,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
     Xtemp = max(Xtemp - lamSOS,0); % this is the multiplying factor
     Xtemp = Xtemp./(Xtemp + lamSOS);
     Xtemp = Xtemp(groups);
-    Xtemp = repmat(Xtemp,1,size(X,2));
+    Xtemp = repmat(Xtemp,1,numel(X));
     Wshr = X_soft(1:end-1,:).*Xtemp;
 
   end
@@ -224,6 +226,19 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
     end
     regval = regval + lamSOS*lamL1*norm(W(:),1);
 
+  end
+
+  function b = validateW0(w0)
+    b = false;
+    if iscell(w0)
+      if numel(X) == numel(w0)
+        b = true;
+      end
+    else
+      if isempty(w0)
+        b = true;
+      end
+    end
   end
 end
 

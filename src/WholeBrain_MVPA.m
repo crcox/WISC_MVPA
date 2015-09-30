@@ -146,11 +146,14 @@ function WholeBrain_MVPA(varargin)
 
   % Load CV indexes, and identify the final holdout set.
   % N.B. the final holdout set is excluded from the rowfilter.
-  cvind = loadCV(cvfile, cv_var, cvscheme, N);
+  cvind = loadCV(cvfile, cv_var, cvscheme, rowfilter);
   for i = 1:N
+    % Add the final holdout set to the rowfilter, so we don't even load
+    % those data.
     finalholdout = cvind{i} == finalholdoutInd;
-    rowfilter{i} = forceRowVec(rowfilter{i}) & forceRowVec(~finalholdout);
-    cvind{i} = cvind{i}(rowfilter{i});
+    rowfilter{i}(rowfilter{i}) = forceRowVec(rowfilter{i}(rowfilter{i})) & forceRowVec(~finalholdout);
+    % Remove the final holdout set from the cvind, to match.
+    cvind{i} = cvind{i}(~finalholdout);
     
     if finalholdoutInd > 0
       cvind{i}(cvind{i}>finalholdoutInd) = cvind{i}(cvind{i}>finalholdoutInd) - 1;
@@ -162,7 +165,7 @@ function WholeBrain_MVPA(varargin)
   end
 
   % Load data and select targets
-  [X,subjix] = loadData(datafile, data_var, rowfilter, colfilter,metadata);
+  [X,subjix] = loadData(datafile, data_var, rowfilter, colfilter, metadata);
   metadata   = metadata(subjix);
   rowfilter  = rowfilter(subjix);
 
@@ -214,9 +217,9 @@ function WholeBrain_MVPA(varargin)
 
   case 'soslasso'
     xyz = cell(numel(metadata),1);
-    for i = 1:numel(xyz)
-      z = strcmp({metadata(i).coords.orientation}, orientation);
-      xyz{i} = metadata(i).coords(z).xyz;
+    for ii = 1:numel(xyz)
+      z = strcmp({metadata(ii).coords.orientation}, orientation);
+      xyz{ii} = metadata(ii).coords(z).xyz(colfilter{ii},:);
     end
     G = coordGrouping(xyz, diameter, overlap, shape);
     [results,info] = learn_category_encoding(Y, X, Gtype, ...
@@ -234,8 +237,8 @@ function WholeBrain_MVPA(varargin)
   fprintf('\t%s\n',matfilename);
   fprintf('\t%s\n',infofilename);
 
-  save(matfilename,'-struct','results');
-  save(infofilename,'-struct','info');
+  save(matfilename,'results');
+%  save(infofilename,'-struct','info');
 
   fprintf('Done!\n');
 end
@@ -333,16 +336,22 @@ function Y = selectTargets(metadata, target, rowfilter)
   Y = uncell(Y);
 end
 
-function cvind = loadCV(cvpath, cv_var, cvscheme, N)
+function cvind = loadCV(cvpath, cv_var, cvscheme, rowfilter)
   % In this dataset, trials are ordered the same way across subjects, so each
   % subject gets a copy of the same CV scheme.
+  rowfilter = ascell(rowfilter);
+  N = numel(rowfilter);
   tmp = load(cvpath, cv_var);
   CV = tmp.(cv_var); clear tmp;
   if N > 1
     tmp = {CV(:, cvscheme)};
     cvind = repmat(tmp, N, 1);
+    for i=1:N
+      cvind{i} = cvind{i}(rowfilter{i});
+    end
   else
-    cvind = CV(:, cvscheme);
+    rowfilter = uncell(rowfilter);
+    cvind = CV(rowfilter, cvscheme);
   end
 end
 
