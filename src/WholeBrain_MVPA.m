@@ -17,7 +17,7 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'cvfile'           , []        , @ischar        );
   addParameter(p , 'cv_var'           , 'CV'      , @ischar        );
   addParameter(p , 'cvscheme'         , []        , @isintegerlike );
-  addParameter(p , 'cvholdout'        , []        , @isintegerlike );
+  addParameter(p , 'cvholdout'        , []        , @isnumeric     );
   addParameter(p , 'orientation'      , []        , @ischar        );
   addParameter(p , 'diameter'         , []        , @isnumeric     );
   addParameter(p , 'overlap'          , []        , @isnumeric     );
@@ -157,10 +157,12 @@ function WholeBrain_MVPA(varargin)
     
     if finalholdoutInd > 0
       cvind{i}(cvind{i}>finalholdoutInd) = cvind{i}(cvind{i}>finalholdoutInd) - 1;
-      % Adjust the cv holdout index(es) down if they are higher than the final holdout.
-      if ~isempty(cvholdout)
-        cvholdout(cvholdout>finalholdoutInd) = cvholdout(cvholdout>finalholdoutInd) - 1;
-      end
+    end
+  end
+  if finalholdoutInd > 0
+    % Adjust the cv holdout index(es) down if they are higher than the final holdout.
+    if ~isempty(cvholdout)
+      cvholdout(cvholdout>finalholdoutInd) = cvholdout(cvholdout>finalholdoutInd) - 1;
     end
   end
 
@@ -183,22 +185,26 @@ function WholeBrain_MVPA(varargin)
   % - Warp data (for translating coordinates to Tlrc or MNI space).
 
   % Include voxel for bias
-  fprintf('%-28s', 'Including Bias Unit:');
+  fprintf('%-26s', 'Including Bias Unit');
   msg = 'NO';
   if BIAS
     msg = 'YES';
     X = addBiasUnit(X);
   end
-  fprintf('[%3s]\n', msg);
+  fprintf(': [%3s]\n', msg);
 
   % Normalize columns of X
-  fprintf('%-28s', 'Normalizing columns of X:');
+  fprintf('%-26s', 'Normalizing columns of X');
   msg = 'NO';
   if normalize
     % This is handled later, after isolating the training set.
     msg = 'YES';
   end
-  fprintf('[%3s]\n', msg);
+  fprintf(': [%3s]\n', msg);
+  
+  % Final holdout index
+  fprintf('%-26s', 'Final holdout index');
+  fprintf(': [%3d]\n', finalholdoutInd);
   
   fprintf('Data loaded and processed.\n');
 

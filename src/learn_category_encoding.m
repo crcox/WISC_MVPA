@@ -80,7 +80,8 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   else
     t = 1;
   end
-  fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n', '','subj','lambda','alpha','test err','train err','test diff','train diff','n vox')
+  
+  fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n', '','subj','alpha','lambda','test err','train err','test diff','train diff','n vox')
 	for i = cvset
     X = Xorig;
     
@@ -175,41 +176,45 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
         end
         k1 = sum(cellfun(@nnz,Bz))/t;
 
-        if isempty(LAMBDA)
-          lambda_j = nan;
-        else
-          lambda_j = LAMBDA(j);
-        end
         if isempty(ALPHA)
-          alpha_k = nan;
+          alpha_j = nan;
         else
-          alpha_k = ALPHA(k);
+          alpha_j = ALPHA(j);
+        end
+        
+        if isempty(LAMBDA)
+          lambda_k = nan;
+        else
+          lambda_k = LAMBDA(k);
         end
 
         for ii = 1:numel(X)
           fprintf('cv %3d: %3d |%6.2f |%6.2f |%10.2f |%10.2f |%10.2f |%10.2f |%10.2f |\n', ...
-            i,ii,lambda_j,alpha_k,err1{ii}(i,j,k),err2{ii}(i,j,k),h1{ii}(i,j,k)-f1{ii}(i,j,k),h2{ii}(i,j,k)-f2{ii}(i,j,k),nnz(BzAll{ii}{i,j,k}));
+            i,ii,alpha_j,lambda_k,err1{ii}(i,j,k),err2{ii}(i,j,k),h1{ii}(i,j,k)-f1{ii}(i,j,k),h2{ii}(i,j,k)-f2{ii}(i,j,k),nnz(BzAll{ii}{i,j,k}));
         end
 
 %        fprintf('Exit status -- %s (%d iterations)\n', info.message, info.iter);
       end % lamba loop
     end % alpha loop
 	end % cv loop
-  if ~SMALL
-    results(i).Bz = BzAll{ii}(cvset,:,:);
-    results(ii).Yz = YzAll{ii}(cvset,:,:);
+  for ii = 1:numel(X)
+    if ~SMALL
+      results(ii).Bz = BzAll{ii}(cvset,:,:);
+      results(ii).Yz = YzAll{ii}(cvset,:,:);
+    end
+    results(ii).h1   = h1{ii}(cvset,:,:);
+    results(ii).h2   = h2{ii}(cvset,:,:);
+    results(ii).f1   = f1{ii}(cvset,:,:);
+    results(ii).f2   = f2{ii}(cvset,:,:);
+    results(ii).m1   = m1{ii}(cvset,:,:);
+    results(ii).m2   = m2{ii}(cvset,:,:);
+    results(ii).c1   = c1{ii}(cvset,:,:);
+    results(ii).c2   = c2{ii}(cvset,:,:);
+    results(ii).err1 = err1{ii}(cvset,:,:);
+    results(ii).err2 = err2{ii}(cvset,:,:);
+    results(ii).subject = ii;
+    results(ii).note = 'Matrix dims = 1:cv 2:alpha 3:lambda';
   end
-  results(ii).h1   = h1{ii}(cvset,:,:);
-  results(ii).h2   = h2{ii}(cvset,:,:);
-  results(ii).f1   = f1{ii}(cvset,:,:);
-  results(ii).f2   = f2{ii}(cvset,:,:);
-  results(ii).m1   = m1{ii}(cvset,:,:);
-  results(ii).m2   = m2{ii}(cvset,:,:);
-  results(ii).c1   = c1{ii}(cvset,:,:);
-  results(ii).c2   = c2{ii}(cvset,:,:);
-  results(ii).err1 = err1{ii}(cvset,:,:);
-  results(ii).err2 = err2{ii}(cvset,:,:);
-  results(ii).subject = i;
 end
 
 function X = doNormalization(X, train_set) %#ok<DEFNU>
