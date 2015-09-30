@@ -1,22 +1,25 @@
 MCC=/usr/local/MATLAB/R2013b/bin/mcc
 MEX=/usr/local/MATLAB/R2013b/bin/mex
 MFLAGS=-m -R -singleCompThread -R -nodisplay -R -nojvm
-SRCDIR=src
+SRCDIR=.
+IDIRS=
+.PHONEY: clean clean-all all source_code.tar.gz extract
 
-.PHONEY: clean clean-all all
+all: WholeBrain_MVPA binaries.tar.gz
 
-all: SOSLasso summarize_jobs binaries.tar.gz
+sdist:
+	tar czhf source_code.tar.gz src dependencies
 
-SOSLasso: $(SRCDIR)/runSOSLasso.m
-	$(MCC) $(MFLAGS) $(SRCDIR)/runSOSLasso.m -o $@
+extract:
+	-mkdir source_code/
+	tar xzf source_code.tar.gz -C ./source_code/
 
-summarize_jobs: $(SRCDIR)/summarize_jobs.m
-	$(MCC) $(MFLAGS) $(SRCDIR)/runSOSLasso.m -o $@
+WholeBrain_MVPA: $(SRCDIR)/WholeBrain_MVPA.m
+	$(MCC) $(MFLAGS) $(IDIRS) -o $@ WholeBrain_MVPA.m
 
-binaries.tar.gz: SOSLasso run_SOSLasso.sh summarize_jobs run_summarize_jobs.sh
+binaries.tar.gz: WholeBrain_MVPA run_WholeBrain_MVPA.sh
 	mkdir bin/
-	mv SOSLasso run_SOSLasso.sh bin/
-	mv summarize_jobs run_summarize_jobs.sh bin/
+	mv WholeBrain_MVPA WholeBrain_MVPA.sh bin/
 	tar czvf $@ bin/
 
 clean:

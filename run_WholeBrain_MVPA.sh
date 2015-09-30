@@ -96,7 +96,7 @@ XAPPLRESDIR=${MCRROOT}/X11/app-defaults ;
 export XAPPLRESDIR;
 export LD_LIBRARY_PATH;
 echo LD_LIBRARY_PATH is ${LD_LIBRARY_PATH};
-eval "${exe_dir}/SOSLasso"
+eval "${exe_dir}/WholeBrain_MVPA"
 
 # Exit successfully. Hooray!
 trap success EXIT SIGTERM
