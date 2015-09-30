@@ -8,6 +8,8 @@
 **/*.BRIK
 **/*.HEAD
 **/*.nii
+**/*.dmr
+*.dmr
 bin/
 binaries.tar.gz
 log/
