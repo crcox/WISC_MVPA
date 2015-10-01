@@ -5,7 +5,7 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'debug'            , false     , @islogicallike );
   addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
   addParameter(p , 'Gtype'            , []        , @ischar        );
-  addParameter(p , 'normalize'        , false     , @islogicallike );
+  addParameter(p , 'normalize'        , false                      );
   addParameter(p , 'bias'             , false     , @islogicallike );
   addParameter(p , 'filters'          , []        , @ischarlike    );
   addParameter(p , 'filters_OR'       , []        , @ischarlike    );
@@ -134,7 +134,7 @@ function WholeBrain_MVPA(varargin)
       [rowfilter{i},colfilter{i}] = composeFilters(metadata(i).filter, filter_labels, 'logic', @all);
     end
   end
-  
+
   rowfilter_or  = cell(N,1);
   colfilter_or  = cell(N,1);
   for i = 1:N
@@ -159,7 +159,7 @@ function WholeBrain_MVPA(varargin)
     rowfilter{i}(rowfilter{i}) = forceRowVec(rowfilter{i}(rowfilter{i})) & forceRowVec(~finalholdout);
     % Remove the final holdout set from the cvind, to match.
     cvind{i} = cvind{i}(~finalholdout);
-    
+
     if finalholdoutInd > 0
       cvind{i}(cvind{i}>finalholdoutInd) = cvind{i}(cvind{i}>finalholdoutInd) - 1;
     end
@@ -175,6 +175,8 @@ function WholeBrain_MVPA(varargin)
   [X,subjix] = loadData(datafile, data_var, rowfilter, colfilter, metadata);
   metadata   = metadata(subjix);
   rowfilter  = rowfilter(subjix);
+  colfilter  = colfilter(subjix);
+  cvind      = cvind(subjix);
 
   Y = selectTargets(metadata, target, rowfilter);
 
@@ -195,11 +197,11 @@ function WholeBrain_MVPA(varargin)
     msg = 'YES';
   end
   fprintf(': [%3s]\n', msg);
-  
+
   % Final holdout index
   fprintf('%-26s', 'Final holdout index');
   fprintf(': [%3d]\n', finalholdoutInd);
-  
+
   fprintf('Data loaded and processed.\n');
 
   %% Plug in the parameters and run
@@ -214,6 +216,28 @@ function WholeBrain_MVPA(varargin)
                       'DEBUG'          , DEBUG          , ...
                       'SmallFootprint' , SmallFootprint , ...
                       'AdlasOpts'      , opts); %#ok<ASGLU>
+
+  case 'searchlight'
+    X = uncell(X);
+    Y = uncell(Y)+1;
+    cvind = uncell(cvind);
+    colfilter = uncell(colfilter);
+
+    % create a 3D binary mask
+    z = strcmp({metadata.coords.orientation}, orientation);
+    xyz = metadata.coords(z).xyz(colfilter,:);
+    mask = coordsTo3dMask(xyz);
+
+    % create the "meta" neighbourhood structure
+    meta = createMetaFromMask(mask, 3);
+
+    % translate X matrix into 3D+time
+    classifier = 'gnb_searchmight';
+    [am,pm] = computeInformationMap(X,Y,cvind,classifier,'searchlight', ...
+                                meta.voxelsToNeighbours,meta.numberOfNeighbours,'testToUse','accuracyOneSided_permutation',1000);
+
+    results.accuracy_map = am;
+    results.pvalue_map = am;
 
   case 'soslasso'
     xyz = cell(numel(metadata),1);
@@ -241,12 +265,14 @@ function WholeBrain_MVPA(varargin)
   % Add the final holdout index to all results.
   [results.finalholdout] = deal(finalholdoutInd);
   % Adjust the cvholdout indexes to accomodate the final holdout index.
-  cvholdout = [results.cvholdout];
-  z = cvholdout >= finalholdoutInd;
-  cvholdout(z) = cvholdout(z) + 1;
-  cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
-  [results.cvholdout] = deal(cvholdout{:});
-  
+  if isfield(results,'cvholdout')
+    cvholdout = [results.cvholdout];
+    z = cvholdout >= finalholdoutInd;
+    cvholdout(z) = cvholdout(z) + 1;
+    cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
+    [results.cvholdout] = deal(cvholdout{:});
+  end
+
   %% Save results
   save(matfilename,'results');
   fprintf('Done!\n');
@@ -443,7 +469,7 @@ function [rowfilter, colfilter] = composeFilters(filterset,labels,varargin)
   addParameter(p , 'logic', @all, @isfunction_handle);
   parse(p, varargin{:});
   combinelogic = p.Results.logic;
-  
+
   labels = ascell(labels);
 
   % metadata.filter points to a structured array of filters.
@@ -466,4 +492,14 @@ end
 
 function r = forceRowVec(x)
   r = x(:)';
+end
+
+function mask = coordsTo3dMask(coords)
+  dcoords = voxelspacing(coords, [3,3,3]); % [3,3,3] is just a seed.
+  mcoords = min(coords);
+  ijk = roundto(bsxfun(@minus, coords, mcoords),dcoords);
+  ijk = roundto(bsxfun(@rdivide, ijk, dcoords),1)+1;
+  ind = sub2ind(max(ijk), ijk(:,1), ijk(:,2), ijk(:,3));
+  mask = false(max(ijk));
+  mask(ind) = true;
 end
