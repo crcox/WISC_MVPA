@@ -28,7 +28,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   SMALL     = p.Results.SmallFootprint;
 
   Xorig = X;
-  
+
   % For cases like lasso, the group structure is irrelevant, but in the
   % spirit of running every analysis through the same function, noG defines
   % a single group for each subject that contains all voxels.
@@ -72,7 +72,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   nd1 = cell(size(X)); [err2{:}] = deal(zz);
   nd2 = cell(size(X)); [err2{:}] = deal(zz);
   clear zz;
-  
+
   cc = cell(ncv,nalpha,nlam);
   BzAll   = cell(size(X)); [BzAll{:}] = deal(cc);
   YzAll   = cell(size(X)); [YzAll{:}] = deal(cc);
@@ -84,34 +84,26 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   else
     t = 1;
   end
-  
+
   fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n', '','subj','alpha','lambda','test err','train err','test diff','train diff','n vox')
 	for i = cvset
     X = Xorig;
-    
+
     test_set = cell(size(cvind));
     train_set = cell(size(cvind));
     for ii = 1:numel(cvind)
       test_set{ii}  = cvind{ii}==i;
       train_set{ii} = ~test_set{ii};
     end
-    
+
 
     for ii = 1:numel(X);
       switch normalize
         case 'zscore_train'
           mm = mean(X{ii}(train_set,:),1);
           ss = std(X{ii}(train_set,:),0,1);
-        case 'zscore'
-          mm = mean(X{ii},1);
-          ss = std(X{ii},0,1);
-        case 'stdev'
-          mm = 0;
-          ss = std(X{ii},0,1);
-        case '2norm'
-          mm = mean(X{ii},1);
-          ss = norm(X{ii});
         otherwise
+          % All other cases already handled.
           mm = 0;
           ss = 1;
       end
@@ -189,7 +181,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
         else
           alpha_j = ALPHA(j);
         end
-        
+
         if isempty(LAMBDA)
           lambda_k = nan;
         else
@@ -197,7 +189,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
         end
 
         for ii = 1:numel(X)
-          fprintf('cv %3d: %3d |%6.2f |%6.2f |%10.2f |%10.2f |%10.2f |%10.2f |%10.2f |\n', ...
+          fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10d |%10d |%10d |\n', ...
             i,ii,alpha_j,lambda_k,err1{ii}(i,j,k),err2{ii}(i,j,k),h1{ii}(i,j,k)-f1{ii}(i,j,k),h2{ii}(i,j,k)-f2{ii}(i,j,k),nnz(BzAll{ii}{i,j,k}));
         end
 
@@ -224,14 +216,14 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           else
             lambda = LAMBDA;
           end
-          
+
           iii = iii + 1;
-      
+
           if ~SMALL
             results(iii).Bz = BzAll{ii}(cvset,:,:);
             results(iii).Yz = YzAll{ii}(cvset,:,:);
           end
-          
+
           results(iii).subject = ii;
           results(iii).cvholdout = i;
           results(iii).finalholdout = 0;

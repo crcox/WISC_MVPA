@@ -84,6 +84,8 @@ function WholeBrain_MVPA(varargin)
   environment      = p.Results.environment;
   SanityCheckData  = p.Results.SanityCheckData; %#ok<NASGU>
 
+  p.Results
+
   % Check that the correct parameters are passed, given the desired algorithm
   [lambda, alpha] = verifyLambdaSetup(Gtype, lambda, alpha);
 
@@ -199,8 +201,24 @@ function WholeBrain_MVPA(varargin)
   fprintf('%-26s', 'Normalizing columns of X');
   msg = 'NO';
   if normalize
-    % This is handled later, after isolating the training set.
     msg = 'YES';
+    switch normalize
+      case 'zscore'
+        mm = mean(X{ii},1);
+        ss = std(X{ii},0,1);
+      case 'stdev'
+        mm = 0;
+        ss = std(X{ii},0,1);
+      case '2norm'
+        mm = mean(X{ii},1);
+        ss = norm(X{ii});
+      otherwise
+        % N.B. If zscore_train, that is handled later.
+        mm = 0;
+        ss = 1;
+    end
+    X{ii} = bsxfun(@minus,X{ii}, mm);
+    X{ii} = bsxfun(@rdivide,X{ii}, ss);
   end
   fprintf(': [%3s]\n', msg);
 
