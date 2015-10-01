@@ -1,0 +1,36 @@
+This directory contains all the external packages that my various
+toolboxes require. Some are ready to use but others require some
+preparation/installation on your machine. The details are below.
+
+---------------------------------------------------------------
+1) libsvm (requires MATLAB) - DO NOT DO THIS IF LIBSVM IS ALREADY ON YOUR PATH
+- unzip libsvm.zip 
+- cd libsvm
+- find out the path where MATLAB is installed in your system.
+  If you don't know it, type
+  - which matlab (will tell you what the matlab executable is)
+  - ls -l <matlab executable> (just cut and paste what "which matlab" returns)
+  - if this is a symbolic link, it will tell you where the real executable
+    is installed; if not, that is the path you want
+- edit Makefile and replace
+
+  MATLABDIR ?= /usr/local/matlab
+
+  with
+
+  MATLABDIR ?= <MATLAB path>
+
+  as the libsvm Makefile needs to know where MATLAB is
+  (you can also use octave, but I won't cover that here).
+- type Make
+- if this finished without errors, you should be able to type
+  
+  ls *.mexglx
+
+  and see
+
+  read_sparse.mexglx  svmpredict.mexglx  svmtrain.mexglx
+
+
+---------------------------------------------------------------
+2) 

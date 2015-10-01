@@ -22,6 +22,7 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'diameter'         , []        , @isnumeric     );
   addParameter(p , 'overlap'          , []        , @isnumeric     );
   addParameter(p , 'shape'            , []        , @ischar        );
+  addParameter(p , 'shape'            , []        , @ischar        );
   addParameter(p , 'finalholdout'     , 0         , @isintegerlike );
   addParameter(p , 'lambda'           , []        , @isnumeric     );
   addParameter(p , 'alpha'            , []        , @isnumeric     );
@@ -159,7 +160,7 @@ function WholeBrain_MVPA(varargin)
     rowfilter{i}(rowfilter{i}) = forceRowVec(rowfilter{i}(rowfilter{i})) & forceRowVec(~finalholdout);
     % Remove the final holdout set from the cvind, to match.
     cvind{i} = cvind{i}(~finalholdout);
-    
+
     if finalholdoutInd > 0
       cvind{i}(cvind{i}>finalholdoutInd) = cvind{i}(cvind{i}>finalholdoutInd) - 1;
     end
@@ -195,11 +196,11 @@ function WholeBrain_MVPA(varargin)
     msg = 'YES';
   end
   fprintf(': [%3s]\n', msg);
-  
+
   % Final holdout index
   fprintf('%-26s', 'Final holdout index');
   fprintf(': [%3d]\n', finalholdoutInd);
-  
+
   fprintf('Data loaded and processed.\n');
 
   %% Plug in the parameters and run
@@ -246,7 +247,7 @@ function WholeBrain_MVPA(varargin)
   cvholdout(z) = cvholdout(z) + 1;
   cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
   [results.cvholdout] = deal(cvholdout{:});
-  
+
   %% Save results
   save(matfilename,'results');
   fprintf('Done!\n');

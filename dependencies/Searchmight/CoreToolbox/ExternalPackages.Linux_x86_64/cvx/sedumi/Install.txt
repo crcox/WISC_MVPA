@@ -1,0 +1,17 @@
+Welcome to SeDuMi 1.2 64bit version
+
+SeDuMi 1.2 Installation instructions
+
+This version of SeDuMi is designed for Matlab R2007b 64 bit version.
+Both Linux and Windows binaries are included, no compilation necessary.
+The binaries are built using blas for improved performance.
+
+The sources are included but compilation is not encouraged.
+
+If you have any questions or comments you can share them at the forum at
+http://sedumi.mcmaster.ca.
+
+
+==========> L e t   Se Du Mi   s e d u c e   y o u   t o o   ! <==========
+Imre Polik 
+April 9, 2008

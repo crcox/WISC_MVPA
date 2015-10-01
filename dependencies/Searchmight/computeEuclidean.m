@@ -1,0 +1,64 @@
+%
+% compute euclidean distance between columns of one or two matrices
+%
+% in:
+% - matrix A - #points x #columnsA
+%   optional:
+%   - matrix B - #points x #columnsB (if absent, the second matrix is the same as the first)
+%
+% out:
+% - euclidean - #columnsA x #columnsB
+%
+% notes:
+%
+% history:
+% - 2010 June 14 - created from prior code - fpereira@princeton.edu
+%
+
+function [S,indexMostSimilar,valueMostSimilar] = computeEuclidean( varargin )
+
+S = [];
+if nargin < 1
+  fprintf('syntax: computeEuclidean( matrix A, [matrix B, defaults to being the same as A])\n');return;
+end
+matrixA = varargin{1};
+sameMatrix = 0;
+if nargin == 2
+  matrixB = varargin{2};
+else
+  matrixB = matrixA;
+  sameMatrix = 1;
+end  
+
+[nrowsA,ncolsA] = size(matrixA);
+[nrowsB,ncolsB] = size(matrixB);
+
+if nrowsA ~= nrowsB
+  fprintf('error: the two matrices must have the same number of rows\n');return;
+else
+  nrows = nrowsA;
+end
+
+[St,indexMostSimilar,valueMostSimilar] = rowiseSimilarity(matrixA,matrixB,1,sameMatrix);
+% hack: new algorithm makes NaNs appear where 0 should be...
+% (but results are correct if replaced by 0)
+indices = find(isnan(St(:))); St(indices) = 0;
+S = St'; clear St;
+
+
+
+function [] = testThis()
+
+
+% 1) compile the C code for use with your MATLAB
+
+mex rowiseSimilarity.c
+
+% 2) a test with 1000 "voxels" and 100 time points
+
+X = randn(100,1000);
+
+tic; Squick = computeEuclidean(X); toc
+tic; S = squareform(pdist(X','euclidean')); toc
+Stmp = abs(Squick-S);
+difference = sum(Stmp(:))

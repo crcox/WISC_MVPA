@@ -1,0 +1,170 @@
+-------------------------------------------------------------------------------------
+Searchmight Toolbox - contains code and third-party packages that my code depends on.
+( (c) Francisco Pereira 2001-2010 (fpereira@princeton.edu)
+and owners of these packages:
+
+- LIBSVM
+- CVX
+- repmat and mexutil from Tom Minka's lightspeed toolbox
+
+as described on their respective copyright notices )
+-------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------
+Installation
+--------------------------------------------------------------------
+
+We have tried to pre-compile external packages for any architecture we distribute,
+this section is just to make sure you can build everything else and that it works
+in your machine. All of this will only have to be done once and you will be set.
+
+--------------------------------------------------------------------
+1) build various MEX files that are necessary
+--------------------------------------------------------------------
+
+------------------------------------------
+1a)
+
+These are files that contain functions written in C rather than MATLAB, in order
+to make them faster. "mex" is the program that comes with MATLAB that will compile
+them for use. If you have MATLAB, you have mex, but it's possible that it's not in
+the search path. To check this, type
+
+which mex
+
+If it returns the path to the "mex" file, it's in the path, skip to section 1b.
+If it returns "no mex in <many paths>", we will need to add it. To do so, we need
+to first find out where MATLAB lives. Type
+
+which matlab
+
+which will give you a path <path> to a symbolic link and then
+
+ls -l <path>
+
+to see where that symbolic link points to (a bin directory inside a MATLAB directory),
+e.g. something like this in my machine
+
+ls -l /usr/local/bin/matlab
+
+lrwxrwxrwx 1 root root 35 2010-03-01 20:10 /usr/local/bin/matlab -> /usr/local/matlab-R2009b/bin/matlab
+
+This tells me that MATLAB is in /usr/local/matlab-R2009b/bin, which is also where "mex" is.
+Add it to your path 
+
+for bash shell:
+export PATH=$PATH:<path that ends in bin>
+
+for tcsh or csh:
+set PATH = ($PATH <path that ends in bin>) 
+
+If paths in UNIX are mysterious, this may help
+http://www.linuxheadquarters.com/howto/basic/path.shtml
+
+If you type
+
+which mex
+
+it should now tell you its path.
+
+------------------------------------------
+1b)
+
+Now we are ready to build, by typing
+
+make
+
+from the UNIX command line.
+If running on OS X, you'll need Xcode installed in order to have make.
+
+This should work, possibly with a few warnings. At the end
+
+ls -l *.mex*
+
+should list
+
+repmat.mex[glx|a64|maci|maci64]
+searchmightGNB.mex[glx|a64|maci|maci64]
+
+with the exact ending for each of the two files depending on the architecture
+of your machine
+
+
+--------------------------------------------------------------------
+2) check dependencies and paths of external packages
+--------------------------------------------------------------------
+
+This toolbox depends on some functions of CoreToolbox. Most of these are already
+included via symlinks but a few others depend on external packages that
+need to be built for each machine type/OS combination (which we try to do if
+possible).
+
+In order to check that that is the case, start MATLAB and type
+(use an absolute path, please)
+
+addpath('/path/to/where/you/put/SearchmightToolbox.<architecture>.<version>');
+setupPathsSearchmightToolbox
+
+this will set up paths to all the OS specific directories. 
+This sequence of path commands needs to be called once when you start MATLAB
+(put it in your startup.m file if you don't want to have to type it every time)
+or at the beginning of a script if that is what you are passing the MATLAB interpreter.
+Now we are doing it to be able to call one of the internal functions
+
+checkExternalPackages
+
+If this completes without errors, you are ready to go and can skip to
+the Usage section below.
+
+If not, you'll have to build CoreToolbox for your architecture. You have two
+options: get fpereira an account in your machine he can ssh into to build
+(recommended), or keep reading this section and try to do it yourself
+(commended, but there may be pain:)
+
+Please go to the CoreToolbox/ExternalPackages subdirectory and call
+
+buildExternalPackages.pl
+
+from the UNIX command line to prepare everything. The README in that
+directory has more details, if necessary.
+
+--------------------------------------------------------------------
+3) Usage
+--------------------------------------------------------------------
+
+The main function is 
+
+ computeInformationMap
+
+which computes an information map based on cross-validated classification
+accuracy at each voxel or a region around it, together with a p-value map.
+
+In order to use this, you will have to read
+
+ README.datapreparation.txt
+
+in order to transform your dataset into a format Searchmight can use. This
+is fairly straightforward, at least judging by the reaction of beta testers,
+and should actually lower your memory footprint relative to working directly
+with a AFNI/Analyze/NIfTI file. It also precomputes spatial relationships
+between voxels, which speeds up computation considerably.
+
+Once you are done with data preparation (or if you'd rather just try this out
+immediately), look at
+
+  demo.m
+
+which contains MATLAB code for producing a small synthetic dataset and examples
+of how to call the code for various types of classifier. It also shows how to
+plot the resulting maps and how to obtain searchlight-level information.
+Please don't run that function directly, as it's meant to facilitate cut-and-paste.
+
+The demo has only the most basic features of the code at present, but will be
+expanded soon.
+
+There is a second demo
+
+  demoFromMVPA.m
+
+which converts the tutorial_easy.m dataset from the MVPA toolbox into our format,
+trains a classifier and plots the results.

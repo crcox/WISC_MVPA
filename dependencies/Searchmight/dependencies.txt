@@ -1,0 +1,1 @@
+CoreToolbox svn://mnemosyne.csbmb.princeton.edu/CoreToolbox
