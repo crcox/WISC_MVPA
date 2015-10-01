@@ -5,7 +5,7 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'debug'            , false     , @islogicallike );
   addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
   addParameter(p , 'Gtype'            , []        , @ischar        );
-  addParameter(p , 'normalize'        , false     , @islogicallike );
+  addParameter(p , 'normalize'        , false                      );
   addParameter(p , 'bias'             , false     , @islogicallike );
   addParameter(p , 'filters'          , []        , @ischarlike    );
   addParameter(p , 'filters_OR'       , []        , @ischarlike    );
