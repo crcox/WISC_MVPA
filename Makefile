@@ -1,8 +1,13 @@
 MCC=/usr/local/MATLAB/R2013b/bin/mcc
 MEX=/usr/local/MATLAB/R2013b/bin/mex
 MFLAGS=-m -R -singleCompThread -R -nodisplay -R -nojvm
-SRCDIR=.
-IDIRS=
+SRC=src
+DEP=dependencies
+JSON=$(DEP)/jsonlab
+SEARCHMIGHT=$(DEP)/Searchmight
+INCL= -I$(SRC) -I$(JSON) -I$(SEARCHMIGHT) -I$(SEARCHMIGHT)/private \
+      -I$(SEARCHMIGHT)/CoreToolbox/ExternalPackages.Linux_x86_64/cvx \
+      -I$(SEARCHMIGHT)/CoreToolbox/ExternalPackages.Linux_x86_64/libsvm
 .PHONEY: clean clean-all all source_code.tar.gz extract
 
 all: WholeBrain_MVPA binaries.tar.gz
