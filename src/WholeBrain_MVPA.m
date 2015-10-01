@@ -22,7 +22,9 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'diameter'         , []        , @isnumeric     );
   addParameter(p , 'overlap'          , []        , @isnumeric     );
   addParameter(p , 'shape'            , []        , @ischar        );
-  addParameter(p , 'shape'            , []        , @ischar        );
+  addParameter(p , 'slradius'         , []        , @isnumeric     );
+  addParameter(p , 'slTestToUse'      , 'accuracyOneSided_analytical', @ischar);
+  addParameter(p , 'slpermutations'   , 0         , @isscalar      );
   addParameter(p , 'finalholdout'     , 0         , @isintegerlike );
   addParameter(p , 'lambda'           , []        , @isnumeric     );
   addParameter(p , 'alpha'            , []        , @isnumeric     );
@@ -70,6 +72,9 @@ function WholeBrain_MVPA(varargin)
   diameter         = p.Results.diameter;
   overlap          = p.Results.overlap;
   shape            = p.Results.shape;
+  slradius         = p.Results.slradius;
+  slTestToUse      = p.Results.slTestToUse;
+  slpermutations   = p.Results.slpermutations;
   finalholdoutInd  = p.Results.finalholdout;
   metafile         = p.Results.metadata;
   metadata_var     = p.Results.metadata_var;
@@ -227,15 +232,27 @@ function WholeBrain_MVPA(varargin)
     % create a 3D binary mask
     z = strcmp({metadata.coords.orientation}, orientation);
     xyz = metadata.coords(z).xyz(colfilter,:);
-    mask = coordsTo3dMask(xyz);
+    [mask,dxyz] = coordsTo3dMask(xyz);
+
+    % Translate slradius (in mm) to sl voxels
+    % N.B. Because voxels need not be symmetric cubes, but Seachmight will
+    % generate symmetric spheres from a single radius parameter, we need to
+    % select one value of the three that will be produced in this step. I am
+    % arbitrarily choosing the max, to err on the side of being inclusive.
+    slradius_ijk = max(round(slradius ./ dxyz));
 
     % create the "meta" neighbourhood structure
-    meta = createMetaFromMask(mask, 3);
+    meta = createMetaFromMask(mask, slradius_ijk);
 
-    % translate X matrix into 3D+time
+    % Prepare parameters
     classifier = 'gnb_searchmight';
+    if strcmp(slTestToUse,'accuracyOneSided_permutation')
+      TestToUseCfg = {'testToUse',slTestToUse,slpermutations};
+    else
+      TestToUseCfg = {'testToUse',slTestToUse};
+    end
     [am,pm] = computeInformationMap(X,Y,cvind,classifier,'searchlight', ...
-                                meta.voxelsToNeighbours,meta.numberOfNeighbours,'testToUse','accuracyOneSided_permutation',1000);
+                                meta.voxelsToNeighbours,meta.numberOfNeighbours,TestToUseCfg{:});
 
     results.accuracy_map = am;
     results.pvalue_map = am;
@@ -495,7 +512,7 @@ function r = forceRowVec(x)
   r = x(:)';
 end
 
-function mask = coordsTo3dMask(coords)
+function [mask,dcoords] = coordsTo3dMask(coords)
   dcoords = voxelspacing(coords, [3,3,3]); % [3,3,3] is just a seed.
   mcoords = min(coords);
   ijk = roundto(bsxfun(@minus, coords, mcoords),dcoords);

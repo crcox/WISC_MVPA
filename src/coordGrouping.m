@@ -20,6 +20,15 @@ function G = coordGrouping(coords, diameter, overlap, shape)
 %
 %   See also ndmovingwindow, ndcoord.
 %   Author: Chris Cox, 7/8/2015
+  % Older releases of matlab do not have the repelem() builtin. If that is the case, use my crappy version instead.
+    mlinfo = ver('MATLAB');
+    mlversion = sscanf(mlinfo.Version,'%d.%d');
+    if (mlversion(1) <= 8) && (mlversion(2) < 5)
+      repelem_ = @repelem_crc;
+    else
+      repelem_ = @repelem;
+    end
+
     p = inputParser();
     addRequired(p, 'coords',   @isnumericlike);
     addRequired(p, 'diameter', @isnumeric);
@@ -38,7 +47,7 @@ function G = coordGrouping(coords, diameter, overlap, shape)
         N = length(coords(:));
         assert(all(d(1) == d));
         coords = cell2mat(coords(:));
-        sid = repelem(1:N, n);
+        sid = repelem_(1:N, n);
         ncum = uint32([0, cumsum(n)]);
     else
         d = size(coords,2);
