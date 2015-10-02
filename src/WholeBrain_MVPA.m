@@ -202,23 +202,25 @@ function WholeBrain_MVPA(varargin)
   msg = 'NO';
   if normalize
     msg = 'YES';
-    switch normalize
-      case 'zscore'
-        mm = mean(X{ii},1);
-        ss = std(X{ii},0,1);
-      case 'stdev'
-        mm = 0;
-        ss = std(X{ii},0,1);
-      case '2norm'
-        mm = mean(X{ii},1);
-        ss = norm(X{ii});
-      otherwise
-        % N.B. If zscore_train, that is handled later.
-        mm = 0;
-        ss = 1;
+    for ii = 1:numel(X)
+      switch normalize
+        case 'zscore'
+          mm = mean(X{ii},1);
+          ss = std(X{ii},0,1);
+        case 'stdev'
+          mm = 0;
+          ss = std(X{ii},0,1);
+        case '2norm'
+          mm = mean(X{ii},1);
+          ss = norm(X{ii});
+        otherwise
+          % N.B. If zscore_train, that is handled later.
+          mm = 0;
+          ss = 1;
+      end
+      X{ii} = bsxfun(@minus,X{ii}, mm);
+      X{ii} = bsxfun(@rdivide,X{ii}, ss);
     end
-    X{ii} = bsxfun(@minus,X{ii}, mm);
-    X{ii} = bsxfun(@rdivide,X{ii}, ss);
   end
   fprintf(': [%3s]\n', msg);
 

@@ -17,16 +17,40 @@ INCL= -I $(SRC) -I $(JSON) -I $(UTILS) \
       -I $(LIBSVM) \
       -I $(CVX) \
       -I $(CVX)/builtins \
+      -I $(CVX)/builtins/@cvx \
       -I $(CVX)/commands \
+      -I $(CVX)/commands/@cvx \
       -I $(CVX)/functions \
-      -I $(CVX)/keywords  \
+      -I $(CVX)/functions/@cvx \
+      -I $(CVX)/keywords \
       -I $(CVX)/lib \
+      -I $(CVX)/lib/@cell \
+      -I $(CVX)/lib/@cvx \
+      -I $(CVX)/lib/@cvxcnst \
+      -I $(CVX)/lib/@cvxdual \
+      -I $(CVX)/lib/@cvxin \
+      -I $(CVX)/lib/@cvxobj \
+      -I $(CVX)/lib/@cvxprob \
+      -I $(CVX)/lib/@cvxtuple \
+      -I $(CVX)/lib/@struct \
       -I $(CVX)/matlab6 \
       -I $(CVX)/sdpt3 \
+      -I $(CVX)/sdpt3/Examples \
+      -I $(CVX)/sdpt3/HSDSolver \
+      -I $(CVX)/sdpt3/Linsysolver \
+      -I $(CVX)/sdpt3/Linsysolver/spchol \
+      -I $(CVX)/sdpt3/Solver \
+      -I $(CVX)/sdpt3/Solver/Mexfun \
+      -I $(CVX)/sdpt3/dimacs \
+      -I $(CVX)/sdpt3/sdplib \
       -I $(CVX)/sedumi \
+      -I $(CVX)/sedumi/conversion \
+      -I $(CVX)/sedumi/doc \
+      -I $(CVX)/sedumi/mexw32 \
       -I $(CVX)/sets \
-      -I $(CVX)/structures
-.PHONEY: all clean-all clean-libsvm clean-Searchmight clean-postbuild libsvm Searchmight sdist
+      -I $(CVX)/structures \
+      -I $(CVX)/structures/@cvx
+.PHONEY: all clean-all clean-libsvm clean-Searchmight clean-postbuild cvx libsvm Searchmight sdist
 
 all: setup libsvm Searchmight WholeBrain_MVPA clean-postbuild
 
@@ -40,10 +64,13 @@ libsvm: $(LIBSVM)/read_sparse.mexa64 $(LIBSVM)/svmpredict.mexa64 $(LIBSVM)/svmtr
 $(LIBSVM)/read_sparse.mexa64 $(LIBSVM)/svmpredict.mexa64 $(LIBSVM)/svmtrain.mexa64:
 	$(MAKE) -C $(LIBSVM)
 
+cvx:
+	$(MAKE) -C $(CVX)
+
 Searchmight: $(SEARCHMIGHT)/searchmightGNB.mexa64
 $(SEARCHMIGHT)/searchmightGNB.mexa64: $(LIBSVM)/read_sparse.mexa64 $(LIBSVM)/read_sparse.mexa64 $(LIBSVM)/read_sparse.mexa64
 	$(MAKE) -C $(SEARCHMIGHT)
-	mv repmat.mex* private/
+	mv $(SEARCHMIGHT)/repmat.mex* $(SEARCHMIGHT)/private/
 
 WholeBrain_MVPA: $(SRC)/WholeBrain_MVPA.m $(SEARCHMIGHT)/searchmightGNB.mexa64
 	$(MCC) $(MFLAGS) $(INCL) -o $@ $<
