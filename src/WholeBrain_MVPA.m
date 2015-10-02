@@ -202,6 +202,7 @@ function WholeBrain_MVPA(varargin)
   msg = 'NO';
   if normalize
     msg = 'YES';
+    X = ascell(X);
     for ii = 1:numel(X)
       switch normalize
         case 'zscore'
