@@ -1,13 +1,15 @@
+MATLABDIR ?= /usr/local/MATLAB/R2013b
+INCL= -I$(MATLABDIR)/extern/include
 all: searchmightGNB repmat
 
 searchmightGNB:
-	mex searchmightGNB.c
+	mex $(INCL) searchmightGNB.c
 
 repmat: mexutil
-	mex repmat.c mexutil.o
+	mex $(INCL) repmat.c mexutil.o
 
 mexutil:
-	mex -c mexutil.c
+	mex $(INCL) -c mexutil.c
 
 clean:
 	rm searchmightGNB.mex* repmat.mex* mexutil.o
