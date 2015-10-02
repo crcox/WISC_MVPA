@@ -240,10 +240,6 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           results(iii).h2   = h2{ii}(i,j,k);
           results(iii).f1   = f1{ii}(i,j,k);
           results(iii).f2   = f2{ii}(i,j,k);
-          results(iii).m1   = m1{ii}(i,j,k);
-          results(iii).m2   = m2{ii}(i,j,k);
-          results(iii).c1   = c1{ii}(i,j,k);
-          results(iii).c2   = c2{ii}(i,j,k);
           results(iii).err1 = err1{ii}(i,j,k);
           results(iii).err2 = err2{ii}(i,j,k);
         end
