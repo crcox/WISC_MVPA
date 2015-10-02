@@ -295,22 +295,22 @@ function WholeBrain_MVPA(varargin)
                       'DEBUG'          , DEBUG          , ...
                       'SmallFootprint' , SmallFootprint , ...
                       'AdlasOpts'      , opts); %#ok<ASGLU>
+    %% Revise cv indexes
+    % Add the final holdout index to all results.
+    [results.finalholdout] = deal(finalholdoutInd);
+    % Adjust the cvholdout indexes to accomodate the final holdout index.
+    if isfield(results,'cvholdout')
+      cvholdout = [results.cvholdout];
+      z = cvholdout >= finalholdoutInd;
+      cvholdout(z) = cvholdout(z) + 1;
+      cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
+      [results.cvholdout] = deal(cvholdout{:});
+    end
+
   end
   fprintf('Saving:\n');
   fprintf('\t%s\n',matfilename);
   fprintf('\t%s\n',infofilename);
-
-  %% Revise cv indexes
-  % Add the final holdout index to all results.
-  [results.finalholdout] = deal(finalholdoutInd);
-  % Adjust the cvholdout indexes to accomodate the final holdout index.
-  if isfield(results,'cvholdout')
-    cvholdout = [results.cvholdout];
-    z = cvholdout >= finalholdoutInd;
-    cvholdout(z) = cvholdout(z) + 1;
-    cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
-    [results.cvholdout] = deal(cvholdout{:});
-  end
 
   %% Save results
   save(matfilename,'results');
