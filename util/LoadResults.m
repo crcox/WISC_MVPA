@@ -30,29 +30,29 @@ function [results, params] = LoadResults(varargin)
   alldirs       = allfiles([allfiles.isdir]);
   jobdirs       = SelectJobDirs(alldirs, 'root',resultdir, 'sort', sortjobs);
 
-  if ~isempty(SKIP)
+  if ~isempty(SKIP) % not used
     SkipStr = SKIP;
     SkipStr{end} = ['and ', SKIP{end}];
     SkipStr = strjoin(SkipStr, ', ');
     fprintf('Fields %s will be skipped.\n', SkipStr);
   end
 
-  cvspath = fullfile(datadir,cvsfile);
-  StagingContainer = load(cvspath, cv_varname);
-  CV = StagingContainer.(cv_varname);
-
+  %% Load Metadata
   metapath = fullfile(datadir, metafile);
   StagingContainer = load(metapath, meta_varname);
   metadata = StagingContainer.(meta_varname);
+  N = numel(metadata);
 
+  %% Loop over job dirs
   n = length(jobdirs);
   nchar = 0;
   fprintf('Loading job ');
+  iii = 0;
   for i = 1:n;
     fprintf(repmat('\b', 1, nchar));
     nchar = fprintf('%d of %d', i, n);
 
-    % load parameter file
+    %% load parameter file
     jobdir      = fullfile(resultdir, jobdirs(i).name);
     parampath   = fullfile(jobdir,paramfile);
     tmp         = loadjson(parampath);
@@ -60,81 +60,19 @@ function [results, params] = LoadResults(varargin)
     params(i)   = tmp;
     clear tmp;
 
-    % Pull cv indexes
-    cvind       = params(i).cvholdout;
-    finalind    = params(i).finalholdout;
-    cvscheme    = params(i).cvscheme;
-
-    % load results file
+    %% load results file
     resultpath = fullfile(jobdir, resultfile);
     if ~exist(resultpath, 'file')
       continue;
     end
-    R = load(resultpath);
+    tmp = load(resultpath);
+    R = tmp.results;
+    [R.job] = deal(i);
 
-
-    % Construct filters
-    if isempty(filter_labels)
-      rowfilter = true(1, nrow);
-      colfilter = true(1, ncol);
-    else
-      if ~iscell(filter_labels);
-        filter_labels = {filter_labels};
-      end
-      % M.filter points to a structured array of filters.
-      % First, force filters to a common orientation.
-      for ii = 1:numel(M.filter)
-        M.filter(ii).filter = forceRowVec(M.filter(ii).filter);
-      end
-      % Then select the filters
-      z = false(1,numel(M.filter));
-      for f = filter_labels;
-        z(strcmp(f, {M.filter.label})) = true;
-      end
-      z = z & strcmp(data_varname, {M.filter.subset});
-
-      filters.row = M.filter(z & [M.filter.dimension]==1);
-      filters.col = M.filter(z & [M.filter.dimension]==2);
-      if isempty(filters.row)
-        rowfilter = true(1, nrow);
-      else
-        rowfilter = all(cat(1, filters.row.filter),1);
-      end
-      if isempty(filters.col)
-        colfilter = true(1, ncol);
-      else
-        colfilter = all(cat(1, filters.col.filter),1);
-      end
-      clear filters;
+    for ii = 1:numel(R)
+      iii = iii + 1;
+      results(iii) = R(ii);
     end
-    cvfilter    = cvind == CV(rowfilter,cvscheme);
-    finalfilter = finalind == CV(rowfilter,cvscheme);
-
-    % apply filters
-    S = SS(rowfilter,rowfilter);
-    R.S = S(~finalfilter,~finalfilter);
-    R.S_test = S(cvfilter,cvfilter);
-    XYZ = XYZ(colfilter,:);
-
-    % log coordinates of selected voxels
-    R.coords.label = coord_varname;
-    R.coords.xyz = XYZ(R.nz_rows,:);
-
-    % log metadata
-    R.cvind = cvind;
-    R.cvfilter = cvfilter;
-    R.finalfilter = finalfilter;
-
-    % Drop any variables that should not be held in memory
-    if ~isempty(SKIP)
-      nskip = length(SKIP);
-      for ii = 1:nskip
-        R = rmfield(R, SKIP{ii});
-      end
-    end
-
-    results(i) = R;
-
   end
   fprintf('\n')
 end
