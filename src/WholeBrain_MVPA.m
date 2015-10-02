@@ -383,7 +383,6 @@ function [X,subjix] = loadData(datafile,data_var,rowfilter,colfilter,metadata)
     X{i}      = tmp.(data_var); clear tmp;
     X{i}      = X{i}(rowfilter{subjix(i)},colfilter{subjix(i)});
   end
-  X = uncell(X);
 end
 
 function Y = selectTargets(metadata, target, rowfilter)
@@ -392,7 +391,6 @@ function Y = selectTargets(metadata, target, rowfilter)
   for i = 1:N
     Y{i} = Y{i}(rowfilter{i});
   end
-  Y = uncell(Y);
 end
 
 function cvind = loadCV(cvpath, cv_var, cvscheme, rowfilter)
@@ -440,7 +438,7 @@ function filepath = updateFilePath(file, path, suffix)
     filepath = filepath{1};
   end
 end
- 
+
 function X = shuffleData(X,rowfilter) %#ok<DEFNU>
   X = ascell(X);
   N = length(X);
