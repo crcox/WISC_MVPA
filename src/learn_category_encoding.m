@@ -246,6 +246,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
       end
     end
   end
+  fprintf('logged %d results in memory.\n', iii);
 end
 
 function X = doNormalization(X, train_set) %#ok<DEFNU>
