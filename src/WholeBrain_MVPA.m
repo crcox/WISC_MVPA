@@ -5,6 +5,7 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'debug'            , false     , @islogicallike );
   addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
   addParameter(p , 'Gtype'            , []        , @ischar        );
+  addParameter(p , 'debias'           , true      , @islogicallike );
   addParameter(p , 'normalize'        , false                      );
   addParameter(p , 'bias'             , false     , @islogicallike );
   addParameter(p , 'filters'          , []        , @ischarlike    );
@@ -57,6 +58,7 @@ function WholeBrain_MVPA(varargin)
   DEBUG            = p.Results.debug;
   SmallFootprint   = p.Results.SmallFootprint;
   Gtype            = p.Results.Gtype;
+  debias           = p.Results.debias;
   normalize        = p.Results.normalize;
   BIAS             = p.Results.bias;
   filter_labels    = p.Results.filters;
@@ -293,6 +295,7 @@ function WholeBrain_MVPA(varargin)
                       'cvholdout'      , cvholdout      , ...
                       'normalize'      , normalize      , ...
                       'DEBUG'          , DEBUG          , ...
+                      'debias'         , debias         , ...
                       'SmallFootprint' , SmallFootprint , ...
                       'AdlasOpts'      , opts); %#ok<ASGLU>
     %% Revise cv indexes

@@ -10,6 +10,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   addParameter(p , 'cvholdout'      , []       );
   addParameter(p , 'normalize'      , []       );
   addParameter(p , 'DEBUG'          , false    );
+  addParameter(p , 'debias'         , true     );
   addParameter(p , 'AdlasOpts'      , struct() );
   addParameter(p , 'SmallFootprint' , false    );
   parse(p, Y, X, Gtype, varargin{:});
@@ -24,6 +25,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   holdout   = p.Results.cvholdout;
   normalize = p.Results.normalize;
   DEBUG     = p.Results.DEBUG;
+  DEBIAS    = p.Results.debias;
   options   = p.Results.AdlasOpts;
   SMALL     = p.Results.SmallFootprint;
 
@@ -164,11 +166,11 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
             opts_debias = glmnetSet(struct('alpha',0));
             for ii = 1:size(Wz)
               z = Wz{ii} ~= 0;
-              debiasObj = cvglmnet(X{ii}(train_set,:),Y{ii}(train_set), ...
+              debiasObj = cvglmnet(X{ii}(train_set,z),Y{ii}(train_set), ...
                          'binomial',opts_debias,'class',max(cvind),cvind);
               opts_debias.lambda = debiasObj.lambda_min;
-              debiasObj = glmnet(X{ii}(train_set,:),Y{ii}(train_set),'binomial',opts_debias);
-              Wz{ii} = debiasObj.beta;
+              debiasObj = glmnet(X{ii}(train_set,z),Y{ii}(train_set),'binomial',opts_debias);
+              Wz{ii}(z) = debiasObj.beta;
             end
           end
         end
