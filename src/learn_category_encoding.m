@@ -98,7 +98,6 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
       train_set{ii} = ~test_set{ii};
     end
 
-
     for ii = 1:numel(X);
       switch normalize
         case 'zscore_train'
@@ -166,11 +165,17 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
             opts_debias = glmnetSet(struct('alpha',0));
             for ii = 1:size(Wz)
               z = Wz{ii} ~= 0;
-              debiasObj = cvglmnet(X{ii}(train_set,z),Y{ii}(train_set), ...
-                         'binomial',opts_debias,'class',max(cvind),cvind);
-              opts_debias.lambda = debiasObj.lambda_min;
-              debiasObj = glmnet(X{ii}(train_set,z),Y{ii}(train_set),'binomial',opts_debias);
-              Wz{ii}(z) = debiasObj.beta;
+              if nnz(z) > 0
+                cv = cvind{ii};
+                cv = cv(cv~=i);
+                cv(cv>i) = cv(cv>i) - 1;
+
+                debiasObj = cvglmnet(X{ii}(train_set{ii},z),Y{ii}(train_set{ii}), ...
+                           'binomial',opts_debias,'class',max(cv),cv);
+                opts_debias.lambda = debiasObj.lambda_min;
+                debiasObj = glmnet(X{ii}(train_set{ii},z),Y{ii}(train_set{ii}),'binomial',opts_debias);
+                Wz{ii}(z) = debiasObj.beta;
+              end
             end
           end
         end
