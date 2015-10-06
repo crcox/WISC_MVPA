@@ -7,7 +7,7 @@ SRCTAR=source_code.tar.gz
 SRC=src
 DEP=dependencies
 JSON=$(DEP)/jsonlab
-GLMNET=$(DEP)/glmnet_matlab
+GLMNET=$(DEP)/glmnet
 UTILS=$(DEP)/DefineCommonGrid
 SEARCHMIGHT=$(DEP)/Searchmight
 LIBSVM=$(SEARCHMIGHT)/CoreToolbox/ExternalPackages.Linux_x86_64/libsvm
@@ -74,11 +74,11 @@ $(SEARCHMIGHT)/searchmightGNB.mexa64: $(LIBSVM)/read_sparse.mexa64 $(LIBSVM)/rea
 	mv $(SEARCHMIGHT)/repmat.mex* $(SEARCHMIGHT)/private/
 
 glmnet: $(GLMNET)/glmnetMex.mexa64
-$(GLMNET)/glmnetMex.mexa64: $(GLMNET)/glmnetMex.c $(GLMNET)/GLMnet.f $(GLMNET)/glmnetMex.F $(GLMNET)/glmnet.m
-	$(MEX) $<
+$(GLMNET)/glmnetMex.mexa64: $(GLMNET)/glmnetMex.F $(GLMNET)/GLMnet.f
+	$(MEX) -fortran -outdir $(GLMNET) $^
 
 WholeBrain_MVPA: $(SRC)/WholeBrain_MVPA.m $(SEARCHMIGHT)/searchmightGNB.mexa64
-	$(MCC) $(MFLAGS) $(INCL) -o $@ $<
+	$(MCC) -v $(MFLAGS) $(INCL) -o $@ $<
 
 clean-postbuild:
 	rm *.dmr
