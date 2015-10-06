@@ -311,7 +311,7 @@ function WholeBrain_MVPA(varargin)
     end
 
   end
-  fprintf('Saving:\n');
+  fprintf('Saving %d results\n', numel(results));
   fprintf('\t%s\n',matfilename);
   fprintf('\t%s\n',infofilename);
 
