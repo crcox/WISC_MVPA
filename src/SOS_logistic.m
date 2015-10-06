@@ -165,7 +165,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
 
   W = Wzp;
   obj(iter+1:end) = [];
-      
+
   W = combineOverlappingWeights(W,G,'verbose',verbose);
   % private functions
 
@@ -186,7 +186,6 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
     Wshr = X_soft(1:end-1,:).*Xtemp;
 
   end
-
 
   function [grad_W, funcVal] = gradVal_eval(W)
     grad_W = zeros(dimension, num_tasks);
@@ -241,8 +240,6 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
     end
   end
 end
-
-
 
 function [ grad_w, funcVal ] = unit_grad_eval( w, x, y)
   %gradient and logistic evaluation for each task

@@ -74,7 +74,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   clear zz;
 
   cc = cell(ncv,nalpha,nlam);
-  BzAll   = cell(size(X)); [BzAll{:}] = deal(cc);
+  WzAll   = cell(size(X)); [WzAll{:}] = deal(cc);
   YzAll   = cell(size(X)); [YzAll{:}] = deal(cc);
   clear cc;
 
@@ -130,16 +130,16 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
         end
 
         if DEBUG
-          Bz = cell(size(X));
+          Wz = cell(size(X));
           for ii = 1:numel(X);
-            Bz{ii} = randn(size(X{ii},2),1);
+            Wz{ii} = randn(size(X{ii},2),1);
           end
           info.message = 'DEBUG';
           info.iter    = 0;
         else
           switch Gtype
           case 'lasso'
-            [Bz, info] = SOS_logistic( ...
+            [Wz, info] = SOS_logistic( ...
               subsetAll(X, train_set), ...
               subsetAll(Y, train_set), ...
                      0, lambda(k),noG, ...
@@ -149,7 +149,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
               'W0'      ,   []);
 
           case 'soslasso'
-            [Bz, info] = SOS_logistic( ...
+            [Wz, info] = SOS_logistic( ...
               subsetAll(X, train_set), ...
               subsetAll(Y, train_set), ...
               alpha,       lambda,  G, ...
@@ -158,10 +158,23 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
               'tol'     , 1e-8, ...
               'W0'      ,   []);
           end
+          if DEBIAS
+            % Depends on glmnet
+            Wz = ascell(Wz);
+            opts_debias = glmnetSet(struct('alpha',0));
+            for ii = 1:size(Wz)
+              z = Wz{ii} ~= 0;
+              debiasObj = cvglmnet(X{ii}(train_set,:),Y{ii}(train_set), ...
+                         'binomial',opts_debias,'class',max(cvind),cvind);
+              opts_debias.lambda = debiasObj.lambda_min;
+              debiasObj = glmnet(X{ii}(train_set,:),Y{ii}(train_set),'binomial',opts_debias);
+              Wz{ii} = debiasObj.beta;
+            end
+          end
         end
         for ii = 1:numel(X);
-          BzAll{ii}{i,j,k} = Bz{ii};
-          YzAll{ii}{i,j,k} = X{ii}*Bz{ii};
+          WzAll{ii}{i,j,k} = Wz{ii};
+          YzAll{ii}{i,j,k} = X{ii}*Wz{ii};
           Yz = YzAll{ii}{i,j,k};
           h1{ii}(i,j,k)   = nnz( Y{ii}(test_set{ii})  & (Yz(test_set{ii})>0)  );
           h2{ii}(i,j,k)   = nnz( Y{ii}(train_set{ii}) & (Yz(train_set{ii})>0) );
@@ -174,7 +187,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           nd1{ii}(i,j,k)  = nnz(Y{ii}(train_set{ii})<=0);
           nd2{ii}(i,j,k)  = nnz(Y{ii}(train_set{ii})<=0);
         end
-        k1 = sum(cellfun(@nnz,Bz))/t;
+        k1 = sum(cellfun(@nnz,Wz))/t;
 
         if isempty(ALPHA)
           alpha_j = nan;
@@ -190,7 +203,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
 
         for ii = 1:numel(X)
           fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10d |%10d |%10d |\n', ...
-            i,ii,alpha_j,lambda_k,err1{ii}(i,j,k),err2{ii}(i,j,k),h1{ii}(i,j,k)-f1{ii}(i,j,k),h2{ii}(i,j,k)-f2{ii}(i,j,k),nnz(BzAll{ii}{i,j,k}));
+            i,ii,alpha_j,lambda_k,err1{ii}(i,j,k),err2{ii}(i,j,k),h1{ii}(i,j,k)-f1{ii}(i,j,k),h2{ii}(i,j,k)-f2{ii}(i,j,k),nnz(WzAll{ii}{i,j,k}));
         end
 
 %        fprintf('Exit status -- %s (%d iterations)\n', info.message, info.iter);
@@ -220,7 +233,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           iii = iii + 1;
 
           if ~SMALL
-            results(iii).Bz = BzAll{ii}(cvset,:,:);
+            results(iii).Wz = WzAll{ii}(cvset,:,:);
             results(iii).Yz = YzAll{ii}(cvset,:,:);
           end
 
@@ -247,13 +260,4 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
     end
   end
   fprintf('logged %d results in memory.\n', iii);
-end
-
-function X = doNormalization(X, train_set) %#ok<DEFNU>
-  mm = ones(n,1)*mean(X(train_set,:),1);
-  ss = ones(n,1)*std(X(train_set,:),1);
-  if all(X(:,end)==1)
-    ss(:,d) = ones(n,1);
-  end
-  X = (X-mm)./ss;
 end

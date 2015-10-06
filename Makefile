@@ -7,11 +7,12 @@ SRCTAR=source_code.tar.gz
 SRC=src
 DEP=dependencies
 JSON=$(DEP)/jsonlab
+GLMNET=$(DEP)/glmnet_matlab
 UTILS=$(DEP)/DefineCommonGrid
 SEARCHMIGHT=$(DEP)/Searchmight
 LIBSVM=$(SEARCHMIGHT)/CoreToolbox/ExternalPackages.Linux_x86_64/libsvm
 CVX=$(SEARCHMIGHT)/CoreToolbox/ExternalPackages.Linux_x86_64/cvx
-INCL= -I $(SRC) -I $(JSON) -I $(UTILS) \
+INCL= -I $(SRC) -I $(JSON) -I $(UTILS) -I $(GLMNET) \
       -I $(SEARCHMIGHT) \
       -I $(SEARCHMIGHT)/CoreToolbox \
       -I $(LIBSVM) \
@@ -50,9 +51,9 @@ INCL= -I $(SRC) -I $(JSON) -I $(UTILS) \
       -I $(CVX)/sets \
       -I $(CVX)/structures \
       -I $(CVX)/structures/@cvx
-.PHONEY: all clean-all clean-libsvm clean-Searchmight clean-postbuild cvx libsvm Searchmight sdist
+.PHONEY: all clean-all clean-libsvm clean-Searchmight clean-postbuild cvx glmnet libsvm Searchmight sdist
 
-all: setup libsvm Searchmight WholeBrain_MVPA clean-postbuild
+all: setup libsvm Searchmight glmnet WholeBrain_MVPA clean-postbuild
 
 setup: $(SRC) $(DEP) $(UTILS)
 $(SRC) $(DEP):
@@ -71,6 +72,10 @@ Searchmight: $(SEARCHMIGHT)/searchmightGNB.mexa64
 $(SEARCHMIGHT)/searchmightGNB.mexa64: $(LIBSVM)/read_sparse.mexa64 $(LIBSVM)/read_sparse.mexa64 $(LIBSVM)/read_sparse.mexa64
 	$(MAKE) -C $(SEARCHMIGHT)
 	mv $(SEARCHMIGHT)/repmat.mex* $(SEARCHMIGHT)/private/
+
+glmnet: $(GLMNET)/glmnetMex.mexa64
+$(GLMNET)/glmnetMex.mexa64: $(GLMNET)/glmnetMex.c $(GLMNET)/GLMnet.f $(GLMNET)/glmnetMex.F $(GLMNET)/glmnet.m
+	$(MEX) $<
 
 WholeBrain_MVPA: $(SRC)/WholeBrain_MVPA.m $(SEARCHMIGHT)/searchmightGNB.mexa64
 	$(MCC) $(MFLAGS) $(INCL) -o $@ $<
