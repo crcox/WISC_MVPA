@@ -315,12 +315,13 @@ function WholeBrain_MVPA(varargin)
     [results.shape] = shape;
 
   end
+  whos results
   fprintf('Saving %d results\n', numel(results));
   fprintf('\t%s\n',matfilename);
   fprintf('\t%s\n',infofilename);
 
   %% Save results
-  save(matfilename,'results');
+  save(matfilename,'results','-v7.3');
   fprintf('Done!\n');
 end
 
