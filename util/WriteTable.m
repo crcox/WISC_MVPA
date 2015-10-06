@@ -66,7 +66,9 @@ function WriteTable(filename,results,params,varargin)
   N = length(results);
   for i = 1:N
     R = results(i);
-    P = params(R.job);
+    if ~isempty(fieldnames(params))
+        P = params(R.job);
+    end
     out = cell(1,length(fields));
     for j = 1:length(fields);
       key = fields{j};

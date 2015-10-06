@@ -310,9 +310,9 @@ function WholeBrain_MVPA(varargin)
       [results.cvholdout] = deal(cvholdout{:});
     end
     %% Add extra parameter info
-    [results.diameter] = diameter;
-    [results.overlap] = overlap;
-    [results.shape] = shape;
+    [results.diameter] = deal(diameter);
+    [results.overlap] = deal(overlap);
+    [results.shape] = deal(shape);
 
   end
   whos results
