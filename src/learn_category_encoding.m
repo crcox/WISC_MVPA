@@ -183,12 +183,12 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           WzAll{ii}{i,j,k} = Wz{ii};
           YzAll{ii}{i,j,k} = X{ii}*Wz{ii};
           Yz = YzAll{ii}{i,j,k};
-          h1{ii}(i,j,k)   = nnz( Y{ii}(test_set{ii})  & (Yz(test_set{ii})>0)  );
-          h2{ii}(i,j,k)   = nnz( Y{ii}(train_set{ii}) & (Yz(train_set{ii})>0) );
-          f1{ii}(i,j,k)   = nnz(~Y{ii}(test_set{ii})  & (Yz(test_set{ii})>0)  );
-          f2{ii}(i,j,k)   = nnz(~Y{ii}(train_set{ii}) & (Yz(train_set{ii})>0) );
-          err1{ii}(i,j,k) = nnz( Y{ii}(test_set{ii})  ~= (Yz(test_set{ii})>0 ));
-          err2{ii}(i,j,k) = nnz( Y{ii}(train_set{ii}) ~= (Yz(train_set{ii})>0));
+          h1{ii}(i,j,k)   = nnz( Y{ii}(test_set{ii})>0  & (Yz(test_set{ii})>0)  );
+          h2{ii}(i,j,k)   = nnz( Y{ii}(train_set{ii})>0 & (Yz(train_set{ii})>0) );
+          f1{ii}(i,j,k)   = nnz(~Y{ii}(test_set{ii})>0  & (Yz(test_set{ii})>0)  );
+          f2{ii}(i,j,k)   = nnz(~Y{ii}(train_set{ii})>0 & (Yz(train_set{ii})>0) );
+          err1{ii}(i,j,k) = nnz( Y{ii}(test_set{ii})>0  ~= (Yz(test_set{ii})>0 ));
+          err2{ii}(i,j,k) = nnz( Y{ii}(train_set{ii})>0 ~= (Yz(train_set{ii})>0));
           nt1{ii}(i,j,k)  = nnz(Y{ii}(test_set{ii})>0);
           nt2{ii}(i,j,k)  = nnz(Y{ii}(train_set{ii})>0);
           nd1{ii}(i,j,k)  = nnz(Y{ii}(test_set{ii})<=0);
