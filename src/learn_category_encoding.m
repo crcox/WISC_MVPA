@@ -240,28 +240,36 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           iii = iii + 1;
 
           if ~SMALL
-            results(iii).Wz = WzAll{ii}(cvset,:,:);
-            results(iii).Yz = YzAll{ii}(cvset,:,:);
+            wz = WzAll{ii}{i,j,k};
+            ix = find(wz);
+            nv = numel(wz);
+            wnz = nnz(wz);
+            wz = wz(ix);
+            results(iii).Wz = wz;
+            results(iii).Wix = uint32(ix);
+            results(iii).Wnz = uint32(wnz);
+            results(iii).nvox = uint32(nv);
+            results(iii).Yz = YzAll{ii}{i,j,k};
           end
 
-          results(iii).subject = ii;
-          results(iii).cvholdout = i;
-          results(iii).finalholdout = 0;
+          results(iii).subject = uint8(ii);
+          results(iii).cvholdout = uint8(i);
+          results(iii).finalholdout = uint8(0);
           results(iii).alpha = alpha;
           results(iii).lambda = lambda;
           results(iii).diameter = 0;
           results(iii).overlap = 0;
           results(iii).shape = '';
-          results(iii).nt1  = nt1{ii}(i,j,k);
-          results(iii).nt2  = nt1{ii}(i,j,k);
-          results(iii).nd1  = nd1{ii}(i,j,k);
-          results(iii).nd2  = nd1{ii}(i,j,k);
-          results(iii).h1   = h1{ii}(i,j,k);
-          results(iii).h2   = h2{ii}(i,j,k);
-          results(iii).f1   = f1{ii}(i,j,k);
-          results(iii).f2   = f2{ii}(i,j,k);
-          results(iii).err1 = err1{ii}(i,j,k);
-          results(iii).err2 = err2{ii}(i,j,k);
+          results(iii).nt1  = uint16(nt1{ii}(i,j,k));
+          results(iii).nt2  = uint16(nt2{ii}(i,j,k));
+          results(iii).nd1  = uint16(nd1{ii}(i,j,k));
+          results(iii).nd2  = uint16(nd2{ii}(i,j,k));
+          results(iii).h1   = uint16(h1{ii}(i,j,k));
+          results(iii).h2   = uint16(h2{ii}(i,j,k));
+          results(iii).f1   = uint16(f1{ii}(i,j,k));
+          results(iii).f2   = uint16(f2{ii}(i,j,k));
+          results(iii).err1 = uint16(err1{ii}(i,j,k));
+          results(iii).err2 = uint16(err2{ii}(i,j,k));
         end
       end
     end

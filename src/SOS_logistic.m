@@ -2,7 +2,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
 
 % function solves
 % min \sum_t log(1 + exp(-Yt.*XtW(:,t))) + lambda Omega(W)
-% 
+%
 %
 % INPUT
 % X         : {n x d} length t cell array
@@ -14,8 +14,8 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
 %             SOS Lasso penalty = lambda * alpha
 %             L1 penalty = lambda * (1 - alpha)
 % G         : Cell array of group assignments for each subject. Each row
-%             corresponds to a a group, and each column corresponds to a 
-%             subject. Values in each cell are indexes that refer to 
+%             corresponds to a a group, and each column corresponds to a
+%             subject. Values in each cell are indexes that refer to
 %             columns in X.
 % -- optional --
 % l2        : an additional l2 regularizer for smoothing the solution.
@@ -56,7 +56,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
   tol       = p.Results.tol;
   W0        = p.Results.W0;
   verbose   = p.Results.verbose;
-  
+
   % Setup group indexes
   [Gc, ix]  = commonGrouping(G);
   group_arr = group2mat(Gc);
@@ -70,7 +70,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
       W0{j} = W0{j}(ix(:,j));
     end
   end
-  
+
   % Set lamL1 and lamSOS
   [lamSOS, lamL1] = ratio2independent(alpha, lambda);
   % Equivalent to:

@@ -309,6 +309,10 @@ function WholeBrain_MVPA(varargin)
       cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
       [results.cvholdout] = deal(cvholdout{:});
     end
+    %% Add extra parameter info
+    [results.diameter] = diameter;
+    [results.overlap] = overlap;
+    [results.shape] = shape;
 
   end
   fprintf('Saving %d results\n', numel(results));

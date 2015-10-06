@@ -71,7 +71,9 @@ function [results, params] = LoadResults(varargin)
 
     for ii = 1:numel(R)
       iii = iii + 1;
-      results(iii) = R(ii);
+      tmp = R(ii);
+      tmp.nz_rows = nnz(tmp.Wz);
+      results(iii) = tmp;
     end
   end
   fprintf('\n')
