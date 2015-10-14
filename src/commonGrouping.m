@@ -4,9 +4,9 @@ function [Gc,ix] = commonGrouping(G)
     N = cellmax(G);
     for i = 1:size(G,1)
       for j = 1:size(G,2)
-        x = uint32(G{i,j});
+        x = uint32(G{i,j}(:));
         g = uint32([x; ones(n(i)-length(x),1,'uint32')*(N(j)+1)]);
-        G{i,j} = g;
+        G{i,j} = g(:);
       end
     end
     ix = cell2mat(G);
