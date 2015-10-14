@@ -75,6 +75,7 @@ function WriteTable(filename,results,params,varargin)
       if isfield(R,key)
         out{j} = R.(key);
       else
+        disp(key)
         out{j} = full(P.(key));
       end
     end

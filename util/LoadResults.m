@@ -43,6 +43,27 @@ function [results, params] = LoadResults(varargin)
   metadata = StagingContainer.(meta_varname);
   N = numel(metadata);
 
+  %% Preallocate result structure. Assumption is that all result files are
+  %identical size with same fields.
+  i = 0;
+  FileExists = false;
+  while ~FileExists
+    i = i + 1;
+    jobdir     = fullfile(resultdir, jobdirs(i).name);
+    resultpath = fullfile(jobdir, resultfile);
+    FileExists = exist(resultpath, 'file') == 2;
+  end
+  tmp = load(resultpath);
+  R = tmp.results;
+  N = numel(jobdirs) * numel(R);
+  results = R(1);
+  if isfield(results,'Wz')
+    results.nz_rows = 0;
+  end
+  results.job = 0;
+  results(N).job = 0;
+  disp(results)
+
   %% Loop over job dirs
   n = length(jobdirs);
   nchar = 0;
@@ -54,11 +75,13 @@ function [results, params] = LoadResults(varargin)
 
     %% load parameter file
     jobdir      = fullfile(resultdir, jobdirs(i).name);
-    parampath   = fullfile(jobdir,paramfile);
-    tmp         = loadjson(parampath);
-    tmp.jobdir  = jobdir;
-    params(i)   = tmp;
-    clear tmp;
+    if nargout > 1
+      parampath   = fullfile(jobdir,paramfile);
+      tmp         = loadjson(parampath);
+      tmp.jobdir  = jobdir;
+      params(i)   = tmp;
+      clear tmp;
+    end
 
     %% load results file
     resultpath = fullfile(jobdir, resultfile);
@@ -72,9 +95,15 @@ function [results, params] = LoadResults(varargin)
     for ii = 1:numel(R)
       iii = iii + 1;
       tmp = R(ii);
-      tmp.nz_rows = nnz(tmp.Wz);
+      if isfield(tmp,'Wz')
+        tmp.nz_rows = nnz(tmp.Wz);
+      end
       results(iii) = tmp;
     end
+  end
+  % clear out any empty entries.
+  if iii < N;
+    results((iii+1):N) = [];
   end
   fprintf('\n')
 end
