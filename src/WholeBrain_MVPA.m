@@ -321,7 +321,12 @@ function WholeBrain_MVPA(varargin)
   fprintf('\t%s\n',infofilename);
 
   %% Save results
-  save(matfilename,'results','-v7.3');
+  rinfo = whos('results');
+  if rinfo.bytes > 2e+9
+    save(matfilename,'results','-v7.3');
+  else
+    save(matfilename,'results');
+  end
   fprintf('Done!\n');
 end
 

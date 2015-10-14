@@ -239,18 +239,18 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
 
           iii = iii + 1;
 
+          wz = WzAll{ii}{i,j,k};
+          ix = find(wz);
+          nv = numel(wz);
+          wnz = nnz(wz);
+          wz = wz(ix);
           if ~SMALL
-            wz = WzAll{ii}{i,j,k};
-            ix = find(wz);
-            nv = numel(wz);
-            wnz = nnz(wz);
-            wz = wz(ix);
             results(iii).Wz = wz;
             results(iii).Wix = uint32(ix);
-            results(iii).Wnz = uint32(wnz);
-            results(iii).nvox = uint32(nv);
             results(iii).Yz = YzAll{ii}{i,j,k};
           end
+          results(iii).Wnz = uint32(wnz);
+          results(iii).nvox = uint32(nv);
 
           results(iii).subject = uint8(ii);
           results(iii).cvholdout = uint8(i);
