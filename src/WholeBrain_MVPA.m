@@ -15,8 +15,6 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'data_var'         , 'X'       , @ischar        );
   addParameter(p , 'metadata'         , []        , @ischar        );
   addParameter(p , 'metadata_var'     , 'metadata', @ischar        );
-  addParameter(p , 'cvfile'           , []        , @ischar        );
-  addParameter(p , 'cv_var'           , 'CV'      , @ischar        );
   addParameter(p , 'cvscheme'         , []        , @isintegerlike );
   addParameter(p , 'cvholdout'        , []        , @isnumeric     );
   addParameter(p , 'orientation'      , []        , @ischar        );
@@ -52,7 +50,7 @@ function WholeBrain_MVPA(varargin)
   end
 
   % private function.
-  required = {'Gtype','data','metadata','cvfile','cvscheme','cvholdout','finalholdout'};
+  required = {'Gtype','data','metadata','cvscheme','cvholdout','finalholdout'};
   assertRequiredParameters(p.Results,required);
 
   DEBUG            = p.Results.debug;
@@ -66,8 +64,6 @@ function WholeBrain_MVPA(varargin)
   target           = p.Results.target;
   datafile         = p.Results.data;
   data_var         = p.Results.data_var;
-  cvfile           = p.Results.cvfile;
-  cv_var           = p.Results.cv_var;
   cvscheme         = p.Results.cvscheme;
   cvholdout        = p.Results.cvholdout;
   orientation      = p.Results.orientation;
@@ -114,7 +110,6 @@ function WholeBrain_MVPA(varargin)
     datadir = root;
     datafile = updateFilePath(datafile, datadir);
     metafile = updateFilePath(metafile, datadir);
-    cvpath   = updateFilePath(cvfile,datadir);
     matfilename = 'results.mat';
     infofilename = 'info.mat';
   case 'chris'
@@ -161,10 +156,11 @@ function WholeBrain_MVPA(varargin)
 
   %% Load CV indexes, and identify the final holdout set.
   % N.B. the final holdout set is excluded from the rowfilter.
-  cvind = loadCV(cvfile, cv_var, cvscheme, rowfilter);
+  cvind = cell(1,N);
   for i = 1:N
     % Add the final holdout set to the rowfilter, so we don't even load
     % those data.
+    cvind{i} = metadata(i).cvind(rowfilter{i},cvscheme);
     finalholdout = cvind{i} == finalholdoutInd;
     rowfilter{i}(rowfilter{i}) = forceRowVec(rowfilter{i}(rowfilter{i})) & forceRowVec(~finalholdout);
     % Remove the final holdout set from the cvind, to match.
