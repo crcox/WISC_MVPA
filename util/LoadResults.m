@@ -57,9 +57,6 @@ function [results, params] = LoadResults(varargin)
   R = tmp.results;
   N = numel(jobdirs) * numel(R);
   results = R(1);
-  if isfield(results,'Wz')
-    results.nz_rows = 0;
-  end
   results.job = 0;
   results(N).job = 0;
   disp(results)
@@ -95,9 +92,6 @@ function [results, params] = LoadResults(varargin)
     for ii = 1:numel(R)
       iii = iii + 1;
       tmp = R(ii);
-      if isfield(tmp,'Wz')
-        tmp.nz_rows = nnz(tmp.Wz);
-      end
       results(iii) = tmp;
     end
   end
