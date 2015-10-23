@@ -274,7 +274,7 @@ function WholeBrain_MVPA(varargin)
                                 meta.voxelsToNeighbours,meta.numberOfNeighbours,TestToUseCfg{:});
 
     results.accuracy_map = am;
-    results.pvalue_map = am;
+    results.pvalue_map = pm;
 
   case 'soslasso'
     xyz = cell(numel(metadata),1);
