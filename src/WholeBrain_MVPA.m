@@ -298,7 +298,7 @@ function WholeBrain_MVPA(varargin)
     % Add the final holdout index to all results.
     [results.finalholdout] = deal(finalholdoutInd);
     % Adjust the cvholdout indexes to accomodate the final holdout index.
-    if isfield(results,'cvholdout')
+    if isfield(results,'cvholdout') && finalholdoutInd > 0
       cvholdout = [results.cvholdout];
       z = cvholdout >= finalholdoutInd;
       cvholdout(z) = cvholdout(z) + 1;

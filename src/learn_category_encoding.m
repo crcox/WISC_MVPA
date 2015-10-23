@@ -51,12 +51,12 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
     nalpha = length(ALPHA);
   end
 
-  ncv = max(cvind{1});
   if isempty(holdout)
-    cvset = 1:ncv;
+    cvset = 1:max(cvind{1});
   else
     cvset = holdout;
   end
+  ncv = numel(cvset);
 
   % Set number of tasks (i.e., subjects)
   if iscell(X)
@@ -170,7 +170,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           if DEBIAS
             % Depends on glmnet
             Wz = ascell(Wz);
-            opts_debias = glmnetSet(struct('alpha',0));
+            opts_debias = glmnetSet(struct('alpha',0,'intr',0));
             for ii = 1:size(Wz)
               z = Wz{ii} ~= 0;
               if nnz(z) > 0
@@ -188,8 +188,6 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           end
         end
 
-        k1 = sum(cellfun(@nnz,Wz))/t;
-
         if isempty(ALPHA)
           alpha_j = nan;
         else
@@ -205,14 +203,14 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
         for ii = 1:numel(X);
           iii = iii + 1;
 
-          wz = Wz{ii}
+          wz = Wz{ii};
           ix = find(wz);
           nv = numel(wz);
           wnz = nnz(wz);
           wz = wz(ix);
 
           y = Y{ii};
-          yz = Yz{ii};
+          yz = X{ii} * Wz{ii};
           h1   = nnz( y(test_set{ii})>0  & (yz(test_set{ii})>0)  );
           h2   = nnz( y(train_set{ii})>0 & (yz(train_set{ii})>0) );
           f1   = nnz(~y(test_set{ii})>0  & (yz(test_set{ii})>0)  );
@@ -227,7 +225,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           if ~SMALL
             results(iii).Wz = wz;
             results(iii).Wix = uint32(ix);
-            results(iii).Yz = Yz{ii};
+            results(iii).Yz = yz;
           end
 
           results(iii).Wnz = uint32(wnz);
