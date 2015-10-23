@@ -1,9 +1,3 @@
-% Cross Validation indexes
-% ========================
-% Balance over:
-% 1. Target types
-% 2. MRI Run
-
 function cvb = defineCVBlocks(stimcode, varargin)
 %DEFINECVBLOCKS  Define k-fold or LOO cross validation assignments
 %
@@ -80,16 +74,23 @@ for i = 1:nconstraints
 end
 
 % Parse stimcode and generate stimid (internal, integer representation).
-stimset = unique(stimcode, 'sorted');
-stimid = zeros(numel(stimcode),1);
-for i = 1:numel(stimset)
-  if iscellstr(stimset)
-    z = strcmp(stimset{i}, stimcode);
-  else %isnumeric
-    z = stimset(i) == stimcode;
+stimidm = zeros(numel(stimcode{1}),1);
+stimset = cell(1,numel(stimcode));
+
+for i = 1:numel(stimcode)
+  stimset{i} = unique(stimcode{i}, 'sorted');
+  s = stimset{i};
+  for j = 1:numel(s);
+    if iscellstr(s)
+      z = strcmp(s{j}, stimcode{i});
+    else %isnumeric
+      z = s(j) == stimcode{i};
+    end
+    stimidm(z,i) = j;
   end
-  stimid(z) = i;
 end
+stimidc = mat2cell(stimidm,size(stimidm,1),ones(1,size(stimidm,2)));
+stimid = sub2ind(max(stimidm),stimidc{:});
 
 % Check that one and only one method is specified.
 if p.Results.LOO && (p.Results.folds > 1)
