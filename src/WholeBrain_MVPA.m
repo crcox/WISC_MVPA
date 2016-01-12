@@ -34,6 +34,8 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'URLS'             , []                         );
   addParameter(p , 'executable'       , []                         );
   addParameter(p , 'wrapper'          , []                         );
+  addParameter(p , 'RandomSeed'       , 0                          );
+  addParameter(p , 'PermutationTest'  , false     , @islogicallike );
 
   if nargin > 0
     parse(p, varargin{:});
@@ -81,6 +83,10 @@ function WholeBrain_MVPA(varargin)
   opts             = p.Results.AdlasOpts;
   environment      = p.Results.environment;
   SanityCheckData  = p.Results.SanityCheckData; %#ok<NASGU>
+  RandomSeed       = p.Results.RandomSeed;
+  PermutationTest  = p.Results.PermutationTest;
+
+  rng(RandomSeed);
 
   p.Results
 
@@ -240,6 +246,7 @@ function WholeBrain_MVPA(varargin)
                       'normalize'      , normalize      , ...
                       'DEBUG'          , DEBUG          , ...
                       'SmallFootprint' , SmallFootprint , ...
+                      'PermutationTest', PermutationTest, ...
                       'AdlasOpts'      , opts); %#ok<ASGLU>
 
   case 'searchlight'
@@ -293,6 +300,7 @@ function WholeBrain_MVPA(varargin)
                       'DEBUG'          , DEBUG          , ...
                       'debias'         , debias         , ...
                       'SmallFootprint' , SmallFootprint , ...
+                      'PermutationTest', PermutationTest, ...
                       'AdlasOpts'      , opts); %#ok<ASGLU>
     %% Revise cv indexes
     % Add the final holdout index to all results.

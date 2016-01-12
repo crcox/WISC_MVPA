@@ -93,6 +93,26 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   % Preallocate
   results(t*ncv*nlam*nalpha).Wz = [];
 
+  % Permute if requested
+  fprintf('PermutationTest: %d\n', PermutationTest);
+  if PermutationTest
+    n = size(Y,1);
+    fprintf('Permuting %d rows of Y.\n', n);
+    fprintf('First 10 rows of Y, before shuffling.\n')
+    disp(Y(1:10,:))
+    permix = randperm(n);
+    if iscell(Y)
+      for i = 1:numel(Y)
+        y = Y{i};
+        Y{i} = y(permix);
+      end
+    else
+      Y = Y(permix);
+    end
+    fprintf('First 10 rows of Y, after shuffling.\n')
+    disp(Y(1:10,:))
+  end
+
   fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n', '','subj','alpha','lambda','test err','train err','test diff','train diff','n vox')
   iii = 0;
   for i = 1:ncv
