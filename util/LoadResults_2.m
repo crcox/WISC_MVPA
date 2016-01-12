@@ -66,19 +66,19 @@ function [results, params] = LoadResults(varargin)
   parampath   = fullfile(jobdir,paramfile);
   P = loadjson(parampath);
   Overwrite = struct('data',0,'cvholdout',0,'lambda',0,'alpha',0);
-  if ~isfield(Queries, 'data')
+  if ~isempty(Queries) && ~isfield(Queries, 'data')
     Queries.data = P.data;
     Overwrite.data = 1;
   end
-  if ~isfield(Queries, 'cvholdout')
+  if ~isempty(Queries) && ~isfield(Queries, 'cvholdout')
     Queries.cvholdout = P.cvholdout;
     Overwrite.cvholdout = 1;
   end
-  if ~isfield(Queries, 'lambda')
+  if ~isempty(Queries) && ~isfield(Queries, 'lambda')
     Queries.lambda = P.lambda;
     Overwrite.lambda = 1;
   end
-  if ~isfield(Queries, 'alpha')
+  if ~isempty(Queries) && ~isfield(Queries, 'alpha')
     Queries.alpha = P.alpha;
     Overwrite.alpha = 1;
   end
@@ -114,65 +114,69 @@ function [results, params] = LoadResults(varargin)
       if Overwrite.alpha
         Queries.alpha = P.alpha;
       end
-      qKeys = fieldnames(Queries);
-      qVals = struct2cell(Queries);
-      pKeys = fieldnames(P);
-      pVals = struct2cell(P);
-      z = ismember(pKeys, qKeys);
-      pKeys = pKeys(z);
-      pVals = pVals(z);
-      pNum  = cellfun(@numel, pVals, 'Unif', 0);
-      pNum  = cellfun(@(x) false(1,x), pNum, 'Unif', 0);
-      Select = cell2struct(pNum, pKeys, 1);
+      if ~isempty(Queries)
+        qKeys = fieldnames(Queries);
+        qVals = struct2cell(Queries);
+        pKeys = fieldnames(P);
+        pVals = struct2cell(P);
+        z = ismember(pKeys, qKeys);
+        pKeys = pKeys(z);
+        pVals = pVals(z);
+        pNum  = cellfun(@numel, pVals, 'Unif', 0);
+        pNum  = cellfun(@(x) false(1,x), pNum, 'Unif', 0);
+        Select = cell2struct(pNum, pKeys, 1);
 
-      for q = 1:numel(qKeys)
-        qk = qKeys{q};
-        qv = qVals{q};
-        if ~iscell(qv)
-          qv = {qv};
-        end
-        try
-          pv = P.(qk);
-        catch ME
-          fprintf('Error: Query key %s is not a field in Params.\n\n', qk)
-          rethrow(ME);
-        end
-        if ~iscell(pv);
-          pv = {pv};
-        end
-        if ischar(pv{1})
-          if ~ischar(qv{1})
-            error('Invalid type! The parameter field %s contains a string or cellstr.', qk);
+        for q = 1:numel(qKeys)
+          qk = qKeys{q};
+          qv = qVals{q};
+          if ~iscell(qv)
+            qv = {qv};
           end
-        elseif isnumeric(pv{1})
-          if ~isnumeric(qv{1})
-            error('Invalid type! The parameter field %s contains a number or numeric vector.', qk);
+          try
+            pv = P.(qk);
+          catch ME
+            fprintf('Error: Query key %s is not a field in Params.\n\n', qk)
+            rethrow(ME);
+          end
+          if ~iscell(pv);
+            pv = {pv};
+          end
+          if ischar(pv{1})
+            if ~ischar(qv{1})
+              error('Invalid type! The parameter field %s contains a string or cellstr.', qk);
+            end
+          elseif isnumeric(pv{1})
+            if ~isnumeric(qv{1})
+              error('Invalid type! The parameter field %s contains a number or numeric vector.', qk);
+            end
+          end
+          % HACK
+          if iscell(qv) && isnumeric(qv{1})
+            qv = qv{1};
+            pv = pv{1};
+          end
+          if any(strcmp(qk, {'data','cvholdout','lambda','alpha'}))
+            Select.(qk) = ismember(pv, qv);
+          else
+            Select.(qk) = any(ismember(pv, qv));
           end
         end
-        % HACK
-        if iscell(qv) && isnumeric(qv{1})
-          qv = qv{1};
-          pv = pv{1};
+        sKeys = fieldnames(Select);
+        sVals = struct2cell(Select);
+        DCLA = cell(1,4);
+        dcla = {'data','cvholdout','lambda','alpha'};
+        for k = 1:4
+          DCLA{k} = Select.(dcla{k});
         end
-        if any(strcmp(qk, {'data','cvholdout','lambda','alpha'}))
-          Select.(qk) = ismember(pv, qv);
-        else
-          Select.(qk) = any(ismember(pv, qv));
-        end
+        z = ~ismember({'data','cvholdout','lambda','alpha'}, sKeys);
+        sVals = [DCLA,sVals(z)];
+        sValExp = cell(1,numel(sVals));
+        [sValExp{:}] = deal(ndgrid(sVals{:}));
+        sValExp = cellfun(@(x) x(:), sValExp, 'Unif', 0);
+        SEL = all(cell2mat(sValExp), 2);
+      else
+        SEL = true(N,1);
       end
-      sKeys = fieldnames(Select);
-      sVals = struct2cell(Select);
-      DCLA = cell(1,4);
-      dcla = {'data','cvholdout','lambda','alpha'};
-      for k = 1:4
-        DCLA{k} = Select.(dcla{k});
-      end
-      z = ~ismember({'data','cvholdout','lambda','alpha'}, sKeys);
-      sVals = [DCLA,sVals(z)];
-      sValExp = cell(1,numel(sVals));
-      [sValExp{:}] = deal(ndgrid(sVals{:}));
-      sValExp = cellfun(@(x) x(:), sValExp, 'Unif', 0);
-      SEL = all(cell2mat(sValExp), 2);
     else
       SEL = true(N,1);
     end

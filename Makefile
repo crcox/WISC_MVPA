@@ -1,6 +1,6 @@
 export MATLABDIR = /usr/local/MATLAB/R2013b
-export MCC=/usr/local/MATLAB/R2013b/bin/mcc
-export MEX=/usr/local/MATLAB/R2013b/bin/mex
+export MCC=$(MATLABDIR)/bin/mcc
+export MEX=$(MATLABDIR)/bin/mex
 export MFLAGS=-m -R -singleCompThread -R -nodisplay -R -nojvm
 TOP := $(shell pwd)
 SRCTAR=source_code.tar.gz
