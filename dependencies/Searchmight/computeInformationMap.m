@@ -68,7 +68,7 @@
 % 2009 Mar 14 - fpereira@princeton.edu - created from previous code
 %
 
-function [accuracyMap,pvalueMap,optionalReturns] = computeInformationMap(varargin)
+function [accuracyMap,pvalueMap,hitMap,falseMap,optionalReturns] = computeInformationMap(varargin)
 
 %% process parameters
 this = 'computeInformationMap';
@@ -91,6 +91,9 @@ addRegressorFeatures = 0;
 seed = 1685;
 classifierParameters = {};
 groupLabelsOriginal = groupLabels;
+% Only implemented for searchmight GNB
+hitMap = [];
+falseMap = [];
 
 if nargin > 4
   % there are additional arguments to process
@@ -297,7 +300,7 @@ if ~computePairmaps
       neighbourMax    = size(voxelsToNeighbours,2);
       neighbourRadius = round((neighbourMax+1)^(1/3)-1)/2;
       
-      [accuracyMap,discard,pvalueMap] = searchmightGNB(examples(newOrder,:)',labels(newOrder)',groupLabels(newOrder)',neighbourRadius,voxelsToNeighbours',numberOfNeighbours',0); clear discard;
+      [accuracyMap,discard,pvalueMap,hitMap,falseMap] = searchmightGNB(examples(newOrder,:)',labels(newOrder)',groupLabels(newOrder)',neighbourRadius,voxelsToNeighbours',numberOfNeighbours',0); clear discard;
       %accuracyMap = accuracyMap'; pvalueMap = pvalueMap';
      otherwise
       % we already have the accuracyMap
@@ -317,7 +320,7 @@ if ~computePairmaps
       neighbourMax    = size(voxelsToNeighbours,2);
       neighbourRadius = round((neighbourMax+1)^(1/3)-1)/2;
       
-      [accuracyMap,discard,pvalueMap] = searchmightGNB(examples(newOrder,:)',labels(newOrder)',groupLabels(newOrder)',neighbourRadius,voxelsToNeighbours',numberOfNeighbours',nPermutations); clear discard;
+      [accuracyMap,discard,pvalueMap,hitMap,hitMap] = searchmightGNB(examples(newOrder,:)',labels(newOrder)',groupLabels(newOrder)',neighbourRadius,voxelsToNeighbours',numberOfNeighbours',nPermutations); clear discard;
       accuracyMap = accuracyMap'; pvalueMap = pvalueMap';
      
      otherwise

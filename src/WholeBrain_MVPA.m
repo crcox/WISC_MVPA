@@ -277,10 +277,12 @@ function WholeBrain_MVPA(varargin)
     else
       TestToUseCfg = {'testToUse',slTestToUse};
     end
-    [am,pm] = computeInformationMap(X,Y,cvind,classifier,'searchlight', ...
+    [am,pm,hm,fm] = computeInformationMap(X,Y,cvind,classifier,'searchlight', ...
                                 meta.voxelsToNeighbours,meta.numberOfNeighbours,TestToUseCfg{:});
 
     results.accuracy_map = am;
+    results.hitrate_map = hm;
+    results.falsealarm_map = fm;
     results.pvalue_map = pm;
 
   case 'soslasso'

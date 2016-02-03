@@ -20,7 +20,7 @@ for iz = 2:(dimz-1); mask(xrange,yrange,iz) = 1; end
 
 % create the "meta" neighbourhood structure
 
-meta = createMetaFromMask(mask);
+meta = createMetaFromMask(mask, 6);
 nVoxels = length(meta.indicesIn3D);
 
 %% generate data
@@ -97,7 +97,7 @@ classifier = 'gnb_pooled';
 classifier = 'lda_shrinkage';
 classifier = 'gnb_searchmight'; % fast GNB
 
-[am,pm] = computeInformationMap(examples,labels,labelsGroup,classifier,'searchlight', ...
+[am,pm,hm,fm] = computeInformationMap(examples,labels-1,labelsGroup,classifier,'searchlight', ...
                                 meta.voxelsToNeighbours,meta.numberOfNeighbours);
 
 
