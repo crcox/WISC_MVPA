@@ -2,20 +2,20 @@ function G = coordGrouping(coords, diameter, overlap, shape)
 % COORDGROUPING  Form groups of coordinates based on definitions.
 %   G = coordGrouping(coords, diameter, overlap, shape) generates groups.
 %   INPUTS
-%   coordinates : a n-by-d matrix of coordinates, or a cell array of such 
+%   coordinates : a n-by-d matrix of coordinates, or a cell array of such
 %                 matrices. If a cell array is provided, groups are formed
 %                 with respect to the complete set of coordinates, across
 %                 all cells, and then sorted out by coordinate cell. This
-%                 ensures that 
+%                 ensures that
 %   diameter    : the distance across shape along each axis. If only one
 %                 diameter is provided, it will apply to all d axes.
 %   overlap     : the amount that each group should overlap.
 %   shape       : can be either "cube" or "sphere", although technically
-%                 elipsoids and cuboids are possible by specifying 
-%                 different diameters along each dimension. 
+%                 elipsoids and cuboids are possible by specifying
+%                 different diameters along each dimension.
 %   OUTPUTS
 %   G : A matrix of cells, where rows correspond to groups and there is a
-%       column for each cell of coordinates provided. Each cell contains 
+%       column for each cell of coordinates provided. Each cell contains
 %       indexes that point to rows in the corresponding cell of coords.
 %
 %   See also ndmovingwindow, ndcoord.
