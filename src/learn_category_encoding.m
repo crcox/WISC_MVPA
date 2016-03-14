@@ -12,7 +12,8 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   addParameter(p , 'DEBUG'          , false    );
   addParameter(p , 'debias'         , true     );
   addParameter(p , 'AdlasOpts'      , struct() );
-  addParameter(p , 'SmallFootprint' , false    );
+  addParameter(p , 'PermutationTest'           );
+  addParameter(p , 'SmallFootprint'            );
   parse(p, Y, X, Gtype, varargin{:});
 
   Y         = p.Results.Y;
@@ -28,6 +29,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   DEBIAS    = p.Results.debias;
   options   = p.Results.AdlasOpts;
   SMALL     = p.Results.SmallFootprint;
+  PermutationTest = p.Results.PermutationTest;
 
   Xorig = X;
 
