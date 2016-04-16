@@ -9,7 +9,6 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'normalize'        , false                      );
   addParameter(p , 'bias'             , false     , @islogicallike );
   addParameter(p , 'filters'          , []        , @ischarlike    );
-  addParameter(p , 'filters_OR'       , []        , @ischarlike    );
   addParameter(p , 'target'           , []        , @ischar        );
   addParameter(p , 'data'             , []        , @ischarlike    );
   addParameter(p , 'data_var'         , 'X'       , @ischar        );

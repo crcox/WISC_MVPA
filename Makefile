@@ -1,4 +1,4 @@
-export MATLABDIR = /usr/local/MATLAB/R2013b
+export MATLABDIR ?= /usr/local/MATLAB/R2013b
 export MCC=$(MATLABDIR)/bin/mcc
 export MEX=$(MATLABDIR)/bin/mex
 export MFLAGS=-m -R -singleCompThread -R -nodisplay -R -nojvm

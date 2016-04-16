@@ -12,8 +12,8 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   addParameter(p , 'DEBUG'          , false    );
   addParameter(p , 'debias'         , true     );
   addParameter(p , 'AdlasOpts'      , struct() );
-  addParameter(p , 'PermutationTest'           );
-  addParameter(p , 'SmallFootprint'            );
+  addParameter(p , 'SmallFootprint' , false    );
+  addParameter(p , 'PermutationTest' , false    );
   parse(p, Y, X, Gtype, varargin{:});
 
   Y         = p.Results.Y;
