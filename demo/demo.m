@@ -73,9 +73,9 @@ end
 % itself.
 % Here, lets set up (totally arbitrarily) a ROI filter and a filter to exclude
 % outliers.
-z = [true(200,1),false(9800,1)];
+z = [true(500,1);false(9500,1)];
 FILTERS(1) = struct('label','ROI01', 'dimension', 2, 'filter', z);
-z = [true(98,1),false(2,1)];
+z = [true(98,1);false(2,1)];
 FILTERS(2) = struct('label','GoodRows', 'dimension', 1, 'filter', z);
 
 % Coordinates
@@ -88,7 +88,7 @@ FILTERS(2) = struct('label','GoodRows', 'dimension', 1, 'filter', z);
 % coordinates. Labeling different coordinate spaces by 'orientation' is an AFNI
 % convention. You don't have to use orientation codes like 'tlrc', 'orig', and
 % 'mni', but that is my convention.
-xyz = [1:nvoxels,1,1];
+xyz = [(1:nvoxels)',ones(nvoxels,1),ones(nvoxels,1)];
 COORDS(1) = struct('orientation','orig','xyz',xyz);
 COORDS(2) = struct('orientation','tlrc','xyz',xyz);
 
@@ -132,7 +132,10 @@ metadata(2).ncol = nvoxels;
 % this default can be overwritten with certain parameters to WholeBrain_MVPA
 % (data_var and metadata_var) if you prefer another convention.
 subjects = [metadata.subject];
-datadir = 'path/to/data'
+datadir = './shared';
+if ~exist(datadir,'dir')
+    mkdir(datadir);
+end
 for iSubj = 1:2
   s = subjects(iSubj);
   X = randn(nitems, nvoxels);
@@ -162,50 +165,24 @@ save(fullfile(datadir,'metadata.mat'), 'metadata');
 %
 %           **The file must be named params.json**
 %
-% Below is an example parameter file, with valid json syntax. See the
-% WholeBrain_MVPA docs for information about what each parameter does. This
-% example will run SOS Lasso.
-%
-% {
-%     "algorithm": "soslasso",
-%     "bias": false,
-%     "alpha": 0.4200556,
-%     "lambda": 0.5863,
-%     "shape": "sphere",
-%     "diameter": 18,
-%     "overlap": 9,
-%     "cvscheme": 1,
-%     "cvholdout": 0,
-%     "finalholdout": 0,
-%     "target": "faces"
-%     "data": [
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp01.mat",
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp02.mat",
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp03.mat",
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp04.mat",
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp05.mat",
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp06.mat",
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp07.mat",
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp08.mat",
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp09.mat",
-%         "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/jlp10.mat"
-%     ],
-%     "data_var": "X",
-%     "normalize": "zscore",
-%     "metadata": "/home/chris/data/FacePlaceObject/data/mat/handmade/TR5/metadata_TR5.mat",
-%     "metadata_var": "metadata",
-%     "orientation": "tlrc",
-%     "filters": [
-%         "rowfilter",
-%         "colfilter"
-%     ],
-%     "SmallFootprint": false,
-%     "debug": false,
-% }
-%
+% To read and write json, you will need jsonlab
+% (http://www.mathworks.com/matlabcentral/fileexchange/33381-jsonlab--a-toolbox-to-encode-decode-json-files)
+% which I have bundled with my code:
+addpath('../dependencies/jsonlab/');
+
 % Put the parameter file where you want to run the analysis. Paths can be
 % relative with respect to where you execute WholeBrain_MVPA, but in most cases
-% it will probably make sense for them to be absolute.
+% it will probably make sense for them to be absolute. The following should
+% translate into a valid json file for the purpose of this demo. 
+params = struct('algorithm', 'soslasso', 'bias', false, 'alpha', 0.4200556,...
+    'lambda', 0.5863, 'shape', 'sphere', 'diameter', 18, 'overlap', 9,...
+    'cvscheme', 1,'cvholdout', 1:10, 'finalholdout', 0, 'target', 'faces',...
+    'data', {{'./shared/s100.mat', './shared/s101.mat'}}, 'data_var', 'X',...
+    'normalize', 'zscore', 'metadata', './shared/metadata.mat',...
+    'metadata_var', 'metadata', 'orientation', 'tlrc', 'filters', ...
+    {{'ROI01','GoodRows'}}, 'SmallFootprint', false, 'debug', false,...
+    'SaveResultsAs','json');
+savejson('',params,'FileName','params.json','ForceRootName',false);
 
 % Run WholeBrain_MVPA
 % ===================
@@ -219,6 +196,8 @@ save(fullfile(datadir,'metadata.mat'), 'metadata');
 % the parameter file and begin analysis. When it completes you will find a
 % results.mat (or results.json) file in the directory where WholeBrain_MVPA was
 % executed.
+addpath('../src/')
+WholeBrain_MVPA()
 
 % Compile Results
 % ===============

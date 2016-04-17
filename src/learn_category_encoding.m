@@ -10,7 +10,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   addParameter(p , 'cvholdout'      , []       );
   addParameter(p , 'normalize'      , []       );
   addParameter(p , 'DEBUG'          , false    );
-  addParameter(p , 'debias'         , true     );
+  addParameter(p , 'debias'         , false    );
   addParameter(p , 'AdlasOpts'      , struct() );
   addParameter(p , 'SmallFootprint' , false    );
   addParameter(p , 'PermutationTest' , false    );

@@ -1,7 +1,8 @@
 function Y = selectTargets(metadata, target, rowfilter)
-  Y = {metadata.(target)};
-  N = length(Y);
-  for i = 1:N
-    Y{i} = Y{i}(rowfilter{i});
+  Y = cell(1, numel(metadata));
+  for i = 1:numel(metadata);
+    M = metadata(i);
+    z = strcmp(target, {M.targets.label});
+    Y{i} = M.targets(z).targets(rowfilter{i});
   end
 end

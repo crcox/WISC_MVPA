@@ -4,8 +4,8 @@ function WholeBrain_MVPA(varargin)
   %% Parse and set parameters
   addParameter(p , 'debug'            , false     , @islogicallike );
   addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
-  addParameter(p , 'Gtype'            , []        , @ischar        );
-  addParameter(p , 'debias'           , true      , @islogicallike );
+  addParameter(p , 'algorithm'        , []        , @ischar        );
+  addParameter(p , 'debias'           , false      , @islogicallike );
   addParameter(p , 'normalize'        , false                      );
   addParameter(p , 'bias'             , false     , @islogicallike );
   addParameter(p , 'filters'          , []        , @ischarlike    );
@@ -35,6 +35,7 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'wrapper'          , []                         );
   addParameter(p , 'RandomSeed'       , 0                          );
   addParameter(p , 'PermutationTest'  , false     , @islogicallike );
+  addParameter(p , 'SaveResultsAs'  , 'mat'     , @isMatOrJSON);
 
   if nargin > 0
     parse(p, varargin{:});
@@ -51,17 +52,16 @@ function WholeBrain_MVPA(varargin)
   end
 
   % private function.
-  required = {'Gtype','data','metadata','cvscheme','cvholdout','finalholdout'};
+  required = {'algorithm','data','metadata','cvscheme','cvholdout','finalholdout'};
   assertRequiredParameters(p.Results,required);
 
   DEBUG            = p.Results.debug;
   SmallFootprint   = p.Results.SmallFootprint;
-  Gtype            = p.Results.Gtype;
+  algorithm            = p.Results.algorithm;
   debias           = p.Results.debias;
   normalize        = p.Results.normalize;
   BIAS             = p.Results.bias;
   filter_labels    = p.Results.filters;
-  filter_labels_or = p.Results.filters_OR;
   target           = p.Results.target;
   datafile         = p.Results.data;
   data_var         = p.Results.data_var;
@@ -80,17 +80,17 @@ function WholeBrain_MVPA(varargin)
   lambda           = p.Results.lambda;
   alpha            = p.Results.alpha;
   opts             = p.Results.AdlasOpts;
-  environment      = p.Results.environment;
   SanityCheckData  = p.Results.SanityCheckData; %#ok<NASGU>
   RandomSeed       = p.Results.RandomSeed;
   PermutationTest  = p.Results.PermutationTest;
+  SaveResultsAs    = p.Results.SaveResultsAs;
 
   rng(RandomSeed);
 
   p.Results
 
   % Check that the correct parameters are passed, given the desired algorithm
-  [lambda, alpha] = verifyLambdaSetup(Gtype, lambda, alpha);
+  [lambda, alpha] = verifyLambdaSetup(algorithm, lambda, alpha);
 
   % If values originated in a YAML file, and scientific notation is used, the
   % value may have been parsed as a string. Check and correct.
@@ -109,22 +109,8 @@ function WholeBrain_MVPA(varargin)
   datafile = uncell(datafile);
   metafile = uncell(metafile);
 
-  switch environment
-  case 'condor'
-    root = './';
-    datadir = root;
-    datafile = updateFilePath(datafile, datadir);
-    metafile = updateFilePath(metafile, datadir);
-    matfilename = 'results.mat';
-    infofilename = 'info.mat';
-  case 'chris'
-    matfilename = 'results.mat';
-    infofilename = 'info.mat';
-
-  otherwise
-    error('Environment %s not implemented.', environment);
-
-  end
+  matfilename = 'results.mat';
+  infofilename = 'info.mat';
 
   %% Load metadata
   StagingContainer = load(metafile, metadata_var);
@@ -141,23 +127,9 @@ function WholeBrain_MVPA(varargin)
       rowfilter{i} = true(1,n(i));
       colfilter{i} = true(1,d(i));
     else
-      [rowfilter{i},colfilter{i}] = composeFilters(metadata(i).filter, filter_labels, 'logic', @all);
+      [rowfilter{i},colfilter{i}] = composeFilters(metadata(i).filters, filter_labels);
     end
   end
-
-  rowfilter_or  = cell(N,1);
-  colfilter_or  = cell(N,1);
-  for i = 1:N
-    if isempty(filter_labels_or)
-      rowfilter_or{i} = true(1,n(i));
-      colfilter_or{i} = true(1,d(i));
-    else
-      [rowfilter_or{i},colfilter_or{i}] = composeFilters(metadata(i).filter, filter_labels_or, 'logic', @any);
-      rowfilter{i} = rowfilter{i} & rowfilter_or{i};
-      colfilter{i} = colfilter{i} & colfilter_or{i};
-    end
-  end
-  clear rowfilter_or colfilter_or
 
   %% Load CV indexes, and identify the final holdout set.
   % N.B. the final holdout set is excluded from the rowfilter.
@@ -235,9 +207,9 @@ function WholeBrain_MVPA(varargin)
   fprintf('Data loaded and processed.\n');
 
   %% Plug in the parameters and run
-  switch Gtype
+  switch algorithm
   case 'lasso'
-    [results,info] = learn_category_encoding(Y, X, Gtype, ...
+    [results,info] = learn_category_encoding(Y, X, algorithm, ...
                       'lambda'         , lambda         , ...
                       'alpha'          , alpha          , ...
                       'cvind'          , cvind          , ...
@@ -291,7 +263,7 @@ function WholeBrain_MVPA(varargin)
       xyz{ii} = metadata(ii).coords(z).xyz(colfilter{ii},:);
     end
     G = coordGrouping(xyz, diameter, overlap, shape);
-    [results,info] = learn_category_encoding(Y, X, Gtype, ...
+    [results,info] = learn_category_encoding(Y, X, algorithm, ...
                       'groups'         , G              , ...
                       'lambda'         , lambda         , ...
                       'alpha'          , alpha          , ...
@@ -327,19 +299,24 @@ function WholeBrain_MVPA(varargin)
 
   %% Save results
   rinfo = whos('results');
+  switch SaveResultsAs
+      case 'mat'
   if rinfo.bytes > 2e+9
     save(matfilename,'results','-v7.3');
   else
     save(matfilename,'results');
   end
+      case 'json'
+          savejson('',results,'FileName','results.json','ForceRootName',false);
+  end
   fprintf('Done!\n');
 end
 
 %% Local functions
-function [lambda, alpha] = verifyLambdaSetup(Gtype, lambda, alpha)
+function [lambda, alpha] = verifyLambdaSetup(algorithm, lambda, alpha)
 % Each algorithm requires different lambda configurations. This private
 % function ensures that everything has been properly specified.
-  switch Gtype
+  switch algorithm
   case 'lasso'
     if ~isempty(alpha)
       warning('Lasso does not use the alpha parameter. It is being ignored.');
@@ -367,4 +344,8 @@ function assertRequiredParameters(params, required)
     assert(isfield(params,req), '%s must exist in params structure! Exiting.');
     assert(~isempty(params.(req)), '%s must be set. Exiting.');
   end
+end
+
+function b = isMatOrJSON(x)
+    b = any(strcmpi(x, {'mat','json'}));
 end
