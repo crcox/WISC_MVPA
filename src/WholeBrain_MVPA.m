@@ -109,9 +109,6 @@ function WholeBrain_MVPA(varargin)
   datafile = uncell(datafile);
   metafile = uncell(metafile);
 
-  matfilename = 'results.mat';
-  infofilename = 'info.mat';
-
   %% Load metadata
   StagingContainer = load(metafile, metadata_var);
   metadata = StagingContainer.(metadata_var); clear StagingContainer;
@@ -301,11 +298,11 @@ function WholeBrain_MVPA(varargin)
   rinfo = whos('results');
   switch SaveResultsAs
       case 'mat'
-  if rinfo.bytes > 2e+9
-    save(matfilename,'results','-v7.3');
-  else
-    save(matfilename,'results');
-  end
+          if rinfo.bytes > 2e+9
+            save('results.mat','results','-v7.3');
+          else
+            save('results.mat','results');
+          end
       case 'json'
           savejson('',results,'FileName','results.json','ForceRootName',false);
   end
