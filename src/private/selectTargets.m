@@ -5,7 +5,7 @@ function Y = selectTargets(metadata, target, rowfilter)
   end
   for i = 1:numel(metadata);
     M = metadata(i);
-    z = strcmp(target, {M.target.label});
+    z = strcmp(target, {M.targets.label});
     Y{i} = M.targets(z).target(rowfilter{i});
   end
 end
