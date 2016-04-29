@@ -184,8 +184,8 @@ params = struct('algorithm', 'soslasso', 'bias', false, 'alpha', 0.4200556,...
     'SaveResultsAs','json');
 savejson('',params,'FileName','params.json','ForceRootName',false);
 
-% Run WholeBrain_MVPA
-% ===================
+% Run WholeBrain_MVPA: SOS Lasso
+% ==============================
 % With data and metadata structured properly and saved to disk, and with a
 % parameter file named params.json in a folder where you would like to execute
 % the analysis and return results, all that remains is to boot up Matlab in the
@@ -198,6 +198,22 @@ savejson('',params,'FileName','params.json','ForceRootName',false);
 % executed.
 addpath('../src/')
 WholeBrain_MVPA()
+
+% Run WholeBrain_MVPA: Searchlight
+% ================================
+% Put the parameter file where you want to run the analysis. Paths can be
+% relative with respect to where you execute WholeBrain_MVPA, but in most cases
+% it will probably make sense for them to be absolute. The following should
+% translate into a valid json file for the purpose of this demo. 
+params = struct('algorithm', 'soslasso', 'bias', false, 'alpha', 0.4200556,...
+    'lambda', 0.5863, 'shape', 'sphere', 'diameter', 18, 'overlap', 9,...
+    'cvscheme', 1,'cvholdout', 1:10, 'finalholdout', 0, 'target', 'faces',...
+    'data', {{'./shared/s100.mat', './shared/s101.mat'}}, 'data_var', 'X',...
+    'normalize', 'zscore', 'metadata', './shared/metadata.mat',...
+    'metadata_var', 'metadata', 'orientation', 'tlrc', 'filters', ...
+    {{'ROI01','GoodRows'}}, 'SmallFootprint', false, 'debug', false,...
+    'SaveResultsAs','json');
+savejson('',params,'FileName','params.json','ForceRootName',false);
 
 % Compile Results
 % ===============
