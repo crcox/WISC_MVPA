@@ -4,6 +4,23 @@
 # Sets up the MCR environment for the current $ARCH and executes
 # the specified command.
 #
+download() {
+  url=$1
+  maxtries=$2
+  try=0
+  name=$(basename "$url")
+  DOWNLOAD_STATUS=1
+  while [ $DOWNLOAD_STATUS -gt 0 ]; do
+    rm -f $name
+    wget -q "${url}"
+    wget -q "${url}.md5"
+    md5sum -c "./${name}.md5"
+    DOWNLOAD_STATUS=$?
+    try=$((try+1))
+    if [ $try -gt $maxtries ]; then echo "Download exceeded max tries. Exiting..."; exit; fi
+  done
+  rm "${name}.md5"
+}
 cleanup() {
   # Remove the Matlab runtime distribution
   if [ -f "r2013b.tar.gz" ]; then
@@ -20,15 +37,14 @@ cleanup() {
   fi
   echo "all clean"
 }
-
 abort() {
   echo >&2 '
 *************
 ** ABORTED **
 *************
 '
-  echo >&2 "Files at time of error/interrupt"
-  echo >&2 "--------------------------------"
+  echo >&2 "Files at time of error"
+  echo >&2 "----------------------"
   ls >&2 -l
 
   cleanup
@@ -36,7 +52,21 @@ abort() {
   echo "An error occured. Exiting ..." >&2
   exit 1
 }
+terminated() {
+  echo >&2 '
+****************
+** TERMINATED **
+****************
+'
+  echo >&2 "Files at time of interrupt"
+  echo >&2 "--------------------------"
+  ls >&2 -l
 
+  cleanup
+
+  echo "An error occured. Exiting ..." >&2
+  exit 1
+}
 success() {
   echo '
 *************
@@ -50,36 +80,29 @@ success() {
 
 # If an exit or interrupt occurs while the script is executing, run the abort
 # function.
-trap abort EXIT SIGTERM
+trap abort EXIT
+trap terminated SIGTERM SIGKILL
 
 set -e
-
+set -x
+SQUID="http://proxy.chtc.wisc.edu/SQUID/crcox"
 ## Download the runtime environment from SQUID
-wget -q "http://proxy.chtc.wisc.edu/SQUID/r2013b.tar.gz"
-#wget -q "http://proxy.chtc.wisc.edu/SQUID/crcox/sha1/r2013b.sha1"
-#sha1sum -c "r2013b.sha1"
-GET_MATLAB_STATUS=$?
-i=0
-while [ ! $GET_MATLAB_STATUS -eq 0 ] && [ $i -lt 5 ] ; do
-  rm "r2013b.tar.gz"
-  wget -q "http://proxy.chtc.wisc.edu/SQUID/r2013b.tar.gz"
-  #shasum -c "r2013b.sha1"
-  GET_MATLAB_STATUS=$?
-  i++
-done
+download "${SQUID}/r2013b.tar.gz" 5
 tar xzf "r2013b.tar.gz"
 
+# This is an attempt to fix broken environments by shipping libraries that are
+# missing on some nodes.
+download "${SQUID}/libXmu_libXt.el6.x86_64.tgz" 5
+tar xzf "./libXmu_libXt.el6.x86_64.tgz"
+
 ## Download all large data files listed in URLS from SQUID
-if [ ! -f URLS ]; then
-  touch URLS
-fi
-if [ ! -f URLS_SHARED ]; then
-  touch URLS_SHARED
-fi
+# touch the files to ensure they exist
+touch URLS
+touch URLS_SHARED
 cat URLS URLS_SHARED > ALLURLS
 cat ALLURLS
 while read url; do
-  wget -q "http://proxy.chtc.wisc.edu/SQUID/${url}"
+  download "http://proxy.chtc.wisc.edu/SQUID/${url}" 5
 done < ALLURLS
 
 # Run the Matlab application
@@ -92,6 +115,7 @@ echo ---
 LD_LIBRARY_PATH=.:${MCRROOT}/runtime/glnxa64 ;
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCRROOT}/bin/glnxa64 ;
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCRROOT}/sys/os/glnxa64;
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:"./lib64"
 XAPPLRESDIR=${MCRROOT}/X11/app-defaults ;
 export XAPPLRESDIR;
 export LD_LIBRARY_PATH;
