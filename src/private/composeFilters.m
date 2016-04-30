@@ -7,7 +7,7 @@ function [rowfilter, colfilter] = composeFilters(FILTERS,labels)
   for ii = 1:numel(FILTERS)
     FILTERS(ii).filter = forceRowVec(FILTERS(ii).filter);
   end
-  
+
   % If necessary, combine filters that are mean to be 'or-ed'
   z = cellfun(@iscell, labels);
   if any(z)

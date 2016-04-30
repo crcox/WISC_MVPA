@@ -4,7 +4,7 @@ function WholeBrain_MVPA(varargin)
   %% Parse and set parameters
   addParameter(p , 'debug'            , false     , @islogicallike );
   addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
-  addParameter(p , 'algorithm'        , []        , @ischar        );
+  addParameter(p , 'regularization'        , []        , @ischar        );
   addParameter(p , 'debias'           , false      , @islogicallike );
   addParameter(p , 'normalize'        , false                      );
   addParameter(p , 'bias'             , false     , @islogicallike );
@@ -52,17 +52,17 @@ function WholeBrain_MVPA(varargin)
   end
 
   % private function.
-  required = {'algorithm','data','metadata','cvscheme','cvholdout','finalholdout'};
+  required = {'regularization','data','metadata','cvscheme','cvholdout','finalholdout'};
   assertRequiredParameters(p.Results,required);
 
   DEBUG            = p.Results.debug;
   SmallFootprint   = p.Results.SmallFootprint;
-  algorithm            = p.Results.algorithm;
+  regularization        = p.Results.regularization;
   debias           = p.Results.debias;
   normalize        = p.Results.normalize;
   BIAS             = p.Results.bias;
   filter_labels    = p.Results.filters;
-  target           = p.Results.target;
+  target_label     = p.Results.target;
   datafile         = p.Results.data;
   data_var         = p.Results.data_var;
   cvscheme         = p.Results.cvscheme;
@@ -89,8 +89,8 @@ function WholeBrain_MVPA(varargin)
 
   p.Results
 
-  % Check that the correct parameters are passed, given the desired algorithm
-  [lambda, alpha] = verifyLambdaSetup(algorithm, lambda, alpha);
+  % Check that the correct parameters are passed, given the desired regularization
+  [lambda, alpha] = verifyLambdaSetup(regularization, lambda, alpha);
 
   % If values originated in a YAML file, and scientific notation is used, the
   % value may have been parsed as a string. Check and correct.
@@ -125,30 +125,27 @@ function WholeBrain_MVPA(varargin)
       colfilter{i} = true(1,d(i));
     else
       [rowfilter{i},colfilter{i}] = composeFilters(metadata(i).filters, filter_labels);
+      if isempty(rowfilter{i})
+        rowfilter{i} = true(1,metadata(i).nrow);
+      end
+      if isempty(colfilter{i})
+        colfilter{i} = true(1,metadata(i).ncol);
+      end
     end
   end
 
   %% Load CV indexes, and identify the final holdout set.
   % N.B. the final holdout set is excluded from the rowfilter.
   cvind = cell(1,N);
+  cvindAll = cell(1,N);
   for i = 1:N
     % Add the final holdout set to the rowfilter, so we don't even load
     % those data.
-    cvind{i} = metadata(i).cvind(rowfilter{i},cvscheme);
-    finalholdout = cvind{i} == finalholdoutInd;
-    rowfilter{i}(rowfilter{i}) = forceRowVec(rowfilter{i}(rowfilter{i})) & forceRowVec(~finalholdout);
+    cvindAll{i} = metadata(i).cvind(:,cvscheme);
+    finalholdout = cvindAll{i} == finalholdoutInd;
     % Remove the final holdout set from the cvind, to match.
-    cvind{i} = cvind{i}(~finalholdout);
-
-    if finalholdoutInd > 0
-      cvind{i}(cvind{i}>finalholdoutInd) = cvind{i}(cvind{i}>finalholdoutInd) - 1;
-    end
-  end
-  if finalholdoutInd > 0
-    % Adjust the cv holdout index(es) down if they are higher than the final holdout.
-    if ~isempty(cvholdout)
-      cvholdout(cvholdout>finalholdoutInd) = cvholdout(cvholdout>finalholdoutInd) - 1;
-    end
+    rowfilter{i} = forceRowVec(rowfilter{i}) & forceRowVec(~finalholdout);
+    cvind{i} = cvindAll{i}(rowfilter{i});
   end
 
   %% Load data and select targets
@@ -158,7 +155,14 @@ function WholeBrain_MVPA(varargin)
   colfilter  = colfilter(subjix);
   cvind      = cvind(subjix);
 
-  Y = selectTargets(metadata, target, rowfilter);
+  %% Select targets
+  fprintf('\n');
+  fprintf('Loading similarity structure\n');
+  fprintf('----------------------------\n');
+  fprintf('%12s: %s\n', 'target_label', target_label);
+  fprintf('%12s: %s\n', 'type', 'category');
+  fprintf('\n');
+  Y = selectTargets(metadata, 'category', target_label, [], [], rowfilter);
 
   %% Include voxel for bias (conditional)
   fprintf('%-26s', 'Including Bias Unit');
@@ -204,9 +208,9 @@ function WholeBrain_MVPA(varargin)
   fprintf('Data loaded and processed.\n');
 
   %% Plug in the parameters and run
-  switch algorithm
+  switch regularization
   case 'lasso'
-    [results,info] = learn_category_encoding(Y, X, algorithm, ...
+    [results,info] = learn_category_encoding(Y, X, regularization, ...
                       'lambda'         , lambda         , ...
                       'alpha'          , alpha          , ...
                       'cvind'          , cvind          , ...
@@ -260,7 +264,7 @@ function WholeBrain_MVPA(varargin)
       xyz{ii} = metadata(ii).coords(z).xyz(colfilter{ii},:);
     end
     G = coordGrouping(xyz, diameter, overlap, shape);
-    [results,info] = learn_category_encoding(Y, X, algorithm, ...
+    [results,info] = learn_category_encoding(Y, X, regularization, ...
                       'groups'         , G              , ...
                       'lambda'         , lambda         , ...
                       'alpha'          , alpha          , ...
@@ -291,8 +295,7 @@ function WholeBrain_MVPA(varargin)
   end
   whos results
   fprintf('Saving %d results\n', numel(results));
-  fprintf('\t%s\n',matfilename);
-  fprintf('\t%s\n',infofilename);
+  fprintf('\t%s\n', 'results.mat');
 
   %% Save results
   rinfo = whos('results');
@@ -310,10 +313,10 @@ function WholeBrain_MVPA(varargin)
 end
 
 %% Local functions
-function [lambda, alpha] = verifyLambdaSetup(algorithm, lambda, alpha)
-% Each algorithm requires different lambda configurations. This private
+function [lambda, alpha] = verifyLambdaSetup(regularization, lambda, alpha)
+% Each regularization requires different lambda configurations. This private
 % function ensures that everything has been properly specified.
-  switch algorithm
+  switch regularization
   case 'lasso'
     if ~isempty(alpha)
       warning('Lasso does not use the alpha parameter. It is being ignored.');

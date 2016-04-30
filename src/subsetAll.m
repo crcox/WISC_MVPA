@@ -1,16 +1,16 @@
-function X = subsetAll(X, rows, varargin)
+function X = subsetAll(X, varargin)
   p = inputParser;
   addRequired(p, 'X');
   addOptional(p, 'rows', []);
   addOptional(p, 'cols', []);
-  parse(p, X, rows, varargin{:});
+  parse(p, X, varargin{:});
 
   X = p.Results.X;
   N = length(X);
 
   ROWS = processfilter(p.Results.rows,1);
   COLS = processfilter(p.Results.cols,2);
-  
+
   if iscell(X) && ~iscell(ROWS) && ~iscell(COLS)
     X = cellfun(@(x) x(ROWS,COLS), X, 'UniformOutput', false);
   elseif iscell(X) && (iscell(ROWS) || iscell(COLS))

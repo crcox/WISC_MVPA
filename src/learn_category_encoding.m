@@ -1,8 +1,8 @@
-function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
+function [results,info] = learn_category_encoding(Y, X, regularization, varargin)
   p = inputParser();
   addRequired(p  , 'Y'                         );
   addRequired(p  , 'X'                         );
-  addRequired(p  , 'Gtype'                     );
+  addRequired(p  , 'regularization'                     );
   addParameter(p , 'lambda'         , []       );
   addParameter(p , 'alpha'          , 0        );
   addParameter(p , 'groups'         , {}       );
@@ -14,12 +14,12 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
   addParameter(p , 'AdlasOpts'      , struct() );
   addParameter(p , 'SmallFootprint' , false    );
   addParameter(p , 'PermutationTest' , false    );
-  parse(p, Y, X, Gtype, varargin{:});
+  parse(p, Y, X, regularization, varargin{:});
 
   Y         = p.Results.Y;
   X         = p.Results.X;
   G         = p.Results.groups;
-  Gtype     = p.Results.Gtype;
+  regularization     = p.Results.regularization;
   LAMBDA    = p.Results.lambda;
   ALPHA     = p.Results.alpha;
   cvind     = p.Results.cvind;
@@ -123,23 +123,23 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
 
     test_set = cell(size(cvind));
     train_set = cell(size(cvind));
-    for ii = 1:numel(cvind)
-      test_set{ii}  = cvind{ii}==icv;
-      train_set{ii} = ~test_set{ii};
+    for iSubject = 1:numel(cvind)
+      test_set{iSubject}  = cvind{iSubject}==icv;
+      train_set{iSubject} = ~test_set{iSubject};
     end
 
-    for ii = 1:numel(X);
-      switch normalize
+    for iSubject = 1:numel(X);
+      switch lower(normalize)
         case 'zscore_train'
-          mm = mean(X{ii}(train_set,:),1);
-          ss = std(X{ii}(train_set,:),0,1);
+          mm = mean(X{iSubject}(train_set,:),1);
+          ss = std(X{iSubject}(train_set,:),0,1);
         otherwise
           % All other cases already handled.
           mm = 0;
           ss = 1;
       end
-      X{ii} = bsxfun(@minus,X{ii}, mm);
-      X{ii} = bsxfun(@rdivide,X{ii}, ss);
+      X{iSubject} = bsxfun(@minus,X{iSubject}, mm);
+      X{iSubject} = bsxfun(@rdivide,X{iSubject}, ss);
     end
 
     for j = 1:nalpha
@@ -162,13 +162,13 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
 
         if DEBUG
           Wz = cell(size(X));
-          for ii = 1:numel(X);
-            Wz{ii} = randn(size(X{ii},2),1);
+          for iSubject = 1:numel(X);
+            Wz{iSubject} = randn(size(X{iSubject},2),1);
           end
           info.message = 'DEBUG';
           info.iter    = 0;
         else
-          switch Gtype
+          switch lower(regularization)
           case 'lasso'
             [Wz, info] = SOS_logistic( ...
               subsetAll(X, train_set), ...
@@ -193,18 +193,18 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
             % Depends on glmnet
             Wz = ascell(Wz);
             opts_debias = glmnetSet(struct('alpha',0,'intr',0));
-            for ii = 1:size(Wz)
-              z = Wz{ii} ~= 0;
+            for iSubject = 1:size(Wz)
+              z = Wz{iSubject} ~= 0;
               if nnz(z) > 0
-                cv = cvind{ii};
+                cv = cvind{iSubject};
                 cv = cv(cv~=icv);
                 cv(cv>icv) = cv(cv>icv) - 1;
 
-                debiasObj = cvglmnet(X{ii}(train_set{ii},z),Y{ii}(train_set{ii}), ...
+                debiasObj = cvglmnet(X{iSubject}(train_set{iSubject},z),Y{iSubject}(train_set{iSubject}), ...
                            'binomial',opts_debias,'class',max(cv),cv);
                 opts_debias.lambda = debiasObj.lambda_min;
-                debiasObj = glmnet(X{ii}(train_set{ii},z),Y{ii}(train_set{ii}),'binomial',opts_debias);
-                Wz{ii}(z) = debiasObj.beta;
+                debiasObj = glmnet(X{iSubject}(train_set{iSubject},z),Y{iSubject}(train_set{iSubject}),'binomial',opts_debias);
+                Wz{iSubject}(z) = debiasObj.beta;
               end
             end
           end
@@ -222,27 +222,27 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           lambda_k = LAMBDA(k);
         end
 
-        for ii = 1:numel(X);
+        for iSubject = 1:numel(X);
           iii = iii + 1;
 
-          wz = Wz{ii};
+          wz = Wz{iSubject};
           ix = find(wz);
           nv = numel(wz);
           wnz = nnz(wz);
           wz = wz(ix);
 
-          y = Y{ii};
-          yz = X{ii} * Wz{ii};
-          h1   = nnz( y(test_set{ii})>0  & (yz(test_set{ii})>0)  );
-          h2   = nnz( y(train_set{ii})>0 & (yz(train_set{ii})>0) );
-          f1   = nnz(~y(test_set{ii})>0  & (yz(test_set{ii})>0)  );
-          f2   = nnz(~y(train_set{ii})>0 & (yz(train_set{ii})>0) );
-          err1 = nnz( y(test_set{ii})>0  ~= (yz(test_set{ii})>0 ));
-          err2 = nnz( y(train_set{ii})>0 ~= (yz(train_set{ii})>0));
-          nt1  = nnz(y(test_set{ii})>0);
-          nt2  = nnz(y(train_set{ii})>0);
-          nd1  = nnz(y(test_set{ii})<=0);
-          nd2  = nnz(y(train_set{ii})<=0);
+          y = Y{iSubject};
+          yz = X{iSubject} * Wz{iSubject};
+          h1   = nnz( y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
+          h2   = nnz( y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
+          f1   = nnz(~y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
+          f2   = nnz(~y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
+          err1 = nnz( y(test_set{iSubject})>0  ~= (yz(test_set{iSubject})>0 ));
+          err2 = nnz( y(train_set{iSubject})>0 ~= (yz(train_set{iSubject})>0));
+          nt1  = nnz(y(test_set{iSubject})>0);
+          nt2  = nnz(y(train_set{iSubject})>0);
+          nd1  = nnz(y(test_set{iSubject})<=0);
+          nd2  = nnz(y(train_set{iSubject})<=0);
 
           if ~SMALL
             results(iii).Wz = wz;
@@ -252,7 +252,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
 
           results(iii).Wnz = uint32(wnz);
           results(iii).nvox = uint32(nv);
-          results(iii).subject = uint8(ii);
+          results(iii).subject = uint8(iSubject);
           results(iii).cvholdout = uint8(icv);
           results(iii).finalholdout = uint8(0); % handled in parent function
           results(iii).alpha = alpha;
@@ -272,7 +272,7 @@ function [results,info] = learn_category_encoding(Y, X, Gtype, varargin)
           results(iii).err2 = uint16(err2);
 
           fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10d |%10d |%10d |\n', ...
-            i,ii,alpha_j,lambda_k,err1,err2,h1-f1,h2-f2,wnz);
+            icv,iSubject,alpha_j,lambda_k,err1,err2,h1-f1,h2-f2,wnz);
         end
       end % lamba loop
     end % alpha loop
