@@ -1,5 +1,5 @@
 function [Gc,ix] = commonGrouping(G)
-    n = uint32(max(cellfun('length', G),[],2));
+    n = uint32(max(cellfun(@(x) size(x,1), G),[],2));
     c = uint32([0;cumsum(n(:))]);
     N = cellmax(G);
     for i = 1:size(G,1)
@@ -21,5 +21,5 @@ end
 
 function N = cellmax(C)
   C(cellfun('isempty',C)) = {uint32(0)}; %handle empty cells
-  N = uint32(max(cellfun(@max, C)));
+  N = uint32(max(cellfun(@max, C),[],1));
 end

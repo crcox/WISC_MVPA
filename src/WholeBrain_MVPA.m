@@ -4,7 +4,7 @@ function WholeBrain_MVPA(varargin)
   %% Parse and set parameters
   addParameter(p , 'debug'            , false     , @islogicallike );
   addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
-  addParameter(p , 'regularization'        , []        , @ischar        );
+  addParameter(p , 'regularization'   , []        , @ischar        );
   addParameter(p , 'debias'           , false      , @islogicallike );
   addParameter(p , 'normalize'        , false                      );
   addParameter(p , 'bias'             , false     , @islogicallike );
@@ -20,11 +20,12 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'diameter'         , []        , @isnumeric     );
   addParameter(p , 'overlap'          , []        , @isnumeric     );
   addParameter(p , 'shape'            , []        , @ischar        );
+  addParameter(p , 'searchlight'      , false     , @islogicallike );
   addParameter(p , 'slradius'         , []        , @isnumeric     );
   addParameter(p , 'slTestToUse'      , 'accuracyOneSided_analytical', @ischar);
   addParameter(p , 'slpermutations'   , 0         , @isscalar      );
   addParameter(p , 'finalholdout'     , 0         , @isintegerlike );
-  addParameter(p , 'lambda'           , []        , @isnumeric     );
+  addParameter(p , 'lambda'           , []                         );
   addParameter(p , 'alpha'            , []        , @isnumeric     );
   addParameter(p , 'AdlasOpts'        , struct()  , @isstruct      );
   addParameter(p , 'environment'      , 'condor'  , @ischar        );
@@ -57,7 +58,7 @@ function WholeBrain_MVPA(varargin)
 
   DEBUG            = p.Results.debug;
   SmallFootprint   = p.Results.SmallFootprint;
-  regularization        = p.Results.regularization;
+  regularization   = p.Results.regularization;
   debias           = p.Results.debias;
   normalize        = p.Results.normalize;
   BIAS             = p.Results.bias;
@@ -209,10 +210,32 @@ function WholeBrain_MVPA(varargin)
 
   %% Plug in the parameters and run
   switch regularization
-  case 'lasso'
+  case 'lasso_glmnet'
     [results,info] = learn_category_encoding(Y, X, regularization, ...
                       'lambda'         , lambda         , ...
                       'alpha'          , alpha          , ...
+                      'cvind'          , cvind          , ...
+                      'cvholdout'      , cvholdout      , ...
+                      'normalize'      , normalize      , ...
+                      'DEBUG'          , DEBUG          , ...
+                      'SmallFootprint' , SmallFootprint , ...
+                      'PermutationTest', PermutationTest, ...
+                      'AdlasOpts'      , opts); %#ok<ASGLU>
+
+  case 'lasso'
+    xyz = cell(numel(metadata),1);
+    for ii = 1:numel(xyz)
+      z = strcmp({metadata(ii).coords.orientation}, orientation);
+      xyz{ii} = metadata(ii).coords(z).xyz(colfilter{ii},:);
+    end
+    % Puts all voxels in one group, which nullifies local and multitask aspects
+    % of SOS Lasso, reducing it to lasso. Alpha no longer matters and is set to
+    % 1.
+    noG = coordGrouping(xyz, inf, 0, 'cube');
+    [results,info] = learn_category_encoding(Y, X, regularization, ...
+                      'groups'         , noG            , ...
+                      'lambda'         , lambda         , ...
+                      'alpha'          , 1              , ...
                       'cvind'          , cvind          , ...
                       'cvholdout'      , cvholdout      , ...
                       'normalize'      , normalize      , ...

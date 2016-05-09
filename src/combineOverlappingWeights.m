@@ -4,7 +4,7 @@ function W = combineOverlappingWeights(Wc, G, varargin)
   addRequired(p, 'G');
   addParameter(p , 'verbose' , true);
   parse(p, Wc,G,varargin{:});
-  
+
   Wc = p.Results.Wc;
   G = p.Results.G;
   verbose = p.Results.verbose;
@@ -18,7 +18,7 @@ function W = combineOverlappingWeights(Wc, G, varargin)
   end
   for j = 1:size(G,2)
     W{j} = zeros(N(j),1);
-    for i = 1:size(G,1); 
+    for i = 1:size(G,1);
       g = G{i,j};
       s = S{i,j};
 %     s = group_arr(k,:)+1; % to account for bias weight
@@ -51,5 +51,5 @@ end
 
 function N = cellmax(C)
   C(cellfun('isempty',C)) = {uint32(0)}; %handle empty cells
-  N = uint32(max(cellfun(@max, C)));
+  N = uint32(max(cellfun(@max, C),[],1));
 end
