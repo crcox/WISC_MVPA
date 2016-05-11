@@ -1,7 +1,6 @@
-function id = extractSubjectID(datafile)
+function id = extractSubjectID(datafile, FMT_subjid)
   [~,fname,~] = fileparts(datafile);
-  str = regexp(fname,'[0-9]+','match');
-  id = sscanf(str{1},'%d');
+  id = sscanf(fname, FMT_subjid);
   if isempty(id)
     error('Failed to extract subject id from data filename %s. Exiting...', datafile);
   end

@@ -30,6 +30,7 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'AdlasOpts'        , struct()  , @isstruct      );
   addParameter(p , 'environment'      , 'condor'  , @ischar        );
   addParameter(p , 'SanityCheckData'  , []        , @ischar        );
+  addParameter(p , 'subject_id_fmt'   , '%d'      , @ischar        );
   addParameter(p , 'COPY'             , []                         );
   addParameter(p , 'URLS'             , []                         );
   addParameter(p , 'executable'       , []                         );
@@ -85,6 +86,7 @@ function WholeBrain_MVPA(varargin)
   RandomSeed       = p.Results.RandomSeed;
   PermutationTest  = p.Results.PermutationTest;
   SaveResultsAs    = p.Results.SaveResultsAs;
+  FMT_subjid       = p.Results.subject_id_fmt;
 
   rng(RandomSeed);
 
@@ -150,7 +152,7 @@ function WholeBrain_MVPA(varargin)
   end
 
   %% Load data and select targets
-  [X,subjix] = loadData(datafile, data_var, rowfilter, colfilter, metadata);
+  [X,subjix] = loadData(datafile, data_var, rowfilter, colfilter, metadata, FMT_subjid);
   metadata   = metadata(subjix);
   rowfilter  = rowfilter(subjix);
   colfilter  = colfilter(subjix);
@@ -209,7 +211,19 @@ function WholeBrain_MVPA(varargin)
   fprintf('Data loaded and processed.\n');
 
   %% Plug in the parameters and run
-  switch regularization
+  switch lower(regularization)
+  case 'smlr'
+    [results,info] = learn_category_encoding(Y, X, regularization, ...
+                      'lambda'         , lambda         , ...
+                      'alpha'          , alpha          , ...
+                      'cvind'          , cvind          , ...
+                      'cvholdout'      , cvholdout      , ...
+                      'normalize'      , normalize      , ...
+                      'DEBUG'          , DEBUG          , ...
+                      'SmallFootprint' , SmallFootprint , ...
+                      'PermutationTest', PermutationTest, ...
+                      'AdlasOpts'      , opts); %#ok<ASGLU>
+
   case 'lasso_glmnet'
     [results,info] = learn_category_encoding(Y, X, regularization, ...
                       'lambda'         , lambda         , ...
@@ -340,6 +354,13 @@ function [lambda, alpha] = verifyLambdaSetup(regularization, lambda, alpha)
 % Each regularization requires different lambda configurations. This private
 % function ensures that everything has been properly specified.
   switch regularization
+  case 'smlr'
+    if ~isempty(alpha)
+      warning('SMLR does not use the alpha parameter. It is being ignored.');
+    end
+    assert(~isempty(lambda) , 'Lasso requires lambda.');
+    alpha  = [];
+
   case 'lasso'
     if ~isempty(alpha)
       warning('Lasso does not use the alpha parameter. It is being ignored.');
