@@ -123,15 +123,19 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     for iSubject = 1:numel(X);
       switch lower(normalize)
         case 'zscore_train'
-          mm = mean(X{iSubject}(train_set,:),1);
-          ss = std(X{iSubject}(train_set,:),0,1);
+          mm1 = mean(X{iSubject}(test_set,:),1);
+          ss1 = std(X{iSubject}(test_set,:),0,1);
+          mm2 = mean(X{iSubject}(train_set,:),1);
+          ss2 = std(X{iSubject}(train_set,:),0,1);
         otherwise
           % All other cases already handled.
-          mm = 0;
-          ss = 1;
+          [mm1,mm2] = deal(0);
+          [ss1,ss2] = deal(1);
       end
-      X{iSubject} = bsxfun(@minus,X{iSubject}, mm);
-      X{iSubject} = bsxfun(@rdivide,X{iSubject}, ss);
+      X{iSubject}(test_set,:) = bsxfun(@minus,X{iSubject}(test_set,:), mm1);
+      X{iSubject}(test_set,:) = bsxfun(@rdivide,X{iSubject}(test_set,:), ss1);
+      X{iSubject}(train_set,:) = bsxfun(@minus,X{iSubject}(train_set,:), mm2);
+      X{iSubject}(train_set,:) = bsxfun(@rdivide,X{iSubject}(train_set,:), ss2);
     end
 
     for j = 1:nalpha
