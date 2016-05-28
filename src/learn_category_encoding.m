@@ -123,19 +123,19 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     for iSubject = 1:numel(X);
       switch lower(normalize)
         case 'zscore_train'
-          mm1 = mean(X{iSubject}(test_set,:),1);
-          ss1 = std(X{iSubject}(test_set,:),0,1);
-          mm2 = mean(X{iSubject}(train_set,:),1);
-          ss2 = std(X{iSubject}(train_set,:),0,1);
+          mm1 = mean(X{iSubject}(test_set{iSubject},:),1);
+          ss1 = std(X{iSubject}(test_set{iSubject},:),0,1);
+          mm2 = mean(X{iSubject}(train_set{iSubject},:),1);
+          ss2 = std(X{iSubject}(train_set{iSubject},:),0,1);
         otherwise
           % All other cases already handled.
           [mm1,mm2] = deal(0);
           [ss1,ss2] = deal(1);
       end
-      X{iSubject}(test_set,:) = bsxfun(@minus,X{iSubject}(test_set,:), mm1);
-      X{iSubject}(test_set,:) = bsxfun(@rdivide,X{iSubject}(test_set,:), ss1);
-      X{iSubject}(train_set,:) = bsxfun(@minus,X{iSubject}(train_set,:), mm2);
-      X{iSubject}(train_set,:) = bsxfun(@rdivide,X{iSubject}(train_set,:), ss2);
+      X{iSubject}(test_set{iSubject},:) = bsxfun(@minus,X{iSubject}(test_set{iSubject},:), mm1);
+      X{iSubject}(test_set{iSubject},:) = bsxfun(@rdivide,X{iSubject}(test_set{iSubject},:), ss1);
+      X{iSubject}(train_set{iSubject},:) = bsxfun(@minus,X{iSubject}(train_set{iSubject},:), mm2);
+      X{iSubject}(train_set{iSubject},:) = bsxfun(@rdivide,X{iSubject}(train_set{iSubject},:), ss2);
     end
 
     for j = 1:nalpha
@@ -170,14 +170,27 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               subsetAll(X, train_set), ...
               subsetAll(Y, train_set), ...
               lambda,...
-              'maxiter' , 1e5, ...
-              'tol'     , 1e-8, ...
+              'maxiter' , 1e4, ...
+              'tol'     , 1e-5, ...
+              'verbose' , true, ...
               'W0'      ,   []);
 
           case 'lasso_glmnet'
             [Wz, info] = lasso_glmnet( ...
               subsetAll(X, train_set), ...
               subsetAll(Y, train_set), ...
+                       1, lambda,...
+              'cvind'   , subsetAll(cvind, train_set),...
+              'maxiter' , 1000, ...
+              'tol'     , 1e-8, ...
+              'W0'      ,   []);
+
+          case 'iterlasso_glmnet'
+            [Wz, info] = lasso_glmnet( ...
+              subsetAll(X, train_set), ...
+              subsetAll(X, test_set), ...
+              subsetAll(Y, train_set), ...
+              subsetAll(Y, test_set), ...
                        1, lambda,...
               'cvind'   , subsetAll(cvind, train_set),...
               'maxiter' , 1000, ...
@@ -204,25 +217,25 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               'tol'     , 1e-8, ...
               'W0'      ,   []);
           end
-          if DEBIAS
-            % Depends on glmnet
-            Wz = ascell(Wz);
-            opts_debias = glmnetSet(struct('alpha',0,'intr',0));
-            for iSubject = 1:size(Wz)
-              z = Wz{iSubject} ~= 0;
-              if nnz(z) > 0
-                cv = cvind{iSubject};
-                cv = cv(cv~=icv);
-                cv(cv>icv) = cv(cv>icv) - 1;
-
-                debiasObj = cvglmnet(X{iSubject}(train_set{iSubject},z),Y{iSubject}(train_set{iSubject}), ...
-                           'binomial',opts_debias,'class',max(cv),cv);
-                opts_debias.lambda = debiasObj.lambda_min;
-                debiasObj = glmnet(X{iSubject}(train_set{iSubject},z),Y{iSubject}(train_set{iSubject}),'binomial',opts_debias);
-                Wz{iSubject}(z) = debiasObj.beta;
-              end
-            end
-          end
+%           if DEBIAS
+%             % Depends on glmnet
+%             Wz = ascell(Wz);
+%             opts_debias = glmnetSet(struct('alpha',0,'intr',0));
+%             for iSubject = 1:size(Wz)
+%               z = Wz{iSubject} ~= 0;
+%               if nnz(z) > 0
+%                 cv = cvind{iSubject};
+%                 cv = cv(cv~=icv);
+%                 cv(cv>icv) = cv(cv>icv) - 1;
+% 
+%                 debiasObj = cvglmnet(X{iSubject}(train_set{iSubject},z),Y{iSubject}(train_set{iSubject}), ...
+%                            'binomial',opts_debias,'class',max(cv),cv);
+%                 opts_debias.lambda = debiasObj.lambda_min;
+%                 debiasObj = glmnet(X{iSubject}(train_set{iSubject},z),Y{iSubject}(train_set{iSubject}),'binomial',opts_debias);
+%                 Wz{iSubject}(z) = debiasObj.beta;
+%               end
+%             end
+%           end
         end
 
         if isempty(ALPHA)
@@ -239,25 +252,37 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
 
         for iSubject = 1:numel(X);
           iii = iii + 1;
-
+          
           wz = Wz{iSubject};
-          ix = find(wz);
-          nv = numel(wz);
-          wnz = nnz(wz);
-          wz = wz(ix);
+          nz_rows = any(wz,2);
+          ix = find(nz_rows);
+          nv = size(wz,1);
+          wnz = nnz(nz_rows);
+          wz = wz(ix,:);
 
           y = Y{iSubject};
           yz = X{iSubject} * Wz{iSubject};
-          h1   = nnz( y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
-          h2   = nnz( y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
-          f1   = nnz(~y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
-          f2   = nnz(~y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
-          err1 = nnz( y(test_set{iSubject})>0  ~= (yz(test_set{iSubject})>0 ));
-          err2 = nnz( y(train_set{iSubject})>0 ~= (yz(train_set{iSubject})>0));
-          nt1  = nnz(y(test_set{iSubject})>0);
-          nt2  = nnz(y(train_set{iSubject})>0);
-          nd1  = nnz(y(test_set{iSubject})<=0);
-          nd2  = nnz(y(train_set{iSubject})<=0);
+          if max(y) > 1 % multinomial
+              [~,yz] = max(yz,[],2);
+              err1 = nnz(y(test_set{iSubject})  ~= yz(test_set{iSubject}));
+              err2 = nnz(y(train_set{iSubject}) ~= yz(train_set{iSubject}));
+              confusion1 = confusionmat(y(test_set{iSubject}),yz(test_set{iSubject}));
+              confusion2 = confusionmat(y(train_set{iSubject}),yz(train_set{iSubject}));
+              [h1,h2,f1,f2,nt1,nt2,nd1,nd2] = deal([]);
+          else
+              h1   = nnz( y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
+              h2   = nnz( y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
+              f1   = nnz(~y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
+              f2   = nnz(~y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
+              err1 = nnz( y(test_set{iSubject})>0  ~= (yz(test_set{iSubject})>0 ));
+              err2 = nnz( y(train_set{iSubject})>0 ~= (yz(train_set{iSubject})>0));
+              nt1  = nnz(y(test_set{iSubject})>0);
+              nt2  = nnz(y(train_set{iSubject})>0);
+              nd1  = nnz(y(test_set{iSubject})<=0);
+              nd2  = nnz(y(train_set{iSubject})<=0);
+              [confusion1,confusion2] = deal([]);
+          end
+
 
           if ~SMALL
             results(iii).Wz = wz;
@@ -272,9 +297,9 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
           results(iii).finalholdout = uint8(0); % handled in parent function
           results(iii).alpha = alpha;
           results(iii).lambda = lambda;
-          results(iii).diameter = 0;
-          results(iii).overlap = 0;
-          results(iii).shape = '';
+          results(iii).diameter = 0; % handled in parent function
+          results(iii).overlap = 0; % handled in parent function
+          results(iii).shape = ''; % handled in parent function
           results(iii).nt1  = uint16(nt1);
           results(iii).nt2  = uint16(nt2);
           results(iii).nd1  = uint16(nd1);
@@ -285,6 +310,8 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
           results(iii).f2   = uint16(f2);
           results(iii).err1 = uint16(err1);
           results(iii).err2 = uint16(err2);
+          results(iii).confusion1 = confusion1;
+          results(iii).confusion2 = confusion2;
 
           fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
             icv,iSubject,alpha_j,lambda_k,err1,err2,(h1/nt1)-(f1/nd1),(h2/nt2)-(f2/nd2),wnz);

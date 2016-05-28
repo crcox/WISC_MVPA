@@ -1,5 +1,5 @@
-% The data
-% ========
+%% The data
+%  ========
 % The fMRI data should be formatted in a time x voxel matrix, X. Each row of
 % this matrix is a training example, and so should include all voxels that the
 % model may be trained on/evaluated with. By ``time'', I also mean ``item''.
@@ -28,19 +28,22 @@ y= [true(50,1); false(50,1)];
 X(1:50,1:20) = X(1:50,1:20) + 2;
 
 % Now, if we just wanted to fit a standard lasso, we could do something like:
-[b,stats] = lassoglm(X, y,'binomial','CV',10);
+DO_BASIC_LASSO = 0;
+if DO_BASIC_LASSO
+    [b,stats] = lassoglm(X, y,'binomial','CV',10);
+end
 
 % But, if we want to leverage WholeBrain_MVPA and do, say, SOS Lasso, there is
 % some more setup we need to do.
 
-% The metadata
-% ============
+%% The metadata
+%  ============
 % Targets
 % -------
 % Information about targets (i.e., possible y vectors) should be stored in a
 % structure with 2 required fields: 'label' and 'targets'.
-TARGETS(1) = struct('label','faces','targets',y);
-TARGETS(2) = struct('label','places','targets',~y);
+TARGETS(1) = struct('label','faces','type','category','sim_source',[],'sim_metric',[],'target',y);
+TARGETS(2) = struct('label','places','type','category','sim_source',[],'sim_metric',[],'target',~y);
 
 % Cross-validation
 % ----------------
@@ -92,7 +95,7 @@ xyz = [(1:nvoxels)',ones(nvoxels,1),ones(nvoxels,1)];
 COORDS(1) = struct('orientation','orig','xyz',xyz);
 COORDS(2) = struct('orientation','tlrc','xyz',xyz);
 
-% Put it all together
+%% Put it all together
 % -------------------
 % The metadata object compiles these three items, along with a couple other
 % bits, into a single structure. The metadata structure has several required
@@ -116,8 +119,8 @@ metadata(2).cvind = SCHEMES;
 metadata(2).nrow = nitems;
 metadata(2).ncol = nvoxels;
 
-% Save the data to disk
-% =====================
+%% Save the data to disk
+%  =====================
 % Despite having data and metadata organized properly in memory, before working
 % with WholeBrain_MVPA we need to write the data to disk. The reason for this
 % is that WholeBrain_MVPA is not written to be used interactively, but rather
@@ -146,8 +149,8 @@ for iSubj = 1:2
 end
 save(fullfile(datadir,'metadata.mat'), 'metadata');
 
-% Define a parameter file
-% =======================
+%% Define a parameter file
+%  =======================
 % WholeBrain_MVPA, despite being written as a Matlab function, is a very ugly
 % function. First of all, it does not return anything. All results are written
 % to disk. Likewise, although it is possible to invoke WholeBrain_MVPA from
@@ -174,18 +177,18 @@ addpath('../dependencies/jsonlab/');
 % relative with respect to where you execute WholeBrain_MVPA, but in most cases
 % it will probably make sense for them to be absolute. The following should
 % translate into a valid json file for the purpose of this demo. 
-params = struct('algorithm', 'soslasso', 'bias', false, 'alpha', 0.4200556,...
+params = struct('regularization', 'soslasso', 'bias', false, 'alpha', 0.4200556,...
     'lambda', 0.5863, 'shape', 'sphere', 'diameter', 18, 'overlap', 9,...
     'cvscheme', 1,'cvholdout', 1:10, 'finalholdout', 0, 'target', 'faces',...
     'data', {{'./shared/s100.mat', './shared/s101.mat'}}, 'data_var', 'X',...
     'normalize', 'zscore', 'metadata', './shared/metadata.mat',...
     'metadata_var', 'metadata', 'orientation', 'tlrc', 'filters', ...
     {{'ROI01','GoodRows'}}, 'SmallFootprint', false, 'debug', false,...
-    'SaveResultsAs','json');
+    'SaveResultsAs','json','subject_id_fmt','s%d.mat');
 savejson('',params,'FileName','params.json','ForceRootName',false);
 
-% Run WholeBrain_MVPA: SOS Lasso
-% ==============================
+%% Run WholeBrain_MVPA: SOS Lasso
+%  ==============================
 % With data and metadata structured properly and saved to disk, and with a
 % parameter file named params.json in a folder where you would like to execute
 % the analysis and return results, all that remains is to boot up Matlab in the
@@ -199,8 +202,8 @@ savejson('',params,'FileName','params.json','ForceRootName',false);
 addpath('../src/')
 WholeBrain_MVPA()
 
-% Run WholeBrain_MVPA: Searchlight
-% ================================
+%%  Run WholeBrain_MVPA: Searchlight
+%  ================================
 % Put the parameter file where you want to run the analysis. Paths can be
 % relative with respect to where you execute WholeBrain_MVPA, but in most cases
 % it will probably make sense for them to be absolute. The following should
@@ -212,7 +215,7 @@ params = struct('algorithm', 'soslasso', 'bias', false, 'alpha', 0.4200556,...
     'normalize', 'zscore', 'metadata', './shared/metadata.mat',...
     'metadata_var', 'metadata', 'orientation', 'tlrc', 'filters', ...
     {{'ROI01','GoodRows'}}, 'SmallFootprint', false, 'debug', false,...
-    'SaveResultsAs','json');
+    'SaveResultsAs','json','subject_id_fmt','s%d.mat');
 savejson('',params,'FileName','params.json','ForceRootName',false);
 
 % Compile Results
