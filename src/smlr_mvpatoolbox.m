@@ -30,10 +30,14 @@ function [W, obj] = smlr_mvpatoolbox(X, Y, lambda, varargin)
   for iSubj = 1:numel(X)
     x = X{iSubj};
     y = Y{iSubj};
+    ym = false(size(y,1),max(y));
+    for i = 1:max(y)
+        ym(:,i) = y == i;
+    end
     if isnan(lambda)
-      [W{iSubj},obj(iSubj).args, obj(iSubj).log_posterior, obj(iSubj).wasted, obj(iSubj).saved] = smlr(x,y,'lambda',0.1,'tol',tol,'max_iter',maxiter,'w_init',W0);
+      [W{iSubj},obj(iSubj).args, obj(iSubj).log_posterior, obj(iSubj).wasted, obj(iSubj).saved] = smlr(x,ym,'lambda',0.1,'tol',tol,'max_iter',maxiter,'w_init',W0,'verbose',verbose);
     else
-      [W{iSubj},obj(iSubj).args, obj(iSubj).log_posterior, obj(iSubj).wasted, obj(iSubj).saved] = smlr(x,y,'lambda',lambda,'tol',tol,'max_iter',maxiter,'w_init',W0);
+      [W{iSubj},obj(iSubj).args, obj(iSubj).log_posterior, obj(iSubj).wasted, obj(iSubj).saved] = smlr(x,ym,'lambda',lambda,'tol',tol,'max_iter',maxiter,'w_init',W0,'verbose',verbose);
     end
   end
 end

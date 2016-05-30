@@ -21,6 +21,7 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'overlap'          , []        , @isnumeric     );
   addParameter(p , 'shape'            , []        , @ischar        );
   addParameter(p , 'searchlight'      , false     , @islogicallike );
+  addParameter(p , 'slclassifier'     , 'gnb_searchmight',  @ischar);
   addParameter(p , 'slradius'         , []        , @isnumeric     );
   addParameter(p , 'slTestToUse'      , 'accuracyOneSided_analytical', @ischar);
   addParameter(p , 'slpermutations'   , 0         , @isscalar      );
@@ -73,6 +74,7 @@ function WholeBrain_MVPA(varargin)
   diameter         = p.Results.diameter;
   overlap          = p.Results.overlap;
   shape            = p.Results.shape;
+  slclassifier     = p.Results.slclassifier;
   slradius         = p.Results.slradius;
   slTestToUse      = p.Results.slTestToUse;
   slpermutations   = p.Results.slpermutations;
@@ -88,7 +90,9 @@ function WholeBrain_MVPA(varargin)
   SaveResultsAs    = p.Results.SaveResultsAs;
   FMT_subjid       = p.Results.subject_id_fmt;
 
-  rng(RandomSeed);
+  if RandomSeed > 0
+    rng(RandomSeed);
+  end
 
   p.Results
 
@@ -260,7 +264,10 @@ function WholeBrain_MVPA(varargin)
 
   case 'searchlight'
     X = uncell(X);
-    Y = uncell(Y)+1;
+    Y = uncell(Y);
+    if min(Y) == 0
+        Y = Y + 1;
+    end
     cvind = uncell(cvind);
     colfilter = uncell(colfilter);
 
@@ -280,7 +287,7 @@ function WholeBrain_MVPA(varargin)
     meta = createMetaFromMask(mask, slradius_ijk);
 
     % Prepare parameters
-    classifier = 'gnb_searchmight';
+    classifier = slclassifier; %'gnb_searchmight';
     if strcmp(slTestToUse,'accuracyOneSided_permutation')
       TestToUseCfg = {'testToUse',slTestToUse,slpermutations};
     else

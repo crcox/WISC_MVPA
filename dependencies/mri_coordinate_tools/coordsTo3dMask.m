@@ -1,5 +1,5 @@
 function [mask,dcoords] = coordsTo3dMask(coords)
-  dcoords = voxelspacing(coords, [3,3,3]); % [3,3,3] is just a seed.
+  dcoords = voxelspacing(coords);
   mcoords = min(coords);
   ijk = roundto(bsxfun(@minus, coords, mcoords),dcoords);
   ijk = roundto(bsxfun(@rdivide, ijk, dcoords),1)+1;
