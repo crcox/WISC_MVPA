@@ -218,7 +218,7 @@ end
 if useSearchlight
   % check that the neighbour information jigs with the number of voxels
   nNeighbours = size(voxelsToNeighbours,2);
-  if (size(voxelsToNeighbours,1) ~= m) | (size(numberOfNeighbours,1) ~= m)
+  if (size(voxelsToNeighbours,1) ~= m) || (size(numberOfNeighbours,1) ~= m)
     fprintf('%s: voxelsToNeighbours/numberOfNeighbours do not match #voxels\n',this); return;
   end
 end
@@ -263,8 +263,8 @@ if ~computePairmaps
       extraParameters = sprintf('%s,''usePriors''',extraParameters);
     end
     
-    cmd = sprintf('[sortedFeatures,sortedError,discard,optionalReturns] = computeLocalClassifiers(examples,labels,classifier,''groupLabels'',groupLabels,''classifierParameters'',classifierParameters,''groupLabelsOriginal'',groupLabelsOriginal');
-    if isequal(extraParameters,''); cmd = [cmd,');']; else; cmd = sprintf('%s%s);',cmd,extraParameters); end
+    cmd = sprintf('[sortedFeatures,sortedError,discard,optionalReturns] = computeLocalClassifiers(examples,labels,classifier,''groupLabels'',groupLabels,''classifierParameters'',classifierParameters,''groupLabelsOriginal'',groupLabelsOriginal,''errorMeasure'',''averageRank''');
+    if isequal(extraParameters,''); cmd = [cmd,');']; else cmd = sprintf('%s%s);',cmd,extraParameters); end
     eval(cmd);
     
     if 0

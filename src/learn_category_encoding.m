@@ -83,6 +83,9 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
   results.f2   = [];
   results.err1 = [];
   results.err2 = [];
+  results.confusion1 = [];
+  results.confusion2 = [];
+  results.iterations = struct();
 
   % Preallocate
   results(t*ncv*nlam*nalpha).Wz = [];
@@ -186,7 +189,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               'W0'      ,   []);
 
           case 'iterlasso_glmnet'
-            [Wz, info] = lasso_glmnet( ...
+            [Wz, info] = iterlasso_glmnet( ...
               subsetAll(X, train_set), ...
               subsetAll(X, test_set), ...
               subsetAll(Y, train_set), ...
@@ -258,36 +261,77 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
           ix = find(nz_rows);
           nv = size(wz,1);
           wnz = nnz(nz_rows);
-          wz = wz(ix,:);
-
+          wz = wz(nz_rows,:);
+          
           y = Y{iSubject};
-          yz = X{iSubject} * Wz{iSubject};
-          if max(y) > 1 % multinomial
-              [~,yz] = max(yz,[],2);
-              err1 = nnz(y(test_set{iSubject})  ~= yz(test_set{iSubject}));
-              err2 = nnz(y(train_set{iSubject}) ~= yz(train_set{iSubject}));
-              confusion1 = confusionmat(y(test_set{iSubject}),yz(test_set{iSubject}));
-              confusion2 = confusionmat(y(train_set{iSubject}),yz(train_set{iSubject}));
-              [h1,h2,f1,f2,nt1,nt2,nd1,nd2] = deal([]);
+          ytest = y(test_set{iSubject});
+          ytrain = y(train_set{iSubject});
+          
+          cinds = unique(y);
+          cinds = cinds(:)'; % force to row vec
+          m = numel(cinds);
+          if m > 2;
+            isMultinomial = 1;
+            ytrain_m = bsxfun(@eq,ytrain(:),cinds);
+            ytest_m = bsxfun(@eq,ytest(:),cinds);
           else
-              h1   = nnz( y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
-              h2   = nnz( y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
-              f1   = nnz(~y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
-              f2   = nnz(~y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
-              err1 = nnz( y(test_set{iSubject})>0  ~= (yz(test_set{iSubject})>0 ));
-              err2 = nnz( y(train_set{iSubject})>0 ~= (yz(train_set{iSubject})>0));
-              nt1  = nnz(y(test_set{iSubject})>0);
-              nt2  = nnz(y(train_set{iSubject})>0);
-              nd1  = nnz(y(test_set{iSubject})<=0);
-              nd2  = nnz(y(train_set{iSubject})<=0);
-              [confusion1,confusion2] = deal([]);
+            isMultinomial = 0;
+            ytrain_m = ytrain;
+            ytest_m = ytest;
           end
+
+          yz_m = X{iSubject} * Wz{iSubject};
+          yztest_m = yz_m(test_set{iSubject},:);
+          yztrain_m = yz_m(train_set{iSubject},:);
+          
+          h1   = sum((ytest_m > 0) & (yztest_m > 0));
+          f1   = sum(~(ytest_m > 0) & (yztest_m > 0));
+          err1 = sum((ytest_m > 0) ~= (yztest_m > 0));
+          nt1  = sum(ytest_m > 0);
+          nd1  = sum(ytest_m <= 0);
+
+          h2   = sum((ytrain_m > 0) & (yztrain_m > 0));
+          f2   = sum(~(ytrain_m > 0) & (yztrain_m > 0));
+          err2 = sum((ytrain_m > 0) ~= (yztrain_m > 0));
+          nt2  = sum(ytrain_m > 0);
+          nd2  = sum(ytrain_m <= 0);
+
+          if isMultinomial
+            [~,yztest] = max(yztest_m,[],2);
+            [~,yztrain] = max(yztrain_m,[],2);
+            confusion1 = confusionmat(ytest,yztest);
+            confusion2 = confusionmat(ytrain,yztrain);
+          else
+            [confusion1,confusion2] = deal([]);
+          end
+          
+          
+%           if isMultinomial
+%               [~,yz] = max(yz,[],2);
+%               err1 = nnz(y(test_set{iSubject})  ~= yz(test_set{iSubject}));
+%               err2 = nnz(y(train_set{iSubject}) ~= yz(train_set{iSubject}));
+%               confusion1 = confusionmat(y(test_set{iSubject}),yz(test_set{iSubject}));
+%               confusion2 = confusionmat(y(train_set{iSubject}),yz(train_set{iSubject}));
+%               [h1,h2,f1,f2,nt1,nt2,nd1,nd2] = deal([]);
+%           else
+%               h1   = nnz( y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
+%               h2   = nnz( y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
+%               f1   = nnz(~y(test_set{iSubject})>0  & (yz(test_set{iSubject})>0)  );
+%               f2   = nnz(~y(train_set{iSubject})>0 & (yz(train_set{iSubject})>0) );
+%               err1 = nnz( y(test_set{iSubject})>0  ~= (yz(test_set{iSubject})>0 ));
+%               err2 = nnz( y(train_set{iSubject})>0 ~= (yz(train_set{iSubject})>0));
+%               nt1  = nnz(y(test_set{iSubject})>0);
+%               nt2  = nnz(y(train_set{iSubject})>0);
+%               nd1  = nnz(y(test_set{iSubject})<=0);
+%               nd2  = nnz(y(train_set{iSubject})<=0);
+%               [confusion1,confusion2] = deal([]);
+%           end
 
 
           if ~SMALL
             results(iii).Wz = wz;
             results(iii).Wix = uint32(ix);
-            results(iii).Yz = yz;
+            results(iii).Yz = yz_m;
           end
 
           results(iii).Wnz = uint32(wnz);
@@ -313,8 +357,13 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
           results(iii).confusion1 = confusion1;
           results(iii).confusion2 = confusion2;
 
-          fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
-            icv,iSubject,alpha_j,lambda_k,err1,err2,(h1/nt1)-(f1/nd1),(h2/nt2)-(f2/nd2),wnz);
+          if isMultinomial
+            fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
+              icv,iSubject,alpha_j,lambda_k,mean(err1),mean(err2),mean((h1/nt1)-(f1/nd1)),mean((h2/nt2)-(f2/nd2)),wnz);
+          else
+            fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
+              icv,iSubject,alpha_j,lambda_k,err1,err2,(h1/nt1)-(f1/nd1),(h2/nt2)-(f2/nd2),wnz);
+          end
         end
       end % lamba loop
     end % alpha loop

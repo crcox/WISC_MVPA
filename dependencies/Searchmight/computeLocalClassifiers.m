@@ -197,7 +197,7 @@ if nargin > 3
   end
 end
 
-if isempty(groupLabelsOriginal) & ~isempty(groupLabels)
+if isempty(groupLabelsOriginal) && ~isempty(groupLabels)
   groupLabelsOriginal = groupLabels;
 end
 
@@ -216,7 +216,7 @@ if addRegressorFeatures
     nrange = numberOfNeighbours(v) + (1:nRegressorFeatures);
     voxelsToNeighbours(v,nrange) = newNeighbours;
   end
-  numberOfNeighbours = numberOfNeighbours + nRegressorFeatures;;
+  numberOfNeighbours = numberOfNeighbours + nRegressorFeatures;
   
   examples = [examples,regressorFeatures];
 end
@@ -232,10 +232,10 @@ if useSearchlight
 
   if computeNeighbourInformation
     fprintf('%s: computing neighbour information, consider precomputing this\n',this); return      
-    [voxelsToNeighbours,numberOfNeighbours] = neighboursWithinRadius(colToCoord,radius);
+    [voxelsToNeighbours,numberOfNeighbours] = neighboursWithinRadius(colToCoord,radius); %#ok<UNRCH>
   end
 else
-  if isequal(classifier,'lda') | isequal(classifier,'lda_ridge') | isequal(classifier,'lda_shrinkage')| isequal(classifier,'qda_shrinkage')
+  if isequal(classifier,'lda') || isequal(classifier,'lda_ridge') || isequal(classifier,'lda_shrinkage')|| isequal(classifier,'qda_shrinkage')
     fprintf('%s: in order to use lda you need to specify searchlight\n',this); return
   end
 end
