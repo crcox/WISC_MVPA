@@ -299,7 +299,7 @@ function WholeBrain_MVPA(varargin)
     meta = createMetaFromMask(mask, slradius_ijk);
 
     % Prepare parameters
-    classifier = slclassifier; %'gnb_searchmight';
+    classifier = slclassifier;
     if strcmp(slTestToUse,'accuracyOneSided_permutation')
       TestToUseCfg = {'testToUse',slTestToUse,slpermutations};
     else
