@@ -58,7 +58,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
   
     ytrain = Ytrain{iSubj};
     ytest = Ytest{iSubj};
-    
+      
     cinds = unique([ytrain(:);ytest(:)]);
     cinds = cinds(:)'; % force to row vec
     m = numel(cinds);
@@ -171,8 +171,8 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
       if isMultinomial
         [~,yztest] = max(yztest_m,[],2);
         [~,yztrain] = max(yztrain_m,[],2);
-        confusion1 = confusionmat(ytest,yztest);
-        confusion2 = confusionmat(ytrain,yztrain);
+        confusion1 = confusionmat(double(ytest),yztest);
+        confusion2 = confusionmat(double(ytrain),yztrain);
       else
         [confusion1,confusion2] = deal([]);
       end

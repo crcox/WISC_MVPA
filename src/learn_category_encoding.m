@@ -179,6 +179,13 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               'W0'      ,   []);
 
           case 'lasso_glmnet'
+            if iscell(Y)
+              for iy = 1:numel(Y)
+                Y{iy} = squeeze_index(Y{iy});
+              end
+            else
+              Y = squeeze_index(Y);
+            end
             [Wz, info] = lasso_glmnet( ...
               subsetAll(X, train_set), ...
               subsetAll(Y, train_set), ...
@@ -189,7 +196,15 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               'W0'      ,   []);
 
           case 'iterlasso_glmnet'
-            [Wz, info] = iterlasso_glmnet( ...
+            % Ensure that y indexes are consecutive, with min=1
+            if iscell(Y)
+              for iy = 1:numel(Y)
+                Y{iy} = squeeze_index(Y{iy});
+              end
+            else
+              Y = squeeze_index(Y);
+            end
+            [Wz, info, Iterations] = iterlasso_glmnet( ...
               subsetAll(X, train_set), ...
               subsetAll(X, test_set), ...
               subsetAll(Y, train_set), ...
@@ -220,25 +235,6 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               'tol'     , 1e-8, ...
               'W0'      ,   []);
           end
-%           if DEBIAS
-%             % Depends on glmnet
-%             Wz = ascell(Wz);
-%             opts_debias = glmnetSet(struct('alpha',0,'intr',0));
-%             for iSubject = 1:size(Wz)
-%               z = Wz{iSubject} ~= 0;
-%               if nnz(z) > 0
-%                 cv = cvind{iSubject};
-%                 cv = cv(cv~=icv);
-%                 cv(cv>icv) = cv(cv>icv) - 1;
-% 
-%                 debiasObj = cvglmnet(X{iSubject}(train_set{iSubject},z),Y{iSubject}(train_set{iSubject}), ...
-%                            'binomial',opts_debias,'class',max(cv),cv);
-%                 opts_debias.lambda = debiasObj.lambda_min;
-%                 debiasObj = glmnet(X{iSubject}(train_set{iSubject},z),Y{iSubject}(train_set{iSubject}),'binomial',opts_debias);
-%                 Wz{iSubject}(z) = debiasObj.beta;
-%               end
-%             end
-%           end
         end
 
         if isempty(ALPHA)
@@ -299,8 +295,8 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
           if isMultinomial
             [~,yztest] = max(yztest_m,[],2);
             [~,yztrain] = max(yztrain_m,[],2);
-            confusion1 = confusionmat(ytest,yztest);
-            confusion2 = confusionmat(ytrain,yztrain);
+            confusion1 = confusionmat(double(ytest),yztest);
+            confusion2 = confusionmat(double(ytrain),yztrain);
           else
             [confusion1,confusion2] = deal([]);
           end
@@ -326,7 +322,6 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
 %               nd2  = nnz(y(train_set{iSubject})<=0);
 %               [confusion1,confusion2] = deal([]);
 %           end
-
 
           if ~SMALL
             results(iii).Wz = wz;
@@ -356,9 +351,13 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
           results(iii).err2 = uint16(err2);
           results(iii).confusion1 = confusion1;
           results(iii).confusion2 = confusion2;
+          switch lower(regularization)
+            case 'iterlasso_glmnet'
+              results(iii).iterations = Iterations;
+          end
 
           if isMultinomial
-            fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
+            fprintf('cv %3d: %3d |%6.2f |%6.2f |%10.4f |%10.4f |%10.4f |%10.4f |%10d |\n', ...
               icv,iSubject,alpha_j,lambda_k,mean(err1),mean(err2),mean((h1/nt1)-(f1/nd1)),mean((h2/nt2)-(f2/nd2)),wnz);
           else
             fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
@@ -369,4 +368,11 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     end % alpha loop
 	end % cv loop
   fprintf('logged %d results in memory.\n', iii);
+end
+function [s] = squeeze_index(x)
+  u = unique(sort(x));
+  s = zeros(size(x));
+  for i = 1:numel(u);
+      s(x==u(i)) = i;
+  end
 end

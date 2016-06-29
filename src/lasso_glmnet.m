@@ -37,9 +37,24 @@ function [W, obj] = lasso_glmnet(X, Y,alpha, lambda, varargin)
   for iSubj = 1:numel(X)
     x = X{iSubj};
     y = Y{iSubj};
+    
     cvind = CVIND{iSubj};
     cvset = unique(cvind);
     nfold = numel(cvset);
+    
+    cinds = unique(y);
+    cinds = cinds(:)'; % force to row vec
+    m = numel(cinds);
+    if m > 2;
+      isMultinomial = 1;
+      performanceMetric = 'class';
+      modelType = 'multinomial';
+    else
+      isMultinomial = 0;
+      performanceMetric = 'class';
+      modelType = 'binomial';
+    end
+
     if cvset(1) > 1
       cvind = cvind - (cvset(1)-1);
       cvset = cvset - (cvset(1)-1);
@@ -52,7 +67,7 @@ function [W, obj] = lasso_glmnet(X, Y,alpha, lambda, varargin)
     end
     if isnan(lambda)
       opts = glmnetSet(struct('intr',0,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', []));
-      objcv = cvglmnet(x,y+1,'binomial',opts,'class',nfold,cvind');
+      objcv = cvglmnet(x,y,modelType,opts,performanceMetric,nfold,cvind');
       lambda = objcv.lambda_min;
 
 %      yz   = x * objcv.glmnet_fit.beta;
@@ -73,8 +88,12 @@ function [W, obj] = lasso_glmnet(X, Y,alpha, lambda, varargin)
 %      lambda = objcv.lambda(lamind);
     end
     opts = glmnetSet(struct('intr',0,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', lambda));
-    obj(iSubj) = glmnet(x,y+1,'binomial',opts);
-    W{iSubj} = obj(iSubj).beta;
+    obj(iSubj) = glmnet(x,y,modelType,opts);
+    if iscell(obj(iSubj).beta)
+      W{iSubj} = cell2mat(obj(iSubj).beta);
+    else
+      W{iSubj} = obj(iSubj).beta;
+    end
   end
 end
 function b = validateW0(w0)
