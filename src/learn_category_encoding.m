@@ -93,21 +93,43 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
   % Permute if requested
   fprintf('PermutationTest: %d\n', PermutationTest);
   if PermutationTest
-    n = size(Y,1);
-    fprintf('Permuting %d rows of Y.\n', n);
-    fprintf('First 10 rows of Y, before shuffling.\n')
-    disp(Y(1:10,:))
-    permix = randperm(n);
     if iscell(Y)
       for i = 1:numel(Y)
-        y = Y{i};
-        Y{i} = y(permix);
+        for ic = unique(cvind)'
+          fprintf('Permuting CV %d...\n', ic);
+          y = Y{i}(cvind==ic);
+          n = size(y,1);
+          if VERBOSE
+            fprintf('Permuting %d rows of C, independently by its %d columns.\n', n, r);
+            fprintf('First 10 rows of C, before shuffling.\n')
+            disp(y)
+          end
+          permix = randperm(n);
+          Y{i}(cvind==ic) = y(permix, :);
+          if VERBOSE
+            fprintf('First 10 rows of C, after shuffling.\n')
+            disp(y(permix))
+          end
+        end
       end
     else
-      Y = Y(permix);
+      for ic = unique(cvind)'
+        fprintf('Permuting CV %d...\n', ic);
+        y = Y(cvind==ic);
+        n = size(y,1);
+        if VERBOSE
+          fprintf('Permuting %d rows of Y.\n', n, r);
+          fprintf('First 10 rows of Y, before shuffling.\n')
+          disp(y)
+        end
+        permix = randperm(n);
+        Y(cvind==ic) = y(permix, :);
+        if VERBOSE
+          fprintf('First 10 rows of Y, after shuffling.\n')
+          disp(y(permix))
+        end
+      end
     end
-    fprintf('First 10 rows of Y, after shuffling.\n')
-    disp(Y(1:10,:))
   end
 
   fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n', '','subj','alpha','lambda','test err','train err','test diff','train diff','n vox')
