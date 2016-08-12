@@ -41,9 +41,18 @@ end
 % Targets
 % -------
 % Information about targets (i.e., possible y vectors) should be stored in a
-% structure with 2 required fields: 'label' and 'targets'.
-TARGETS(1) = struct('label','faces','type','category','sim_source',[],'sim_metric',[],'target',y);
-TARGETS(2) = struct('label','places','type','category','sim_source',[],'sim_metric',[],'target',~y);
+% structure with 5 required fields, 3 of which are relevant for classification
+% analyses: 'label', 'type', 'targets', 'sim_source', and 'sim_metric'.
+TARGETS(1) = struct(...
+  'label','faces',...
+  'type','category',...
+  'target',y, ...
+  'sim_source',[],'sim_metric',[]);
+TARGETS(2) = struct(...
+  'label','places',...
+  'type','category',...
+  'target',~y, ...
+  'sim_source',[],'sim_metric',[]);
 
 % Cross-validation
 % ----------------
@@ -94,6 +103,8 @@ FILTERS(2) = struct('label','GoodRows', 'dimension', 1, 'filter', z);
 xyz = [(1:nvoxels)',ones(nvoxels,1),ones(nvoxels,1)];
 COORDS(1) = struct('orientation','orig','xyz',xyz);
 COORDS(2) = struct('orientation','tlrc','xyz',xyz);
+% Of course, in practice the tlrc coordinates would not be the same as the
+% original coordinates ...
 
 %% Put it all together
 % -------------------

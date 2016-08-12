@@ -53,10 +53,18 @@ normalize: zscore
 #
 # metadata_var is the same as data_var.
 data:
-  - /path/to/data/s100.mat
-  - /path/to/data/s101.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp01.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp02.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp03.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp04.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp05.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp06.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp07.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp08.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp09.mat
+  - /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp10.mat
 data_var: X
-metadata: ./shared/metadata.mat
+metadata: /Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/metadata_TR5_new.mat
 metadata_var: metadata
 
 # Metadata Field References
@@ -82,8 +90,18 @@ metadata_var: metadata
 # with the optimal parameters, there are parts of the data that had nothing to
 # do with the parameter selection.
 cvscheme: 1
-cvholdout: [1,2,3,4,5,6,7,8,9,10]
-finalholdout: 0
+cvholdout:
+  - [2,3,4,5,6,7,8,9,10]
+  - [1,3,4,5,6,7,8,9,10]
+  - [1,2,4,5,6,7,8,9,10]
+  - [1,2,3,5,6,7,8,9,10]
+  - [1,2,3,4,6,7,8,9,10]
+  - [1,2,3,4,5,7,8,9,10]
+  - [1,2,3,4,5,6,8,9,10]
+  - [1,2,3,4,5,6,7,9,10]
+  - [1,2,3,4,5,6,7,8,10]
+  - [1,2,3,4,5,6,7,8,9]
+finalholdout: [1,2,3,4,5,6,7,8,9,10]
 
 # Targets
 # -------
@@ -131,9 +149,14 @@ filters:
 # id from the filename using sscanf which is a MATLAB builtin. So experiment
 # with sscanf to come up with the right format string for your needs, and then
 # put that format string here.
+#
+# If you are not running on HTCondor, you can drop the executable and wrapper
+# lines.
 SmallFootprint: 0
 SaveResultsAs: mat
 subject_id_fmt: s%d.mat
+executable: "/Users/Chris/src/WholeBrain_MVPA/bin/WholeBrain_MVPA"
+wrapper: "/Users/Chris/src/WholeBrain_MVPA/run_WholeBrain_MVPA.sh"
 
 # condortools/setupJob Options
 # ============================
@@ -166,5 +189,13 @@ subject_id_fmt: s%d.mat
 # takes effect, so lists of files can be distributed to specific jobs.
 EXPAND:
   - data
-COPY: []
-URLS: []
+# If you are not running on HTCondor, you can (probably) replace the following with:
+# COPY: []
+# URLS: []
+COPY:
+  - executable
+  - wrapper
+URLS:
+  - data
+  - metadata
+
