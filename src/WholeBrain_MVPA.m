@@ -38,7 +38,7 @@ function WholeBrain_MVPA(varargin)
   addParameter(p , 'wrapper'          , []                         );
   addParameter(p , 'RandomSeed'       , 0                          );
   addParameter(p , 'PermutationTest'  , false     , @islogicallike );
-  addParameter(p , 'SaveResultsAs'  , 'mat'     , @isMatOrJSON);
+  addParameter(p , 'SaveResultsAs'  , 'mat'     , @isMatOrJSONOrCSV);
 
   if nargin > 0
     parse(p, varargin{:});
@@ -336,13 +336,13 @@ function WholeBrain_MVPA(varargin)
     % Add the final holdout index to all results.
     [results.finalholdout] = deal(finalholdoutInd);
     % Adjust the cvholdout indexes to accomodate the final holdout index.
-    if isfield(results,'cvholdout') && finalholdoutInd > 0
-      cvholdout = [results.cvholdout];
-      z = cvholdout >= finalholdoutInd;
-      cvholdout(z) = cvholdout(z) + 1;
-      cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
-      [results.cvholdout] = deal(cvholdout{:});
-    end
+%    if isfield(results,'cvholdout') && finalholdoutInd > 0
+%      cvholdout = [results.cvholdout];
+%      z = cvholdout >= finalholdoutInd;
+%      cvholdout(z) = cvholdout(z) + 1;
+%      cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
+%      [results.cvholdout] = deal(cvholdout{:});
+%    end
     %% Add extra parameter info
     [results.diameter] = deal(diameter);
     [results.overlap] = deal(overlap);
@@ -363,7 +363,62 @@ function WholeBrain_MVPA(varargin)
             save('results.mat','results');
           end
       case 'json'
-          savejson('',results,'FileName','results.json','ForceRootName',false);
+        if SmallFootprint
+          fields = fieldnames(results);
+          fieldIsEmpty = false(1,numel(fields));
+          for iField = 1:numel(fields)
+            fn = fields{iField};
+            if all(cellfun(@isempty, {results.(fn)}))
+              fieldIsEmpty(iField) = true;
+            end
+          end
+          results = rmfield(results,fields(fieldIsEmpty));
+        end
+        savejson('',results,'FileName','results.json','ForceRootName',false);
+      case 'json_testOnly'
+        if SmallFootprint
+          fields = fieldnames(results);
+          fieldIsEmpty = false(1,numel(fields));
+          for iField = 1:numel(fields)
+            fn = fields{iField};
+            if all(cellfun(@isempty, {results.(fn)}))
+              fieldIsEmpty(iField) = true;
+            end
+          end
+          for iResult = 1:numel(results)
+            results(iResult).diff1 = (results(iResult).h1/results(iResult).nt1) - (results(iResult).f1/results(iResult).nd1);
+          end
+          results = rmfield(results,[fields(fieldIsEmpty)',{'h1','h2','f1','f2','nt1','nt2','nd1','nd2','err2'}]);
+        end
+        savejson('',results,'FileName','results.json','ForceRootName',false);
+      case 'csv'
+        % This drops all non-scalar fields, so it is basically small footprint.
+        fields = fieldnames(results);
+        fieldIsScalar = false(1,numel(fields));
+        for iField = 1:numel(fields)
+          fn = fields{iField};
+          if all(cellfun(@isscalar, {results.(fn)}))
+            fieldIsScalar(iField) = true;
+          end
+        end
+        scalarFields = fields(fieldIsScalar)
+        results = rmfield(results,fields(~fieldIsScalar));
+        writetable(struct2table(results),'results.csv');
+      case 'csv_testOnly'
+        % This drops all non-scalar fields, so it is basically small footprint.
+        fields = fieldnames(results);
+        fieldIsScalar = false(1,numel(fields));
+        for iField = 1:numel(fields)
+          fn = fields{iField};
+          if all(cellfun(@isscalar, {results.(fn)}))
+            fieldIsScalar(iField) = true;
+          end
+        end
+        for iResult = 1:numel(results)
+          results(iResult).diff1 = (results(iResult).h1/results(iResult).nt1) - (results(iResult).f1/results(iResult).nd1);
+        end
+        results = rmfield(results,[fields(~fieldIsScalar)',{'h1','h2','f1','f2','nt1','nt2','nd1','nd2','err2'}]);
+        writetable(struct2table(results),'results.csv');
   end
   fprintf('Done!\n');
 end
@@ -409,6 +464,6 @@ function assertRequiredParameters(params, required)
   end
 end
 
-function b = isMatOrJSON(x)
-    b = any(strcmpi(x, {'mat','json'}));
+function b = isMatOrJSONOrCSV(x)
+    b = any(strcmpi(x, {'mat','json','json_testOnly','csv','csv_testOnly'}));
 end
