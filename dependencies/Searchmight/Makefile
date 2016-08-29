@@ -1,4 +1,4 @@
-MATLABDIR ?= /usr/local/MATLAB/R2013b
+MATLABDIR ?= /usr/local/MATLAB/R2014b
 INCL= -I$(MATLABDIR)/extern/include
 all: searchmightGNB repmat
 
