@@ -10,6 +10,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
   addParameter(p , 'cvholdout'      , []       );
   addParameter(p , 'normalize'      , []       );
   addParameter(p , 'DEBUG'          , false    );
+  addParameter(p , 'verbose'        , false    );
   addParameter(p , 'debias'         , false    );
   addParameter(p , 'AdlasOpts'      , struct() );
   addParameter(p , 'SmallFootprint' , false    );
@@ -26,6 +27,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
   holdout   = p.Results.cvholdout;
   normalize = p.Results.normalize;
   DEBUG     = p.Results.DEBUG;
+  VERBOSE   = p.Results.verbose;
   DEBIAS    = p.Results.debias;
   options   = p.Results.AdlasOpts;
   SMALL     = p.Results.SmallFootprint;
@@ -95,9 +97,9 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
   if PermutationTest
     if iscell(Y)
       for i = 1:numel(Y)
-        for ic = unique(cvind)'
+        for ic = unique(cvind{i})'
           fprintf('Permuting CV %d...\n', ic);
-          y = Y{i}(cvind==ic);
+          y = Y{i}(cvind{i}==ic);
           n = size(y,1);
           if VERBOSE
             fprintf('Permuting %d rows of C, independently by its %d columns.\n', n, r);
@@ -105,7 +107,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
             disp(y)
           end
           permix = randperm(n);
-          Y{i}(cvind==ic) = y(permix, :);
+          Y{i}(cvind{i}==ic) = y(permix, :);
           if VERBOSE
             fprintf('First 10 rows of C, after shuffling.\n')
             disp(y(permix))
