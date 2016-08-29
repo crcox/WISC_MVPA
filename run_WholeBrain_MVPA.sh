@@ -26,6 +26,9 @@ cleanup() {
   if [ -f "r2014b.tar.gz" ]; then
     rm -v "r2014b.tar.gz"
   fi
+  if [ -f "libXmu_libXt.el6.x86_64.tgz" ]; then
+    rm -v "libXmu_libXt.el6.x86_64.tgz"
+  fi
   # Check the home directory for any transfered files.
   if [ -f ALLURLS ]; then
     while read url; do
