@@ -64,7 +64,7 @@ void repmat(char *dest, const char *src, int ndim, int *destdimsize,
 }
 
 void mexFunction(int nlhs, mxArray *plhs[],
-                 int nrhs, mxArray *prhs[])
+                 int nrhs, const mxArray *prhs[])
 {
   const mxArray *srcmat;
   int ndim, *dimsize, eltsize;
