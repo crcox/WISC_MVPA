@@ -16,3 +16,5 @@ log/
 source_code.tar.gz
 demo/params.json
 demo/results.json
+mccExcludedFiles.log
+readme.txt
