@@ -81,10 +81,10 @@ WholeBrain_MVPA: $(SRC)/WholeBrain_MVPA.m $(SEARCHMIGHT)/searchmightGNB.mexa64
 	$(MCC) -v $(MFLAGS) $(INCL) -o $@ $<
 
 clean-postbuild:
-	rm *.dmr
-	rm mccExcludedFiles.log
-	rm readme.txt
-	rm run_WholeBrain_MVPA.sh
+	-rm *.dmr
+	-rm mccExcludedFiles.log
+	-rm readme.txt
+	-rm run_WholeBrain_MVPA.sh
 
 sdist:
 	tar czhf $(SRCTAR) src dependencies
