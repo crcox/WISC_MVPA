@@ -9,6 +9,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
   addRequired(p  , 'alpha'                             );
   addRequired(p  , 'lambda'                            );
   addParameter(p , 'cvind'   , []                      );
+  addParameter(p , 'bias'    , 0          , @isscalar  );
   addParameter(p , 'maxiter' , 1000       , @isscalar  );
   addParameter(p , 'stopcrit', 2          , @isscalar  );
   addParameter(p , 'tol'     , 1e-8       , @isscalar  );
@@ -23,6 +24,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
   Ytest     = cellfun(@checkY, p.Results.Ytest, 'Unif', 0);
   alpha     = p.Results.alpha;
   lambda    = p.Results.lambda;
+  bias      = p.Results.bias;
   maxiter   = p.Results.maxiter;
   tol       = p.Results.tol;
   W0        = p.Results.W0;
@@ -112,7 +114,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
     nsCounter = 0;
     while 1
       iter = iter + 1;
-      opts = glmnetSet(struct('intr',0,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', []));
+      opts = glmnetSet(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', []));
       objcv = cvglmnet(xtrain,ytrain,modelType,opts,performanceMetric,nfold,cvind');
       lambda_min = objcv.lambda_min;
       
@@ -129,7 +131,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
       end
 
       %% Compute single lasso model for the iteration at lambda_min
-      opts = glmnetSet(struct('intr',0,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', lambda_min));
+      opts = glmnetSet(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', lambda_min));
       obj(iSubj) = glmnet(xtrain,ytrain,modelType,opts);
       if isMultinomial
         [~,ix] = max(glmnetPredict(obj(iSubj),xtest),[],2);
@@ -222,11 +224,11 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
     if any(used(:))
       xtrain = Xtrain{iSubj}(:,any(used,2));
       xtest = Xtest{iSubj}(:,any(used,2));
-      opts = glmnetSet(struct('intr',0,'thresh', tol, 'weights', W0, 'alpha', 0, 'lambda', []));
+      opts = glmnetSet(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', 0, 'lambda', []));
       objcv = cvglmnet(xtrain,ytrain,modelType,opts,performanceMetric,nfold,cvind');
       lambda_min = objcv.lambda_min;
 
-      opts = glmnetSet(struct('intr',0,'thresh', tol, 'weights', W0, 'alpha', 0, 'lambda', lambda_min));
+      opts = glmnetSet(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', 0, 'lambda', lambda_min));
       obj(iSubj) = glmnet(xtrain,ytrain,modelType,opts);
       if isMultinomial
         W{iSubj}(any(used,2),:) = cell2mat(obj(iSubj).beta);

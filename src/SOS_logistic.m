@@ -40,6 +40,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
   addRequired(p  , 'lambda'               , @isscalar  );
   addRequired(p  , 'G'                    , @iscell    );
   addParameter(p , 'l2'      , 0          , @isscalar  );
+  addParameter(p , 'bias'    , 0          , @isscalar  );
   addParameter(p , 'maxiter' , 1000       , @isscalar  );
   addParameter(p , 'tol'     , 1e-8       , @isscalar  );
   addParameter(p , 'W0'      , []         , @validateW0);
@@ -53,6 +54,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
   G         = p.Results.G;
   maxiter   = p.Results.maxiter;
   l2        = p.Results.l2;
+  bias      = p.Results.bias;
   tol       = p.Results.tol;
   W0        = p.Results.W0;
   verbose   = p.Results.verbose;

@@ -7,6 +7,7 @@ function [W, obj] = lasso_glmnet(X, Y,alpha, lambda, varargin)
   addRequired(p  , 'alpha'                             );
   addRequired(p  , 'lambda'                            );
   addParameter(p , 'cvind'   , []                      );
+  addParameter(p , 'bias   ' , 0          , @isscalar  );
   addParameter(p , 'maxiter' , 1000       , @isscalar  );
   addParameter(p , 'tol'     , 1e-8       , @isscalar  );
   addParameter(p , 'W0'      , []         , @validateW0);
@@ -17,6 +18,7 @@ function [W, obj] = lasso_glmnet(X, Y,alpha, lambda, varargin)
   Y         = cellfun(@checkY, p.Results.Y, 'Unif', 0);
   alpha     = p.Results.alpha;
   lambda    = p.Results.lambda;
+  bias      = p.Results.bias;
   maxiter   = p.Results.maxiter;
   tol       = p.Results.tol;
   W0        = p.Results.W0;
@@ -66,7 +68,7 @@ function [W, obj] = lasso_glmnet(X, Y,alpha, lambda, varargin)
       end
     end
     if isnan(lambda)
-      opts = glmnetSet(struct('intr',0,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', []));
+      opts = glmnetSet(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', []));
       objcv = cvglmnet(x,y,modelType,opts,performanceMetric,nfold,cvind');
       lambda = objcv.lambda_min;
 
@@ -87,7 +89,7 @@ function [W, obj] = lasso_glmnet(X, Y,alpha, lambda, varargin)
 %      [~,lamind] = max(dd1);
 %      lambda = objcv.lambda(lamind);
     end
-    opts = glmnetSet(struct('intr',0,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', lambda));
+    opts = glmnetSet(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', lambda));
     obj(iSubj) = glmnet(x,y,modelType,opts);
     if iscell(obj(iSubj).beta)
       W{iSubj} = cell2mat(obj(iSubj).beta);

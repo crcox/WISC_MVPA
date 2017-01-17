@@ -9,6 +9,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
   addParameter(p , 'cvind'          , []       );
   addParameter(p , 'cvholdout'      , []       );
   addParameter(p , 'normalize'      , []       );
+  addParameter(p , 'bias'           , 0        );
   addParameter(p , 'DEBUG'          , false    );
   addParameter(p , 'verbose'        , false    );
   addParameter(p , 'debias'         , false    );
@@ -26,6 +27,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
   cvind     = p.Results.cvind;
   holdout   = p.Results.cvholdout;
   normalize = p.Results.normalize;
+  BIAS      = p.Results.bias;
   DEBUG     = p.Results.DEBUG;
   VERBOSE   = p.Results.verbose;
   DEBIAS    = p.Results.debias;
@@ -138,6 +140,8 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
   iii = 0;
   for i = 1:ncv
     icv = cvset(i);
+
+    %% RESET X (BEFORE NORMALIZATION AND BIAS UNIT)
     X = Xorig;
 
     test_set = cell(size(cvind));
@@ -147,22 +151,46 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
       train_set{iSubject} = ~test_set{iSubject};
     end
 
+    %% NORMALIZE
+    X = ascell(X);
     for iSubject = 1:numel(X);
       switch lower(normalize)
         case 'zscore_train'
-          mm1 = mean(X{iSubject}(test_set{iSubject},:),1);
-          ss1 = std(X{iSubject}(test_set{iSubject},:),0,1);
-          mm2 = mean(X{iSubject}(train_set{iSubject},:),1);
-          ss2 = std(X{iSubject}(train_set{iSubject},:),0,1);
+          mm = mean(X{iSubject}(train_set{iSubject},:),1);
+          ss = std(X{iSubject}(train_set{iSubject},:),0,1);
+        case 'zscore'
+          mm = mean(X{iSubject},1);
+          ss = std(X{iSubject},0,1);
+        case 'stdev_train'
+          mm = 0;
+          ss = std(X{iSubject}(train_set,:),0,1);
+        case 'stdev'
+          mm = 0;
+          ss = std(X{iSubject},0,1);
+        case '2norm_train'
+          mm = mean(X{iSubject}(train_set,:),1);
+          ss = norm(X{iSubject}(train_set,:));
+        case '2norm'
+          mm = mean(X{iSubject},1);
+          ss = norm(X{iSubject});
         otherwise
-          % All other cases already handled.
-          [mm1,mm2] = deal(0);
-          [ss1,ss2] = deal(1);
+          error('Unrecognized normalizaion method! Exiting...')
       end
-      X{iSubject}(test_set{iSubject},:) = bsxfun(@minus,X{iSubject}(test_set{iSubject},:), mm1);
-      X{iSubject}(test_set{iSubject},:) = bsxfun(@rdivide,X{iSubject}(test_set{iSubject},:), ss1);
-      X{iSubject}(train_set{iSubject},:) = bsxfun(@minus,X{iSubject}(train_set{iSubject},:), mm2);
-      X{iSubject}(train_set{iSubject},:) = bsxfun(@rdivide,X{iSubject}(train_set{iSubject},:), ss2);
+      z = ss > 0; % constant when ss == 0
+      X{iSubject}(:,z) = bsxfun(@minus,X{iSubject}(:,z), mm(:,z));
+      X{iSubject}(:,z) = bsxfun(@rdivide,X{iSubject}(:,z), ss(:,z));
+      if any(~z)
+        warning('Subject %d has %d constant-valued voxels... problem?', iSubject, sum(~z));
+        if VERBOSE
+          fprintf('Subject %d Constant-valued voxel indexes:\n', iSubject);
+          disp(find(~z));
+        end
+      end
+    end
+
+    %% ADD BIAS UNIT
+    if BIAS
+      X = addBiasUnit(X);
     end
 
     for j = 1:nalpha
@@ -197,6 +225,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               subsetAll(X, train_set), ...
               subsetAll(Y, train_set), ...
               lambda,...
+              'bias   ' , BIAS, ...
               'maxiter' , 1e4, ...
               'tol'     , 1e-5, ...
               'verbose' , true, ...
@@ -215,6 +244,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               subsetAll(Y, train_set), ...
                        1, lambda,...
               'cvind'   , subsetAll(cvind, train_set),...
+              'bias   ' , BIAS, ...
               'maxiter' , 1000, ...
               'tol'     , 1e-8, ...
               'W0'      ,   []);
@@ -235,6 +265,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               subsetAll(Y, test_set), ...
                        1, lambda,...
               'cvind'   , subsetAll(cvind, train_set),...
+              'bias   ' , BIAS, ...
               'maxiter' , 1000, ...
               'tol'     , 1e-8, ...
               'W0'      ,   []);
@@ -245,6 +276,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               subsetAll(Y, train_set), ...
                        1, lambda, G, ...
               'l2'      ,    0, ...
+              'bias   ' , BIAS, ...
               'maxiter' , 1000, ...
               'tol'     , 1e-8, ...
               'W0'      ,   []);
@@ -255,6 +287,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
               subsetAll(Y, train_set), ...
               alpha,       lambda,  G, ...
               'l2'      ,    0, ...
+              'bias'    , BIAS, ...
               'maxiter' , 1000, ...
               'tol'     , 1e-8, ...
               'W0'      ,   []);
