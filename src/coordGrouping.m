@@ -1,32 +1,32 @@
 function G = coordGrouping(coords, diameter, overlap, shape)
-% COORDGROUPING  Form groups of coordinates based on definitions.
-%   G = coordGrouping(coords, diameter, overlap, shape) generates groups.
-%   INPUTS
-%   coordinates : a n-by-d matrix of coordinates, or a cell array of such
-%                 matrices. If a cell array is provided, groups are formed
-%                 with respect to the complete set of coordinates, across
-%                 all cells, and then sorted out by coordinate cell. This
-%                 ensures that
-%   diameter    : the distance across shape along each axis. If only one
-%                 diameter is provided, it will apply to all d axes.
-%   overlap     : the amount that each group should overlap.
-%   shape       : can be either "cube" or "sphere", although technically
-%                 elipsoids and cuboids are possible by specifying
-%                 different diameters along each dimension.
-%   OUTPUTS
-%   G : A matrix of cells, where rows correspond to groups and there is a
-%       column for each cell of coordinates provided. Each cell contains
-%       indexes that point to rows in the corresponding cell of coords.
-%
-%   See also ndmovingwindow, ndcoord.
-%   Author: Chris Cox, 7/8/2015
-  % Older releases of matlab do not have the repelem() builtin. If that is the case, use my crappy version instead.
+    % COORDGROUPING  Form groups of coordinates based on definitions.
+    %   G = coordGrouping(coords, diameter, overlap, shape) generates groups.
+    %   INPUTS
+    %   coordinates : a n-by-d matrix of coordinates, or a cell array of such
+    %                 matrices. If a cell array is provided, groups are formed
+    %                 with respect to the complete set of coordinates, across
+    %                 all cells, and then sorted out by coordinate cell. This
+    %                 ensures that
+    %   diameter    : the distance across shape along each axis. If only one
+    %                 diameter is provided, it will apply to all d axes.
+    %   overlap     : the amount that each group should overlap.
+    %   shape       : can be either "cube" or "sphere", although technically
+    %                 elipsoids and cuboids are possible by specifying
+    %                 different diameters along each dimension.
+    %   OUTPUTS
+    %   G : A matrix of cells, where rows correspond to groups and there is a
+    %       column for each cell of coordinates provided. Each cell contains
+    %       indexes that point to rows in the corresponding cell of coords.
+    %
+    %   See also ndmovingwindow, ndcoord.
+    %   Author: Chris Cox, 7/8/2015
+    % Older releases of matlab do not have the repelem() builtin. If that is the case, use my crappy version instead.
     mlinfo = ver('MATLAB');
     mlversion = sscanf(mlinfo.Version,'%d.%d');
     if (mlversion(1) <= 8) && (mlversion(2) < 5)
-      repelem_ = @repelem_crc;
+        repelem_ = @repelem_crc;
     else
-      repelem_ = @repelem;
+        repelem_ = @repelem;
     end
 
     p = inputParser();
@@ -96,11 +96,11 @@ function G = coordGrouping(coords, diameter, overlap, shape)
                     cmin = coords(i,:) - x;
                     z = all(bsxfun(@lt,coords,cmax) & bsxfun(@gt,coords,cmin),2);
                     radii(z) = false;
+                end
             end
         end
+        G(all(cellfun('isempty',G),2),:) = [];
     end
-    G(all(cellfun('isempty',G),2),:) = [];
-end
 
 function b = isvalidshape(x)
     b = ischar(x) && any(strcmp(x,{'sphere','cube'}));

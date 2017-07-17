@@ -13,8 +13,8 @@ clear d;
 nsubj = 5;
 XYZ = cell(1, nsubj);
 for j = 1:nsubj
-  idx = randperm(size(xyz,1),floor(size(xyz,1)/3));
-  XYZ{j} = xyz(idx,:);
+    idx = randperm(size(xyz,1),floor(size(xyz,1)/3));
+    XYZ{j} = xyz(idx,:);
 end
 
 %% Generate groups
@@ -43,19 +43,19 @@ p = 500;
 ag = 1:10;
 snr = 2;
 for j = 1:nsubj
-  d = size(XYZ{j},1);
-  x = randn(p, d);
-  aix = unique(cell2mat(G(ag,j)));
-  aix = aix(randperm(length(aix),nsig));
-  x(:,aix) = x(:,aix) * snr;
-  b = randn(nsig,1) * snr;
-  y = x(:,aix) * b;
-  bb = zeros(d,1);
-  bb(aix) = b;
-  X{j} = x;
-  Y{j} = sign(y);
-  B{j} = bb;
-  clear x y b bb
+    d = size(XYZ{j},1);
+    x = randn(p, d);
+    aix = unique(cell2mat(G(ag,j)));
+    aix = aix(randperm(length(aix),nsig));
+    x(:,aix) = x(:,aix) * snr;
+    b = randn(nsig,1) * snr;
+    y = x(:,aix) * b;
+    bb = zeros(d,1);
+    bb(aix) = b;
+    X{j} = x;
+    Y{j} = sign(y);
+    B{j} = bb;
+    clear x y b bb
 end
 
 %% Run SOS Lasso
@@ -74,11 +74,11 @@ toc
 Wopt = cell(size(W));
 Yz = zeros(p,size(W,2));
 for j = 1:size(W,2)
-  d = length(W{j});
-  Wopt{j} = zeros(d,1);
-  z = W{j}~=0;
-  x = X{j};
-  x = x(:, z);
-  Wopt{j}(z) = x\Y{j};
-  Yz(:,j) = X{j} * Wopt{j};
+    d = length(W{j});
+    Wopt{j} = zeros(d,1);
+    z = W{j}~=0;
+    x = X{j};
+    x = x(:, z);
+    Wopt{j}(z) = x\Y{j};
+    Yz(:,j) = X{j} * Wopt{j};
 end

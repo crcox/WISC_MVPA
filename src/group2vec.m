@@ -4,4 +4,3 @@ function v = group2vec(G)
     G = cellfun(@(x) x(:), G(:), 'Unif', 0);
     v = cell2mat(G);
 end
-    

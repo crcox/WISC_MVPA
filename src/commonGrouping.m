@@ -3,11 +3,11 @@ function [Gc,ix] = commonGrouping(G)
     c = uint32([0;cumsum(n(:))]);
     N = cellmax(G);
     for i = 1:size(G,1)
-      for j = 1:size(G,2)
-        x = uint32(G{i,j}(:));
-        g = uint32([x; ones(n(i)-length(x),1,'uint32')*(N(j)+1)]);
-        G{i,j} = g(:);
-      end
+        for j = 1:size(G,2)
+            x = uint32(G{i,j}(:));
+            g = uint32([x; ones(n(i)-length(x),1,'uint32')*(N(j)+1)]);
+            G{i,j} = g(:);
+        end
     end
     ix = cell2mat(G);
 
@@ -20,6 +20,6 @@ function [Gc,ix] = commonGrouping(G)
 end
 
 function N = cellmax(C)
-  C(cellfun('isempty',C)) = {uint32(0)}; %handle empty cells
-  N = uint32(max(cellfun(@max, C),[],1));
+    C(cellfun('isempty',C)) = {uint32(0)}; %handle empty cells
+    N = uint32(max(cellfun(@max, C),[],1));
 end

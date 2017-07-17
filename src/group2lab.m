@@ -8,4 +8,3 @@ function labs = group2lab(G)
     M = bsxfun(@times, M, 1:numel(G));
     labs = M(M>0);
 end
-    
