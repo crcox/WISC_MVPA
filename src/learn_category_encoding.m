@@ -138,7 +138,13 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
         end
     end
 
-    fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n', '','subj','alpha','lambda','test err','train err','test diff','train diff','n vox')
+    switch lower(regularization)
+        case 'iterlasso_glmnet'
+            fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s %11s\n', '','subj','alpha','lambda','test err','train err','test diff','train diff','n vox', 'n iter')
+        otherwise
+            fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n', '','subj','alpha','lambda','test err','train err','test diff','train diff','n vox')
+    end
+    
     iii = 0;
     for i = 1:ncv
         icv = cvset(i);
@@ -435,13 +441,22 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                     end
 
                     if isMultinomial
-
+                        err1 = mean(err1);
+                        err2 = mean(err2);
+                        diff1 = mean((h1/nt1)-(f1/nd1));
+                        diff2 = mean((h2/nt2)-(f2/nd2));
                     else
-                        fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
-                            icv,iSubject,alpha_j,lambda_k,err1,err2,(h1/nt1)-(f1/nd1),(h2/nt2)-(f2/nd2),wnz);
+                        diff1 = (h1/nt1)-(f1/nd1);
+                        diff2 = (h2/nt2)-(f2/nd2);
                     end
-                    fprintf('cv %3d: %3d |%6.2f |%6.2f |%10.4f |%10.4f |%10.4f |%10.4f |%10d |\n', ...
-                        icv,iSubject,alpha_j,lambda_k,mean(err1),mean(err2),mean((h1/nt1)-(f1/nd1)),mean((h2/nt2)-(f2/nd2)),wnz);
+                    switch lower(regularization)
+                        case 'iterlasso_glmnet'
+                            fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d | %10d|\n', ...
+                                icv,iSubject,alpha_j,lambda_k,err1,err2,diff1,diff2,wnz,numel(Iterations));
+                        otherwise
+                            fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
+                                icv,iSubject,alpha_j,lambda_k,err1,err2,diff1,diff2,wnz);
+                    end
                 end
             end % lamba loop
         end % alpha loop
