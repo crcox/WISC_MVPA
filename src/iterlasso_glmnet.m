@@ -11,7 +11,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
     addParameter(p , 'cvind'   , []                      );
     addParameter(p , 'bias'    , 0          , @isscalar  );
     addParameter(p , 'maxiter' , 10         , @isscalar  );
-    addParameter(p , 'stopcrit', 2          , @isscalar  );
+    addParameter(p , 'stopcrit', 1          , @isscalar  );
     addParameter(p , 'tol'     , 1e-8       , @isscalar  );
     addParameter(p , 'W0'      , []         , @validateW0);
     addParameter(p , 'verbose' , false                   );
@@ -26,7 +26,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
     alpha     = p.Results.alpha;
     % lambda    = p.Results.lambda;
     bias      = p.Results.bias;
-    % maxiter   = p.Results.maxiter;
+    maxiter   = p.Results.maxiter;
     tol       = p.Results.tol;
     W0        = p.Results.W0;
     CVIND     = p.Results.cvind;
@@ -74,7 +74,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
             ytest_m = bsxfun(@eq,ytest(:),cinds);
         else
             isMultinomial = 0;
-            performanceMetric = 'class';
+            performanceMetric = 'difference';
             modelType = 'binomial';
             ytrain_m = ytrain;
             ytest_m = ytest;
@@ -98,12 +98,15 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
             end
         end
 
+        % This bit is not used when the objective is to maximize the
+        % difference between hits and false alarms, which has a natural
+        % chance level of zero.
         if isMultinomial
             tmp = zeros(1,m);
+            b = tabulate(cvind);
             for i = 1:m
                 a = tabulate(cvind(ytrain==cinds(i)));
-                b = tabulate(cvind);
-                tmp(i) = mean(a(:,2)) / mean(b(:,2));
+                tmp(i) = mean(a(:,2)) ./ mean(b(:,2));
             end
             chance = mean(tmp);
         else
@@ -117,19 +120,21 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
         while 1
             iter = iter + 1;
             opts = glmnetSet(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', []));
-            objcv = cvglmnet(xtrain,ytrain,modelType,opts,performanceMetric,nfold,cvind', PARALLEL);
+            objcv = cvglmnet(xtrain,ytrain,modelType,opts,performanceMetric,nfold,cvind', PARALLEL, 1);
             lambda_min = objcv.lambda_min;
 
-            ci.upper = objcv.cvm + 2*(objcv.cvsd/sqrt(9));
-            h = chance > ci.upper(objcv.lambda == lambda_min);
-
-            if isnan(h) || h == 0
+            ci.upper = objcv.cvm - 2*(objcv.cvsd/sqrt(nfold-1));
+            h(iter) = ci.upper(objcv.lambda == lambda_min) > 0;
+            if isnan(h(iter)) || h(iter) == 0
                 nsCounter = nsCounter + 1;
                 if nsCounter >= STOP_CRIT;
                     break
                 end
             else
                 nsCounter = 0;
+            end
+            if iter > maxiter
+                break
             end
 
             %% Compute single lasso model for the iteration at lambda_min
