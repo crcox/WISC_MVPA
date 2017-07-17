@@ -291,10 +291,15 @@ cpredmat = cell(nfolds,1);
 
 if (parallel == true)
     offpar = 0;
-    if matlabpool('size') <= 0
-        offpar = 1;
-        matlabpool;
+    poolobj = gcp('nocreate');
+    if isempty(poolobj)
+      offpar = 1;
+      poolobj = parpool('local');
     end
+    %if matlabpool('size') <= 0
+    %    offpar = 1;
+    %    matlabpool;
+    %end
     
     parfor i = 1: nfolds
         which = foldid==i;
@@ -309,7 +314,7 @@ if (parallel == true)
     end
     
     if (offpar)
-        matlabpool close;
+        delete(poolobj);
     end    
 else   
     for i = 1: nfolds        
