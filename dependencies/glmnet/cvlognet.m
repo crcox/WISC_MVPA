@@ -6,13 +6,13 @@ if nargin < 10 || isempty(keep)
 end
 
 typenames = struct('mse','Mean-Squared Error','mae','Mean Absolute Error',...
-    'deviance','Binomial Deviance','auc','AUC','class','Misclassification Error');
+    'deviance','Binomial Deviance','auc','AUC','class','Misclassification Error','difference','Hit Rate - False Alarm Rate');
 
 if strcmp(type,'default')
     type = 'deviance';
 end
 
-if ~any(strcmp(type,{'mse','mae','deviance','auc','class'}))
+if ~any(strcmp(type,{'mse','mae','deviance','auc','class','difference'}))
     warning('Only ''deviance'', ''class'', ''auc'', ''mse'' or ''mae''  available for binomial models; ''deviance'' used');
     type = 'deviance';
 end
@@ -92,12 +92,35 @@ else
             cvraw = 2 * (repmat(ly,1,length(lambda)) - lp);
         case 'class'
             cvraw = yy1.*(predmat > 0.5) + yy2.*(predmat <= 0.5);
+        case 'difference'
+            cvraw = cell(1,2);
+            yy = cell(1,2);
+            cvraw{1} = yy2.*(predmat > 0.5); % hits
+            cvraw{2} = yy1.*(predmat > 0.5); % false alarms
+            yy{1} = yy2(:,1);
+            yy{2} = yy1(:,1);
+            % cvraw = yy1.*(predmat > 0.5) + yy2.*(predmat <= 0.5);
     end
     if (grouped)
-        cvob = cvcompute(cvraw, weights, foldid, nlams);
-        cvraw = cvob.cvraw;
-        weights = cvob.weights;
-        N = cvob.N;
+        if strcmp(type, 'difference')
+            cvob = cell(1,2);
+            weights = cell(1,2);
+            N = cell(1,2);
+            for i=1:2
+                cvob{i} = cvcompute(cvraw{i}, yy{i}, foldid, nlams);
+                cvraw{i} = cvob{i}.cvraw;
+                weights{i} = cvob{i}.weights;
+                N{i} = cvob{i}.N;
+            end
+            cvraw = cvraw{1} - cvraw{2};
+            weights = weights{1} + weights{2};
+            N = N{1};
+        else
+            cvob = cvcompute(cvraw, weights, foldid, nlams);
+            cvraw = cvob.cvraw;
+            weights = cvob.weights;
+            N = cvob.N;
+        end
     end
 end
 cvm = wtmean(cvraw,weights);

@@ -354,10 +354,19 @@ end
 if strcmp(type, 'auc')
     cvm = -cvm;
 end
-CVerr.lambda_min = max(options.lambda(cvm<=min(cvm)));
+if strcmp(type, 'difference');
+    CVerr.lambda_min = max(options.lambda(cvm>=max(cvm)));
+else
+    CVerr.lambda_min = max(options.lambda(cvm<=min(cvm)));
+end
 idmin = options.lambda==CVerr.lambda_min;
-semin = cvm(idmin)+cvsd(idmin);
-CVerr.lambda_1se = max(options.lambda(cvm<=semin));
+if strcmp(type, 'difference');
+    semin = cvm(idmin)-cvsd(idmin);
+    CVerr.lambda_1se = max(options.lambda(cvm>=semin));
+else
+    semin = cvm(idmin)+cvsd(idmin);
+    CVerr.lambda_1se = max(options.lambda(cvm<=semin));
+end
 CVerr.class = 'cv.glmnet';
 end
 
