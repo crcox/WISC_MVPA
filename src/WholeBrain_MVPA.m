@@ -234,6 +234,11 @@ function WholeBrain_MVPA(varargin)
             if ~isempty(gcp('nocreate')) && PARALLEL && (exist('ppp', 'var') == 1)
                 delete(ppp);
             end
+            for ii = 1:numel(results)
+                [M,ix] = selectbyfield(metadata,'subject',results(ii).subject);
+                COORDS = selectbyfield(M.coords, 'orientation', orientation);
+                results(ii) = addMaskedCoordinates(results(ii), COORDS, orientation, colfilter{ix});
+            end
 
         case 'iterlasso_glmnet'
             if isempty(gcp('nocreate')) && PARALLEL
@@ -253,6 +258,16 @@ function WholeBrain_MVPA(varargin)
                 'AdlasOpts'      , opts); %#ok<ASGLU>
             if ~isempty(gcp('nocreate')) && PARALLEL && (exist('ppp', 'var') == 1)
                 delete(ppp);
+            end
+            for ii = 1:numel(results)
+                results(ii).subject = metadata(results(ii).subject).subject;
+                [M,ix] = selectbyfield(metadata,'subject',results(ii).subject);
+                COORDS = selectbyfield(M.coords, 'orientation', orientation);
+                results(ii) = addMaskedCoordinates(results(ii), COORDS, orientation, colfilter{ix});
+                for iii = 1:numel(results(ii).iterations)
+                    results(ii).subject = metadata(results(ii).iterations(iii).subject).subject;
+                    results(ii).iterations(iii) = addMaskedCoordinates(results(ii).iterations(iii), COORDS, orientation, colfilter{ix});
+                end
             end
 
         case 'lasso'
@@ -471,4 +486,21 @@ end
 
 function b = isMatOrJSONOrCSV(x)
     b = any(strcmpi(x, {'mat','json','json_testOnly','csv','csv_testOnly'}));
+end
+
+function R = addMaskedCoordinates(R, COORDS, ORIENT, COLFILTER)
+    C = struct('orientation', ORIENT, 'ind', [], 'ijk', [], 'xyz', []);
+    if strcmpi(ORIENT, 'orig')
+        if isfield(COORDS, 'ijk')
+            ijk = COORDS.ijk(COLFILTER,:);
+            C.ijk = ijk(R.Wix,:);
+        end
+        if isfield(COORDS, 'ind')
+            ind = COORDS.ind(COLFILTER);
+            C.ind = ind(R.Wix);
+        end
+    end
+    xyz = COORDS.xyz(COLFILTER,:);
+    C.xyz = xyz(R.Wix,:);
+    R.coords = C;
 end

@@ -71,6 +71,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     results.Yz = [];
     results.Wnz = [];
     results.nvox = [];
+    results.coords = [];
     results.subject = [];
     results.cvholdout = [];
     results.finalholdout = [];
@@ -408,7 +409,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
 
                     results(iii).Wnz = uint32(wnz);
                     results(iii).nvox = uint32(nv);
-                    results(iii).subject = uint8(iSubject);
+                    results(iii).subject = uint32(iSubject);
                     results(iii).cvholdout = uint8(icv);
                     results(iii).finalholdout = uint8(0); % handled in parent function
                     switch lower(regularization)
@@ -416,9 +417,11 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                             alpha_j = 0;
                             results(iii).alpha = 0;
                             results(iii).lambda = info.lambda;
+
                         otherwise
                             results(iii).alpha = alpha;
                             results(iii).lambda = lambda;
+                            
                     end
                     results(iii).diameter = 0; % handled in parent function
                     results(iii).overlap = 0; % handled in parent function

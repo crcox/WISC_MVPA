@@ -187,6 +187,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
             end
 
             %% Store iteration results
+            iterations(iter).subject = uint32(iSubj);
             if ~SMALL
                 iterations(iter).Wz = wz;
                 iterations(iter).Wix = uint32(ix);
@@ -195,6 +196,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
 
             iterations(iter).Wnz = uint32(wnz);
             iterations(iter).nvox = uint32(nv);
+            iterations(iter).coords = [];
             iterations(iter).alpha = alpha;
             iterations(iter).lambda = lambda_min;
             iterations(iter).nt1  = uint16(nt1);
