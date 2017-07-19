@@ -123,20 +123,6 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
             objcv = cvglmnet(xtrain,ytrain,modelType,opts,performanceMetric,nfold,cvind', PARALLEL, 1);
             lambda_min = objcv.lambda_min;
 
-            ci.upper = objcv.cvm - 2*(objcv.cvsd/sqrt(nfold-1));
-            h(iter) = ci.upper(objcv.lambda == lambda_min) > 0;
-            if isnan(h(iter)) || h(iter) == 0
-                nsCounter = nsCounter + 1;
-                if nsCounter >= STOP_CRIT;
-                    break
-                end
-            else
-                nsCounter = 0;
-            end
-            if iter > maxiter
-                break
-            end
-
             %% Compute single lasso model for the iteration at lambda_min
             opts = glmnetSet(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', lambda_min));
             obj = glmnet(xtrain,ytrain,modelType,opts);
@@ -226,6 +212,23 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
             % Reduce X
             xtrain = Xtrain{iSubj}(:,unused);
             xtest = Xtest{iSubj}(:,unused);
+            
+            % Check if the cross-validated error (from the parameter
+            % search) is performing reliably better than chance. If not,
+            % then break out of the loop.
+            ci.upper = objcv.cvm - 2*(objcv.cvsd/sqrt(nfold-1));
+            h(iter) = ci.upper(objcv.lambda == lambda_min) > 0;
+            if isnan(h(iter)) || h(iter) == 0
+                nsCounter = nsCounter + 1;
+                if nsCounter >= STOP_CRIT;
+                    break
+                end
+            else
+                nsCounter = 0;
+            end
+            if iter > maxiter
+                break
+            end
         end
 
         %% Fit final model with ridge regression
@@ -244,6 +247,10 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
             else
                 W{iSubj}(any(used,2),:) = obj.beta;
             end
+        else
+            obj = init_glmnet_struct(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', 0, 'lambda', lambda_min));
+            obj.betas = zeros(size(X,2),1);
+            obj.df = 0;
         end
         I{iSubj} = iterations;
     end

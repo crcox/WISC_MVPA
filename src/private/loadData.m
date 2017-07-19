@@ -8,10 +8,20 @@ function [X,subjix] = loadData(datafile,data_var,rowfilter,colfilter,metadata, F
   X         = cell(N,1);
   for i = 1:N
     fprintf('Loading %s from  %s...\n', data_var, datafile{i});
-    subjid    = extractSubjectID(datafile{i}, FMT_subjid);
-    if ischar(subjid)
-      subjix(i) = find(strcmp({metadata.subject}, subjid));
+    if ischar(metadata(1).subject)
+        [~,subjcode,~] = fileparts(datafile{i});
+        z = strcmp({metadata.subject}, subjcode);
+        if any(z)
+            subjix(i) = find(z);
+        else
+            z = false(1,numel(metadata));
+            for j = 1:numel(metadata)
+                n = length(metadata(j).subject);
+                z(j) = strncmp(metadata(j).subject, subjcode, n);
+            end
+        end     
     else
+      subjid    = extractSubjectID(datafile{i}, FMT_subjid);
       subjix(i) = find([metadata.subject] == subjid);
     end
     tmp       = load(datafile{i}, data_var);

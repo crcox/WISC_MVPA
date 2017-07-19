@@ -495,7 +495,7 @@ function R = addMaskedCoordinates(R, COORDS, ORIENT, COLFILTER)
             ijk = COORDS.ijk(COLFILTER,:);
             C.ijk = ijk(R.Wix,:);
         end
-        if isfield(COORDS, 'ind')
+        if isfield(COORDS, 'ind') && ~isempty(COORDS.ind);
             ind = COORDS.ind(COLFILTER);
             C.ind = ind(R.Wix);
         end

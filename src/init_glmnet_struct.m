@@ -1,14 +1,10 @@
-function y = init_glmnet_struct(varargin)
+function y = init_glmnet_struct(opts)
     if nargin == 0
-        dims = 1;
+        opts = glmnetSet();
     else
-        if prod(varargin{1}) > max(varargin{1})
-            dims = varargin{1};
-        else
-            dims = cell2mat(varargin);
-        end
+        opts = glmnetSet(opts);
     end
-    x = glmnet(magic(10),repmat([0;1],5,1),'binomial');
+    x = glmnet(magic(10),repmat([0;1],5,1),'binomial',opts);
     f = fieldnames(x);
     x = cell2struct(repmat({[]}, numel(f), 1), f);
     y = repmat(x, dims);
