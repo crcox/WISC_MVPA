@@ -73,6 +73,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     results.nvox = [];
     results.coords = [];
     results.subject = [];
+    results.target = [];
     results.cvholdout = [];
     results.finalholdout = [];
     results.alpha = [];

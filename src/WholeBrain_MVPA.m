@@ -369,6 +369,7 @@ function WholeBrain_MVPA(varargin)
             [results.shape] = deal(shape);
 
     end
+    [results.target] = deal(target_label);
     whos results
     fprintf('Saving %d results\n', numel(results));
     fprintf('\t%s\n', 'results.mat');
