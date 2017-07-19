@@ -249,7 +249,7 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
             end
         else
             obj = init_glmnet_struct(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', 0, 'lambda', lambda_min));
-            obj.betas = zeros(size(X,2),1);
+            obj.betas = zeros(size(xtrain,2),1);
             obj.df = 0;
         end
         I{iSubj} = iterations;
