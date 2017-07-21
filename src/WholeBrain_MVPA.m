@@ -37,12 +37,14 @@ function WholeBrain_MVPA(varargin)
     addParameter(p , 'URLS'             , []                         );
     addParameter(p , 'executable'       , []                         );
     addParameter(p , 'wrapper'          , []                         );
-    addParameter(p , 'RandomSeed'       , 0                          );
     % Parallel only influences the GLMNET operations, and should only be used
     % when running locally. DO NOT USE ON CONDOR.
     addParameter(p , 'PARALLEL'         , false   ,   @islogicallike );
     addParameter(p , 'PermutationTest'  , false   ,   @islogicallike );
-    addParameter(p , 'SaveResultsAs'  , 'mat'     , @isMatOrJSONOrCSV);
+    addParameter(p , 'PermutationMethod', 'simple'  , @ischar        );
+	addParameter(p , 'RestrictPermutationByCV', false, @islogicallike);
+    addParameter(p , 'RandomSeed'       , 0                          );
+    addParameter(p , 'SaveResultsAs'    , 'mat'     , @isMatOrJSONOrCSV);
 
     if nargin > 0
         parse(p, varargin{:});
@@ -70,7 +72,7 @@ function WholeBrain_MVPA(varargin)
     BIAS             = p.Results.bias;
     filter_labels    = p.Results.filters;
     target_label     = p.Results.target;
-    target_type     = p.Results.target_type;
+    target_type      = p.Results.target_type;
     datafile         = p.Results.data;
     data_var         = p.Results.data_var;
     cvscheme         = p.Results.cvscheme;
@@ -93,6 +95,8 @@ function WholeBrain_MVPA(varargin)
     PARALLEL         = p.Results.PARALLEL;
     RandomSeed       = p.Results.RandomSeed;
     PermutationTest  = p.Results.PermutationTest;
+    PermutationMethod  = p.Results.PermutationMethod;
+    RestrictPermutationByCV = p.Results.RestrictPermutationByCV;
     SaveResultsAs    = p.Results.SaveResultsAs;
     FMT_subjid       = p.Results.subject_id_fmt;
 
@@ -212,6 +216,8 @@ function WholeBrain_MVPA(varargin)
                 'DEBUG'          , DEBUG          , ...
                 'SmallFootprint' , SmallFootprint , ...
                 'PermutationTest', PermutationTest, ...
+                'PermutationMethod', PermutationMethod, ...
+                'RestrictPermutationByCV', RestrictPermutationByCV, ...
                 'AdlasOpts'      , opts); %#ok<ASGLU>
 
         case 'lasso_glmnet'
@@ -230,6 +236,8 @@ function WholeBrain_MVPA(varargin)
                 'SmallFootprint' , SmallFootprint , ...
                 'PARALLEL'       , PARALLEL       , ...
                 'PermutationTest', PermutationTest, ...
+                'PermutationMethod', PermutationMethod, ...
+                'RestrictPermutationByCV', RestrictPermutationByCV, ...
                 'AdlasOpts'      , opts); %#ok<ASGLU>
             if ~isempty(gcp('nocreate')) && PARALLEL && (exist('ppp', 'var') == 1)
                 delete(ppp);
@@ -255,6 +263,8 @@ function WholeBrain_MVPA(varargin)
                 'SmallFootprint' , SmallFootprint , ...
                 'PARALLEL'       , PARALLEL       , ...
                 'PermutationTest', PermutationTest, ...
+                'PermutationMethod', PermutationMethod, ...
+                'RestrictPermutationByCV', RestrictPermutationByCV, ...
                 'AdlasOpts'      , opts); %#ok<ASGLU>
             if ~isempty(gcp('nocreate')) && PARALLEL && (exist('ppp', 'var') == 1)
                 delete(ppp);
@@ -291,6 +301,8 @@ function WholeBrain_MVPA(varargin)
                 'DEBUG'          , DEBUG          , ...
                 'SmallFootprint' , SmallFootprint , ...
                 'PermutationTest', PermutationTest, ...
+                'PermutationMethod', PermutationMethod, ...
+                'RestrictPermutationByCV', RestrictPermutationByCV, ...
                 'AdlasOpts'      , opts); %#ok<ASGLU>
 
         case 'searchlight'
@@ -351,6 +363,8 @@ function WholeBrain_MVPA(varargin)
                 'debias'         , debias         , ...
                 'SmallFootprint' , SmallFootprint , ...
                 'PermutationTest', PermutationTest, ...
+                'PermutationMethod', PermutationMethod, ...
+                'RestrictPermutationByCV', RestrictPermutationByCV, ...
                 'AdlasOpts'      , opts); %#ok<ASGLU>
             %% Revise cv indexes
             % Add the final holdout index to all results.
@@ -422,7 +436,7 @@ function WholeBrain_MVPA(varargin)
                     fieldIsScalar(iField) = true;
                 end
             end
-            scalarFields = fields(fieldIsScalar)
+            scalarFields = fields(fieldIsScalar);
             results = rmfield(results,fields(~fieldIsScalar));
             writetable(struct2table(results),'results.csv');
         case 'csv_testOnly'

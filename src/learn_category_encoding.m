@@ -16,7 +16,10 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     addParameter(p , 'AdlasOpts'      , struct() );
     addParameter(p , 'PARALLEL'       , false    );
     addParameter(p , 'SmallFootprint' , false    );
-    addParameter(p , 'PermutationTest' , false    );
+    addParameter(p , 'PermutationTest', false   );
+	addParameter(p , 'PermutationMethod', 'simple');
+    addParameter(p , 'RestrictPermutationByCV', false);
+
     parse(p, Y, X, regularization, varargin{:});
 
     Y         = p.Results.Y;
@@ -36,6 +39,8 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     PARALLEL  = p.Results.PARALLEL;
     SMALL     = p.Results.SmallFootprint;
     PermutationTest = p.Results.PermutationTest;
+    PermutationMethod = p.Results.PermutationMethod;
+    RestrictPermutationByCV = p.Results.RestrictPermutationByCV;
 
     Xorig = X;
 
@@ -101,43 +106,49 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     % Permute if requested
     fprintf('PermutationTest: %d\n', PermutationTest);
     if PermutationTest
-        if iscell(Y)
-            for i = 1:numel(Y)
-                for ic = unique(cvind{i})'
-                    fprintf('Permuting CV %d...\n', ic);
-                    y = Y{i}(cvind{i}==ic);
-                    n = size(y,1);
-                    if VERBOSE
-                        fprintf('Permuting %d rows of C, independently by its %d columns.\n', n, r);
-                        fprintf('First 10 rows of C, before shuffling.\n')
-                        disp(y)
-                    end
-                    permix = randperm(n);
-                    Y{i}(cvind{i}==ic) = y(permix, :);
-                    if VERBOSE
-                        fprintf('First 10 rows of C, after shuffling.\n')
-                        disp(y(permix))
-                    end
-                end
-            end
+        if RestrictPermutationByCV
+            Y = permute_target(Y, PermutationMethod, cvind);
         else
-            for ic = unique(cvind)'
-                fprintf('Permuting CV %d...\n', ic);
-                y = Y(cvind==ic);
-                n = size(y,1);
-                if VERBOSE
-                    fprintf('Permuting %d rows of Y.\n', n, r);
-                    fprintf('First 10 rows of Y, before shuffling.\n')
-                    disp(y)
-                end
-                permix = randperm(n);
-                Y(cvind==ic) = y(permix, :);
-                if VERBOSE
-                    fprintf('First 10 rows of Y, after shuffling.\n')
-                    disp(y(permix))
-                end
-            end
+            Y = permute_target(Y, PermutationMethod);
         end
+%         if iscell(Y)
+%             for i = 1:numel(Y)
+%                 
+%                 for ic = unique(cvind{i})'
+%                     fprintf('Permuting CV %d...\n', ic);
+%                     y = Y{i}(cvind{i}==ic);
+%                     n = size(y,1);
+%                     if VERBOSE
+%                         fprintf('Permuting %d rows of C, independently by its %d columns.\n', n, r);
+%                         fprintf('First 10 rows of C, before shuffling.\n')
+%                         disp(y)
+%                     end
+%                     permix = randperm(n);
+%                     Y{i}(cvind{i}==ic) = y(permix, :);
+%                     if VERBOSE
+%                         fprintf('First 10 rows of C, after shuffling.\n')
+%                         disp(y(permix))
+%                     end
+%                 end
+%             end
+%         else
+%             for ic = unique(cvind)'
+%                 fprintf('Permuting CV %d...\n', ic);
+%                 y = Y(cvind==ic);
+%                 n = size(y,1);
+%                 if VERBOSE
+%                     fprintf('Permuting %d rows of Y.\n', n, r);
+%                     fprintf('First 10 rows of Y, before shuffling.\n')
+%                     disp(y)
+%                 end
+%                 permix = randperm(n);
+%                 Y(cvind==ic) = y(permix, :);
+%                 if VERBOSE
+%                     fprintf('First 10 rows of Y, after shuffling.\n')
+%                     disp(y(permix))
+%                 end
+%             end
+%         end
     end
 
     switch lower(regularization)
