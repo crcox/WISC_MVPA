@@ -18,22 +18,10 @@ INCL= -I $(SRC) -I $(JSON) -I $(UTILS) -I $(GLMNET) \
       -I $(LIBSVM) \
       -I $(CVX) \
       -I $(CVX)/builtins \
-      -I $(CVX)/builtins/@cvx \
       -I $(CVX)/commands \
-      -I $(CVX)/commands/@cvx \
       -I $(CVX)/functions \
-      -I $(CVX)/functions/@cvx \
       -I $(CVX)/keywords \
       -I $(CVX)/lib \
-      -I $(CVX)/lib/@cell \
-      -I $(CVX)/lib/@cvx \
-      -I $(CVX)/lib/@cvxcnst \
-      -I $(CVX)/lib/@cvxdual \
-      -I $(CVX)/lib/@cvxin \
-      -I $(CVX)/lib/@cvxobj \
-      -I $(CVX)/lib/@cvxprob \
-      -I $(CVX)/lib/@cvxtuple \
-      -I $(CVX)/lib/@struct \
       -I $(CVX)/matlab6 \
       -I $(CVX)/sdpt3 \
       -I $(CVX)/sdpt3/Examples \
@@ -49,11 +37,10 @@ INCL= -I $(SRC) -I $(JSON) -I $(UTILS) -I $(GLMNET) \
       -I $(CVX)/sedumi/doc \
       -I $(CVX)/sedumi/mexw32 \
       -I $(CVX)/sets \
-      -I $(CVX)/structures \
-      -I $(CVX)/structures/@cvx
+      -I $(CVX)/structures
 .PHONEY: all clean-all clean-libsvm clean-Searchmight clean-postbuild cvx glmnet libsvm Searchmight sdist
 
-all: setup libsvm Searchmight glmnet WholeBrain_MVPA clean-postbuild
+all: setup glmnet WholeBrain_MVPA clean-postbuild
 
 setup: $(SRC) $(DEP) $(UTILS)
 $(SRC) $(DEP):
@@ -77,7 +64,7 @@ glmnet: $(GLMNET)/glmnetMex.mexa64
 $(GLMNET)/glmnetMex.mexa64: $(GLMNET)/glmnetMex.F $(GLMNET)/GLMnet.f
 	$(MEX) -fortran -outdir $(GLMNET) $^
 
-WholeBrain_MVPA: $(SRC)/WholeBrain_MVPA.m $(SEARCHMIGHT)/searchmightGNB.mexa64
+WholeBrain_MVPA: $(SRC)/WholeBrain_MVPA.m # $(SEARCHMIGHT)/searchmightGNB.mexa64
 	$(MCC) -v $(MFLAGS) $(INCL) -o $@ $<
 
 clean-postbuild:
