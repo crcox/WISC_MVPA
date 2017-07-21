@@ -127,13 +127,21 @@ function [W, obj, I] = iterlasso_glmnet(Xtrain, Xtest, Ytrain, Ytest, alpha, lam
             opts = glmnetSet(struct('intr',bias,'thresh', tol, 'weights', W0, 'alpha', alpha, 'lambda', lambda_min));
             obj = glmnet(xtrain,ytrain,modelType,opts);
             if isMultinomial
-                [~,ix] = max(glmnetPredict(obj,xtest),[],2);
-                yztest_m = bsxfun(@eq, ix, 1:m);
-
+                if isempty(xtest)
+                    yztest_m = nan(1);
+                else
+                    [~,ix] = max(glmnetPredict(obj,xtest),[],2);
+                    yztest_m = bsxfun(@eq, ix, 1:m);
+                end
+                
                 [~,ix] = max(glmnetPredict(obj,xtrain),[],2);
                 yztrain_m = bsxfun(@eq, ix, 1:m);
             else
-                yztest_m = glmnetPredict(obj,xtest)>0;
+                if isempty(xtest)
+                    yztest_m = nan(1);
+                else
+                    yztest_m = glmnetPredict(obj,xtest)>0;
+                end
                 yztrain_m = glmnetPredict(obj,xtrain)>0;
             end
 
