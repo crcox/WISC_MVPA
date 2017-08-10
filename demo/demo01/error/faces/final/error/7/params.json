@@ -1,0 +1,39 @@
+{
+    "SaveResultsAs": "mat", 
+    "SmallFootprint": 0, 
+    "alpha": 0.1, 
+    "bias": 0, 
+    "cvholdout": 8, 
+    "cvscheme": 1, 
+    "data": [
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp01.mat", 
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp02.mat", 
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp03.mat", 
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp04.mat", 
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp05.mat", 
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp06.mat", 
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp07.mat", 
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp08.mat", 
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp09.mat", 
+        "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/jlp10.mat"
+    ], 
+    "data_var": "X", 
+    "diameter": 18, 
+    "executable": "/Users/Chris/src/WholeBrain_MVPA/bin/WholeBrain_MVPA", 
+    "filters": [
+        "rowfilter", 
+        "colfilter"
+    ], 
+    "finalholdout": 0, 
+    "lambda": 1.27, 
+    "metadata": "/Users/Chris/src/WholeBrain_MVPA/demo/demo01/data/metadata_TR5_new.mat", 
+    "metadata_var": "metadata", 
+    "normalize": "zscore", 
+    "orientation": "tlrc", 
+    "overlap": 9, 
+    "regularization": "soslasso", 
+    "shape": "sphere", 
+    "subject_id_fmt": "jlp%d.mat", 
+    "target": "faces", 
+    "wrapper": "/Users/Chris/src/WholeBrain_MVPA/run_WholeBrain_MVPA.sh"
+}
