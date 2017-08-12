@@ -1,0 +1,488 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>intro_to_sparse_regression</title><meta name="generator" content="MATLAB 9.0"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-08-12"><meta name="DC.source" content="intro_to_sparse_regression.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#1">Introduction to sparse regression</a></li><li><a href="#2">Standard regression, with perfect voxel pre-selection</a></li><li><a href="#3">Standard regression, no voxel pre-selection</a></li><li><a href="#4">Ridge regression</a></li><li><a href="#5">Lasso regression</a></li><li><a href="#6">Conclusion</a></li></ul></div><h2>Introduction to sparse regression<a name="1"></a></h2><p>Imagine a study that yields 100 patterns of neural activity, each composed of 1,000 voxels in the cortex of one subject. This can be described as a 100 x 1000 matrix, where each row is an example, and each column is a voxel.</p><pre class="codeinput">load(<span class="string">'demo_data_1000.mat'</span>, <span class="string">'X'</span>);
+[nitems, nvoxels] = size(X);
+
+<span class="comment">% The assumption underlying sparse regression, including Lasso and all</span>
+<span class="comment">% related methods like SOS Lasso, is that most of the voxels will be</span>
+<span class="comment">% contributing to unrelated processes, and a small subset will be relevant</span>
+<span class="comment">% to what you are studying. We can directly specify the contribution that</span>
+<span class="comment">% each voxel will have to our target structure in a 1,000 element vector,</span>
+<span class="comment">% b. Elements in b that are set to zero indicate that the voxel contributes</span>
+<span class="comment">% nothing to the target structure.</span>
+
+b = zeros(nvoxels, 1);
+b(1:10) = 10;
+
+<span class="comment">% Given that we have defined our MRI data X and the contribution of each</span>
+<span class="comment">% voxel to the structure, b, we can also generate a target structure, y.</span>
+
+y = X*b;
+
+<span class="comment">% b is our ground truth about the relationship between X and y.</span>
+
+<span class="comment">% Let's quickly split this into a training set of 90 examples and a holdout</span>
+<span class="comment">% (test) set of 10 items. This will allow us to assess whether models are</span>
+<span class="comment">% being overfit to the training set.</span>
+
+yt = y(1:90);
+Xt = X(1:90,:);
+yh = y(91:100);
+Xh = X(91:100,:);
+</pre><h2>Standard regression, with perfect voxel pre-selection<a name="2"></a></h2><p>Using a standard linear model of the first 10 voxels, we can recover this relationship, training examples 1:90 and evaluating on examples 91:100.</p><p>For the basic regression, we are going to use ordinary least squares regression (OLS) as opposed to generalized least squares (GLS). This is because GLS, in a sense, regularizes the data to help with multicoliniarity and other violated assumptions. It will only muddy the waters, for the sake of this demo, to use GLS. However, if you would like to repeat this demo with GLS regression, just change the following variable:</p><pre class="codeinput">regression_type = <span class="string">'OLS'</span>;
+
+<span class="keyword">switch</span> regression_type
+    <span class="keyword">case</span> <span class="string">'OLS'</span> <span class="comment">% ordinary least squares</span>
+        b_lm = (Xt(:,1:10)'*Xt(:,1:10))\(Xt(:,1:10)'*yt);
+        a0_lm = 0; <span class="comment">% simplification: this model should not need bias.</span>
+    <span class="keyword">case</span> <span class="string">'GLS'</span> <span class="comment">%</span>
+        b_lm = glmfit(Xt(:,1:10),yt);
+        a0_lm = b_lm(1);
+        b_lm(1) = [];
+<span class="keyword">end</span>
+ytz = Xt(:,1:10) * b_lm(1:10) + a0_lm;
+yhz = Xh(:,1:10) * b_lm(1:10) + a0_lm;
+
+header = sprintf(<span class="string">'Standard regression (%s), perfect pre-selection'</span>, regression_type);
+DisplayModelSummary( header, b(1:10), b_lm(1:10), yt, ytz, yh, yhz );
+
+<span class="comment">% This shows the expected result: if we know exactly which voxels relate to</span>
+<span class="comment">% the dependent variable, and we have a sufficient number of observations</span>
+<span class="comment">% upon which the model can be fit, then the weights can be recovered. The</span>
+<span class="comment">% whole point, though, is that in practice we do not know which of the</span>
+<span class="comment">% 1,000 voxels relate to the dependent variable.</span>
+</pre><pre class="codeoutput">Standard regression (OLS), perfect pre-selection
+================================================
+First 10 weights
+----------------
+      truth:    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00
+  estimated:    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00
+
+Accuracy of estimated weights
+-----------------------------
+ n (true voxels) :    10
+ n (false voxels):     0
+
+Proportion of variance explained
+--------------------------------
+  R^2 (training set): 1.00
+  R^2 (holdout set) : 1.00
+
+</pre><h2>Standard regression, no voxel pre-selection<a name="3"></a></h2><p>If all 1,000 voxels are included in the analysis, then the model will be "overfit" to the training set. There is no longer a unique solution that fits the data, and the model can be fit to noise. This results in a small proportion of variance explained among the holdout items, and an estimated weight vector that does not at all resemble the true weight vector used to generate the target data.</p><pre class="codeinput"><span class="keyword">switch</span> regression_type
+    <span class="keyword">case</span> <span class="string">'OLS'</span> <span class="comment">% ordinary least squares</span>
+        b_lm_overfit = (Xt'*Xt)\(Xt'*yt);
+        a0_lm_overfit = 0; <span class="comment">% simplification: this model should not need bias.</span>
+    <span class="keyword">case</span> <span class="string">'GLS'</span> <span class="comment">%</span>
+        b_lm_overfit = glmfit(Xt,yt);
+        a0_lm_overfit = b_lm(1);
+        b_lm(1) = [];
+<span class="keyword">end</span>
+ytz = Xt * b_lm_overfit + a0_lm_overfit;
+yhz = Xh * b_lm_overfit + a0_lm_overfit;
+
+header = sprintf(<span class="string">'Standard regression (%s), all 1,000 voxels'</span>, regression_type);
+DisplayModelSummary( header, b, b_lm_overfit, yt, ytz, yh, yhz );
+
+<span class="comment">% This model neither generalizes to the holdout set, nor identifies the</span>
+<span class="comment">% appropriate voxels.</span>
+</pre><pre class="codeoutput">Warning: Matrix is close to singular or badly scaled. Results may be inaccurate.
+RCOND =  3.264559e-22. 
+Standard regression (OLS), all 1,000 voxels
+===========================================
+First 10 weights
+----------------
+      truth:    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00
+  estimated:   -36.87   -37.81     0.27   -41.77   -22.34   -26.66    82.61    90.80   -18.66   100.79
+
+Accuracy of estimated weights
+-----------------------------
+ n (true voxels) :    10
+ n (false voxels):   990
+
+Proportion of variance explained
+--------------------------------
+  R^2 (training set): 1.00
+  R^2 (holdout set) : 0.04
+
+</pre><h2>Ridge regression<a name="4"></a></h2><p>If voxel pre-selection is not desirable, then we can try to tackle the problem with regularized regression techniques. Regularized regression involves adding additional penalties to the the algorithm that finds the weights that define the relationship between the data and the model. Different penalties bias the weights in different ways. Each penalty attempts to overcome the problem of having lots of voxels and relatively few neural patterns to train on.</p><p>Not all penalties will result in a sparse solution. A common example of a regularized regression technique that can improve generalization without providing a sparse solution is ridge regression.</p><p>We'll use the ridge regression algorithm implemented as part of GLMNet, to help quickly pick a suitable hyperparameter. All regularized regression techniques will have one or more hyperparameters that scale the severity of the supplementary penalties that enforce the regularization.</p><pre class="codeinput"><span class="comment">% This will just add the GLMnet code to your path, if you have not already.</span>
+
+<span class="keyword">if</span> ~exist(<span class="string">'cvglmnet'</span>,<span class="string">'file'</span>)
+    addpath(GetFullPath(fullfile(pwd,<span class="string">'..'</span>,<span class="string">'..'</span>,<span class="string">'dependencies'</span>,<span class="string">'glmnet'</span>)));
+<span class="keyword">end</span>
+
+opts = glmnetSet();
+opts_ridge_cv = opts;
+opts_ridge_cv.alpha = 0;
+fitobj_ridge_cv = cvglmnet(Xt,yt,<span class="string">'gaussian'</span>, opts_ridge_cv, <span class="string">'mse'</span>, 10);
+
+opts_ridge = glmnetSet(struct(<span class="keyword">...</span>
+    <span class="string">'alpha'</span>, 0, <span class="keyword">...</span>
+    <span class="string">'lambda'</span>, fitobj_ridge_cv.lambda_min));
+
+fitobj_ridge = glmnet(Xt,yt,<span class="string">'gaussian'</span>, opts_ridge);
+
+a0_ridge = fitobj_ridge.a0;
+b_ridge = fitobj_ridge.beta;
+ytz = glmnetPredict(fitobj_ridge, Xt);
+yhz = glmnetPredict(fitobj_ridge, Xh);
+
+header = sprintf(<span class="string">'Ridge regression, all 1,000 voxels'</span>);
+DisplayModelSummary( header, b, b_ridge, yt, ytz, yh, yhz );
+
+<span class="comment">% In this example, the model obtained via ridge regression generalizes</span>
+<span class="comment">% somewhat better than the solution obtained by OLS regression, but still</span>
+<span class="comment">% is only able to account for 12% of the variance. However, there is no way</span>
+<span class="comment">% to tell which weights are contributing to this better generalization</span>
+<span class="comment">% performance. It is not possible* to draw conclusions about which voxels</span>
+<span class="comment">% are most important using ridge.</span>
+
+<span class="comment">% * No simple off the shelf way, anyhow.</span>
+</pre><pre class="codeoutput">Ridge regression, all 1,000 voxels
+==================================
+First 10 weights
+----------------
+      truth:    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00
+  estimated:     0.40     0.37     0.37     0.47     0.45     0.34     0.33     0.49     0.42     0.31
+
+Accuracy of estimated weights
+-----------------------------
+ n (true voxels) :    10
+ n (false voxels):   990
+
+Proportion of variance explained
+--------------------------------
+  R^2 (training set): 0.98
+  R^2 (holdout set) : 0.14
+
+</pre><h2>Lasso regression<a name="5"></a></h2><p>Sparse methods, while still biased estimates, will assign only a small number of non-zero weights when fitting a model. Since voxels that have zero weights are by definition not contributing to the model, we can at least say which voxels are not contributing to the model's ability to generalize (those with zero weights). Some of the selected voxels may be spuriously correlated noise that fit well to the training set and not to the holdout set, so we cannot say that all voxels that are selected are contributing to above chance classification.</p><p>Stability selection (reference needed) and permutation testing (reference needed) are two methods which are being experimented with in the literature which may help separate the wheat from the chaff among the voxels selected by Lasso and other sparse methods.</p><p>The more salient issue with Lasso and other sparse methods is that you cannot be sure that voxels that were not selected would not have also been predictive on the holdout set. Sparse methods, generally speaking, achieve sparsity by trying to do the most explanation with the fewest number of features (in our case, voxels). It follows, then, that if two or more features are highly correlated with each other, a sparse solution will select only one of them, since they contribute similar information. How to obtain sparse solutions that retain correlated features in the service of obtaining better estimates of the true weights is an active topic of research in optimization and machine learning. The ordered weighted Lasso (OWL) is one example, being pursued by researchers here at Wisconsin (including Rob Nowak and Urvashi Oswal, among others).</p><p>We'll use the Lasso algorithm implemented as part of GLMNet, to help quickly pick a suitable hyperparameter. All regularized regression techniques will have one or more hyperparameters that scale the severity of the supplementary penalties that enforce the regularization.</p><pre class="codeinput"><span class="comment">% This will just add the GLMnet code to your path, if you have not already.</span>
+
+<span class="keyword">if</span> ~exist(<span class="string">'cvglmnet'</span>,<span class="string">'file'</span>)
+    addpath(GetFullPath(fullfile(pwd,<span class="string">'..'</span>,<span class="string">'..'</span>,<span class="string">'dependencies'</span>,<span class="string">'glmnet'</span>)));
+<span class="keyword">end</span>
+
+opts = glmnetSet();
+opts_lasso_cv = opts;
+opts_lasso_cv.alpha = 1;
+fitobj_lasso_cv = cvglmnet(Xt,yt,<span class="string">'gaussian'</span>, opts_lasso_cv, <span class="string">'mse'</span>, 10);
+
+opts_lasso = glmnetSet(struct(<span class="keyword">...</span>
+    <span class="string">'alpha'</span>, 1, <span class="keyword">...</span>
+    <span class="string">'lambda'</span>, fitobj_lasso_cv.lambda_min));
+
+fitobj_lasso = glmnet(Xt,yt,<span class="string">'gaussian'</span>, opts_lasso);
+
+a0_lasso = fitobj_lasso.a0;
+b_lasso = fitobj_lasso.beta;
+ytz = glmnetPredict(fitobj_lasso, Xt);
+yhz = glmnetPredict(fitobj_lasso, Xh);
+
+header = sprintf(<span class="string">'Lasso regression, all 1,000 voxels'</span>);
+DisplayModelSummary( header, b, b_lasso, yt, ytz, yh, yhz );
+</pre><pre class="codeoutput">Lasso regression, all 1,000 voxels
+==================================
+First 10 weights
+----------------
+      truth:    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00    10.00
+  estimated:     9.71     9.68     9.66     9.79     9.70     9.59     9.59     9.80     9.69     9.64
+
+Accuracy of estimated weights
+-----------------------------
+ n (true voxels) :    10
+ n (false voxels):     0
+
+Proportion of variance explained
+--------------------------------
+  R^2 (training set): 1.00
+  R^2 (holdout set) : 1.00
+
+</pre><h2>Conclusion<a name="6"></a></h2><p>In this toy example with a high signal-to-noise ratio and where signal carrying voxels are uncorrelated to each other, Lasso performs essentially perfectly at recovering the true signal. This is not meant to inflate your confidence in Lasso in practice, and please use caution when interpretting sparse models fit to your true data!</p><p>To conceptually orient yourself to regularized regression, I highly recommend the first three chapters of "Statistical Learning with Sparsity: The Lasso and Generalizations" by Trevor Hastie, Robert Tibshirani, and Martin Wainright (https://web.stanford.edu/~hastie/StatLearnSparsity_files/SLS_corrected_1.4.16.pdf).</p><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2016a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+%% Introduction to sparse regression
+% Imagine a study that yields 100 patterns of neural activity,
+% each composed of 1,000 voxels in the cortex of one subject. This can be
+% described as a 100 x 1000 matrix, where each row is an example, and each
+% column is a voxel.
+
+load('demo_data_1000.mat', 'X');
+[nitems, nvoxels] = size(X);
+
+% The assumption underlying sparse regression, including Lasso and all
+% related methods like SOS Lasso, is that most of the voxels will be
+% contributing to unrelated processes, and a small subset will be relevant
+% to what you are studying. We can directly specify the contribution that
+% each voxel will have to our target structure in a 1,000 element vector,
+% b. Elements in b that are set to zero indicate that the voxel contributes
+% nothing to the target structure.
+
+b = zeros(nvoxels, 1);
+b(1:10) = 10;
+
+% Given that we have defined our MRI data X and the contribution of each
+% voxel to the structure, b, we can also generate a target structure, y.
+
+y = X*b;
+
+% b is our ground truth about the relationship between X and y. 
+
+% Let's quickly split this into a training set of 90 examples and a holdout
+% (test) set of 10 items. This will allow us to assess whether models are
+% being overfit to the training set.
+
+yt = y(1:90);
+Xt = X(1:90,:);
+yh = y(91:100);
+Xh = X(91:100,:);
+
+%% Standard regression, with perfect voxel pre-selection
+% Using a standard linear model of the first 10 voxels, we can recover this
+% relationship, training examples 1:90 and evaluating on examples 91:100.
+%
+% For the basic regression, we are going to use ordinary least squares
+% regression (OLS) as opposed to generalized least squares (GLS). This is
+% because GLS, in a sense, regularizes the data to help with
+% multicoliniarity and other violated assumptions. It will only muddy the
+% waters, for the sake of this demo, to use GLS. However, if you would like
+% to repeat this demo with GLS regression, just change the following
+% variable:
+
+regression_type = 'OLS';
+
+switch regression_type
+    case 'OLS' % ordinary least squares
+        b_lm = (Xt(:,1:10)'*Xt(:,1:10))\(Xt(:,1:10)'*yt);
+        a0_lm = 0; % simplification: this model should not need bias.
+    case 'GLS' % 
+        b_lm = glmfit(Xt(:,1:10),yt);
+        a0_lm = b_lm(1);
+        b_lm(1) = [];
+end
+ytz = Xt(:,1:10) * b_lm(1:10) + a0_lm;
+yhz = Xh(:,1:10) * b_lm(1:10) + a0_lm;
+        
+header = sprintf('Standard regression (%s), perfect pre-selection', regression_type);
+DisplayModelSummary( header, b(1:10), b_lm(1:10), yt, ytz, yh, yhz );
+
+% This shows the expected result: if we know exactly which voxels relate to
+% the dependent variable, and we have a sufficient number of observations
+% upon which the model can be fit, then the weights can be recovered. The
+% whole point, though, is that in practice we do not know which of the
+% 1,000 voxels relate to the dependent variable.
+
+%% Standard regression, no voxel pre-selection
+% If all 1,000 voxels are included in the analysis, then the model will be
+% "overfit" to the training set. There is no longer a unique solution that
+% fits the data, and the model can be fit to noise. This results in a small
+% proportion of variance explained among the holdout items, and an
+% estimated weight vector that does not at all resemble the true weight
+% vector used to generate the target data.
+
+switch regression_type
+    case 'OLS' % ordinary least squares
+        b_lm_overfit = (Xt'*Xt)\(Xt'*yt);
+        a0_lm_overfit = 0; % simplification: this model should not need bias.
+    case 'GLS' % 
+        b_lm_overfit = glmfit(Xt,yt);
+        a0_lm_overfit = b_lm(1);
+        b_lm(1) = [];
+end
+ytz = Xt * b_lm_overfit + a0_lm_overfit;
+yhz = Xh * b_lm_overfit + a0_lm_overfit;
+
+header = sprintf('Standard regression (%s), all 1,000 voxels', regression_type);
+DisplayModelSummary( header, b, b_lm_overfit, yt, ytz, yh, yhz );
+
+% This model neither generalizes to the holdout set, nor identifies the
+% appropriate voxels.
+
+%% Ridge regression
+% If voxel pre-selection is not desirable, then we can try to tackle the
+% problem with regularized regression techniques. Regularized regression
+% involves adding additional penalties to the the algorithm that finds the
+% weights that define the relationship between the data and the model.
+% Different penalties bias the weights in different ways. Each penalty
+% attempts to overcome the problem of having lots of voxels and relatively
+% few neural patterns to train on.
+%
+% Not all penalties will result in a sparse solution. A common example of a
+% regularized regression technique that can improve generalization without
+% providing a sparse solution is ridge regression.
+%
+% We'll use the ridge regression algorithm implemented as part of GLMNet,
+% to help quickly pick a suitable hyperparameter. All regularized
+% regression techniques will have one or more hyperparameters that scale
+% the severity of the supplementary penalties that enforce the
+% regularization.
+
+% This will just add the GLMnet code to your path, if you have not already.
+
+if ~exist('cvglmnet','file')
+    addpath(GetFullPath(fullfile(pwd,'..','..','dependencies','glmnet')));
+end
+
+opts = glmnetSet();
+opts_ridge_cv = opts;
+opts_ridge_cv.alpha = 0;
+fitobj_ridge_cv = cvglmnet(Xt,yt,'gaussian', opts_ridge_cv, 'mse', 10);
+
+opts_ridge = glmnetSet(struct(...
+    'alpha', 0, ...
+    'lambda', fitobj_ridge_cv.lambda_min));
+
+fitobj_ridge = glmnet(Xt,yt,'gaussian', opts_ridge);
+
+a0_ridge = fitobj_ridge.a0; 
+b_ridge = fitobj_ridge.beta;
+ytz = glmnetPredict(fitobj_ridge, Xt);
+yhz = glmnetPredict(fitobj_ridge, Xh);
+
+header = sprintf('Ridge regression, all 1,000 voxels');
+DisplayModelSummary( header, b, b_ridge, yt, ytz, yh, yhz );
+
+% In this example, the model obtained via ridge regression generalizes
+% somewhat better than the solution obtained by OLS regression, but still
+% is only able to account for 12% of the variance. However, there is no way
+% to tell which weights are contributing to this better generalization
+% performance. It is not possible* to draw conclusions about which voxels
+% are most important using ridge.
+
+% * No simple off the shelf way, anyhow.
+
+%% Lasso regression
+% Sparse methods, while still biased estimates, will assign only a small
+% number of non-zero weights when fitting a model. Since voxels that have
+% zero weights are by definition not contributing to the model, we can at
+% least say which voxels are not contributing to the model's ability to
+% generalize (those with zero weights). Some of the selected voxels may be
+% spuriously correlated noise that fit well to the training set and not to
+% the holdout set, so we cannot say that all voxels that are selected are
+% contributing to above chance classification.
+%
+% Stability selection (reference needed) and permutation testing (reference
+% needed) are two methods which are being experimented with in the
+% literature which may help separate the wheat from the chaff among the
+% voxels selected by Lasso and other sparse methods.
+%
+% The more salient issue with Lasso and other sparse methods is that you
+% cannot be sure that voxels that were not selected would not have also
+% been predictive on the holdout set. Sparse methods, generally speaking,
+% achieve sparsity by trying to do the most explanation with the fewest
+% number of features (in our case, voxels). It follows, then, that if two
+% or more features are highly correlated with each other, a sparse solution
+% will select only one of them, since they contribute similar information.
+% How to obtain sparse solutions that retain correlated features in the
+% service of obtaining better estimates of the true weights is an active
+% topic of research in optimization and machine learning. The ordered
+% weighted Lasso (OWL) is one example, being pursued by researchers here at
+% Wisconsin (including Rob Nowak and Urvashi Oswal, among others).
+%
+% We'll use the Lasso algorithm implemented as part of GLMNet,
+% to help quickly pick a suitable hyperparameter. All regularized
+% regression techniques will have one or more hyperparameters that scale
+% the severity of the supplementary penalties that enforce the
+% regularization.
+
+% This will just add the GLMnet code to your path, if you have not already.
+
+if ~exist('cvglmnet','file')
+    addpath(GetFullPath(fullfile(pwd,'..','..','dependencies','glmnet')));
+end
+
+opts = glmnetSet();
+opts_lasso_cv = opts;
+opts_lasso_cv.alpha = 1;
+fitobj_lasso_cv = cvglmnet(Xt,yt,'gaussian', opts_lasso_cv, 'mse', 10);
+
+opts_lasso = glmnetSet(struct(...
+    'alpha', 1, ...
+    'lambda', fitobj_lasso_cv.lambda_min));
+
+fitobj_lasso = glmnet(Xt,yt,'gaussian', opts_lasso);
+
+a0_lasso = fitobj_lasso.a0; 
+b_lasso = fitobj_lasso.beta;
+ytz = glmnetPredict(fitobj_lasso, Xt);
+yhz = glmnetPredict(fitobj_lasso, Xh);
+
+header = sprintf('Lasso regression, all 1,000 voxels');
+DisplayModelSummary( header, b, b_lasso, yt, ytz, yh, yhz );
+
+%% Conclusion
+% In this toy example with a high signal-to-noise ratio and where signal
+% carrying voxels are uncorrelated to each other, Lasso performs
+% essentially perfectly at recovering the true signal. This is not meant to
+% inflate your confidence in Lasso in practice, and please use caution when
+% interpretting sparse models fit to your true data!
+%
+% To conceptually orient yourself to regularized regression, I highly
+% recommend the first three chapters of "Statistical Learning with
+% Sparsity: The Lasso and Generalizations" by Trevor Hastie, Robert
+% Tibshirani, and Martin Wainright
+% (https://web.stanford.edu/~hastie/StatLearnSparsity_files/SLS_corrected_1.4.16.pdf).
+##### SOURCE END #####
+--></body></html>

@@ -1,48 +1,58 @@
-%% The data
-%  ========
-% The fMRI data should be formatted in a time x voxel matrix, X. Each row of
-% this matrix is a training example, and so should include all voxels that the
-% model may be trained on/evaluated with. By ``time'', I also mean ``item''.
-% That is, the method does not require that the data is the raw time series. In
-% fact, in my experience it is more common to first peform an item-wise
-% deconvolution which will result in a single volume of beta weights for each
-% item. In that case, the item x voxel matrix will contain the fitted betas.
+%% Running SOS Lasso with WholeBrain_MVPA
+% 
 
-% For example, imagine a study with 100 unique items, sampled equally from two
+%% The data
+% The fMRI data should be formatted so that each row is a training
+% _example_, and the columns are the _features_ that express each example.
+% An _example_ might correspond to the activation over voxels at a
+% particular point in time, the beta values or t-values resulting from an
+% initial univariate model of a design matrix convolved with an HRF, or
+% anything else you like. Each feature, for our purposes, is a voxel. 
+%
+% * This matrix can be named whatever you like.
+% * It must be saved in a .mat file, either on it's own or along with other
+%   variables.
+% * The .mat file itself can be named whatever you like, with the one
+%   constraint that WholeBrain_MVPA will expect a subject number to be
+%   present somewhere in the filename.
+% * Numbers can be zero padded.
+%
+% In this demo, we'll call the matrix |X|, which will be the only variable we save to the .mat file.
+%
+% Imagine a study with 100 unique items, sampled equally from two
 % categories or belonging to two experimental conditions. Further, imagine that
 % there are 10,000 voxels in the cortex of this subject.
+%
+% Let |y| represent the category or condition labels of the items. This is
+% the target structure that we will be modelling based on the data in |X|.
+% Since all methods in this package are binary classifiers, |y| should be
+% binary. We'll make |y| dependent on independent contributions from 10
+% voxels.
+
 nitems = 100;
-nvoxels = 10000;
+nvoxels = 1000;
 X = randn(nitems, nvoxels);
 
-% Let y represent the category or condition labels of the items. This is the
-% target structure that we will be modelling based on the data in X.
-% Since all methods in this packaged are binary classifiers, y should be
-% binary.
-y= [true(50,1); false(50,1)];
+b = zeros(nvoxels, 1);
+b(1:10) = 10;
+y = X*b;
+y = y > median(y);
 
-% And, just for the sake of there being something to actually discover in our
-% fake data, let's inject some structure into X. There will be 20 signal
-% carrying voxels, and they will be clustered at the ``beginning'' of the
-% dataset.
-X(1:50,1:20) = X(1:50,1:20) + 2;
+tabulate(y);
 
-% Now, if we just wanted to fit a standard lasso, we could do something like:
-DO_BASIC_LASSO = 0;
-if DO_BASIC_LASSO
-    [b,stats] = lassoglm(X, y,'binomial','CV',10);
-end
-
-% But, if we want to leverage WholeBrain_MVPA and do, say, SOS Lasso, there is
-% some more setup we need to do.
-
-%% The metadata
-%  ============
-% Targets
-% -------
+%% Targetsmetadata.targets
 % Information about targets (i.e., possible y vectors) should be stored in a
-% structure with 5 required fields, 3 of which are relevant for classification
-% analyses: 'label', 'type', 'targets', 'sim_source', and 'sim_metric'.
+% structure with 5 required fields:
+% 
+% # |label|
+% # |type|
+% # |targets|
+% # |sim_source|
+% # |sim_metric|
+%
+% Only the first three are relevant for classification analyses, but all
+% must be present.
+
 TARGETS(1) = struct(...
   'label','faces',...
   'type','category',...
