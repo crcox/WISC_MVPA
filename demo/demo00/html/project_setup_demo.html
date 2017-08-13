@@ -1,0 +1,407 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>Project Setup Demo</title><meta name="generator" content="MATLAB 8.4"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-08-13"><meta name="DC.source" content="project_setup_demo.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h1>Project Setup Demo</h1><!--introduction--><p>The trickiest part of using this toolbox, as with most projects, is the organization and set up. Here, we'll start from scratch and set things up for a fake analysis. After we do, we'll be able to run Lasso, Searchlight, and SOS Lasso without doing much work at all.</p><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">The data</a></li><li><a href="#2">Targets metadata.targets</a></li><li><a href="#3">Cross-validation</a></li><li><a href="#4">Filters</a></li><li><a href="#5">Coordinates</a></li><li><a href="#6">Putting it all together</a></li><li><a href="#7">Save the data to disk</a></li><li><a href="#8">Conclusion</a></li></ul></div><h2>The data<a name="1"></a></h2><p>The fMRI data should be formatted so that each row is a training <i>example</i>, and the columns are the <i>features</i> that express each example. An <i>example</i> might correspond to the activation over voxels at a particular point in time, the beta values or t-values resulting from an initial univariate model of a design matrix convolved with an HRF, or anything else you like. Each feature, for our purposes, is a voxel.</p><div><ul><li>This matrix can be named whatever you like.</li><li>It must be saved in a .mat file, either on it's own or along with other   variables.</li><li>The .mat file itself can be named whatever you like, with the one   constraint that <b>WholeBrain_MVPA</b> will expect a subject number to be   present somewhere in the filename.</li><li>Numbers can be zero padded.</li></ul></div><p>In this demo, we'll call the matrix <tt>X</tt>, which will be the only variable we save to the .mat file.</p><p>Imagine a study with 100 unique items, sampled equally from two categories or belonging to two experimental conditions. Further, imagine that there are 1,000 voxels in the cortex of this subject.</p><p>Let <tt>y</tt> represent the category or condition labels of the items. This is the target structure that we will be modelling based on the data in <tt>X</tt>. Since all methods in this package are binary classifiers, <tt>y</tt> should be binary. We'll make <tt>y</tt> dependent on independent contributions from 10 voxels.</p><pre class="codeinput">nitems = 100;
+nvoxels = 1000;
+y = (1:100 &lt;= 50)';
+</pre><h2>Targets metadata.targets<a name="2"></a></h2><p>Information about targets (i.e., possible y vectors) should be stored in a structure with 5 required fields:</p><div><ol><li><tt>label</tt></li><li><tt>type</tt></li><li><tt>targets</tt></li><li><tt>sim_source</tt></li><li><tt>sim_metric</tt></li></ol></div><p>Only the first three are relevant for classification analyses, but all must be present.</p><pre class="codeinput">TARGETS(1) = struct(<span class="keyword">...</span>
+  <span class="string">'label'</span>,<span class="string">'faces'</span>,<span class="keyword">...</span>
+  <span class="string">'type'</span>,<span class="string">'category'</span>,<span class="keyword">...</span>
+  <span class="string">'target'</span>,y, <span class="keyword">...</span>
+  <span class="string">'sim_source'</span>,[],<span class="string">'sim_metric'</span>,[]);
+TARGETS(2) = struct(<span class="keyword">...</span>
+  <span class="string">'label'</span>,<span class="string">'places'</span>,<span class="keyword">...</span>
+  <span class="string">'type'</span>,<span class="string">'category'</span>,<span class="keyword">...</span>
+  <span class="string">'target'</span>,~y, <span class="keyword">...</span>
+  <span class="string">'sim_source'</span>,[],<span class="string">'sim_metric'</span>,[]);
+</pre><h2>Cross-validation<a name="3"></a></h2><p>Next, we'll define indexes for cross validation. A single cross-validation <i>scheme</i> is a vector, containing the whole-numbers <tt>1:k</tt>, where <tt>k</tt> is the number of cross validation folds.</p><p>The Matlab function <tt>cvpartition</tt>, which belongs to the Statistics Toolbox, is very helpful for generating cross-validation schemes. One of the major advantages of using <tt>cvpartition</tt> is that, if you give it a categorical target structure as its first argument, it will pick <tt>k</tt> holdout sets where each set has a balanced sample of each category.</p><p>For example, try:</p><pre class="language-matlab">y = repmat((1:3)', 20, 1);
+c = cvpartition(y, <span class="string">'kfold'</span>, 10);
+disp(c);
+<span class="keyword">for</span> i = 1:10
+    z = test(c, i);
+    disp(<span class="string">'Holdout index:'</span>);
+    disp(find(z)');
+    tabulate(y(z));
+    fprintf(<span class="string">'\n\n'</span>);
+<span class="keyword">end</span>
+</pre><p>You can pre-specify multiple cross-validation schemes. If you specify more than one, each individual scheme will be a column in a matrix. When defining your analysis, you will provide a <tt>cvscheme</tt>, which will simply be a column-index into this matrix you are defining.</p><p>For example, let's set up 10 cross validation schemes, each defining a different data partition for 10-fold cross validation.</p><pre class="codeinput">nschemes = 10;
+nfolds = 10;
+SCHEMES = zeros(nitems, nschemes);
+<span class="keyword">for</span> iScheme = 1:nschemes
+    c = cvpartition(y,<span class="string">'KFold'</span>, nfolds);
+    <span class="keyword">for</span> iFold = 1:nfolds
+        SCHEMES(:,iScheme) = SCHEMES(:,iScheme) + (test(c, iFold) * iFold);
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+</pre><h2>Filters<a name="4"></a></h2><p>You may want to be able to select/exclude subsets of voxels and items without needed to make multiple copies of the data. By specifying filters, you can pre-specify these subsets and apply them programmatically.</p><p>A filter is represented as a structure with 3 required fields:</p><div><ol><li><tt>label</tt> - names the filter so that it can be easily referenced.</li><li><tt>dimension</tt> - encodes whether the filter applies to rows (1) or columns (2) of X.</li><li><tt>filter</tt> - a binary vectory that represents the filter itself.</li></ol></div><p>Here, lets set up (totally arbitrarily) two filters. The first will define a region of interest and the second will exclude outliers.</p><pre class="codeinput">z = [true(500,1);false(9500,1)];
+FILTERS(1) = struct(<span class="string">'label'</span>,<span class="string">'ROI01'</span>, <span class="string">'dimension'</span>, 2, <span class="string">'filter'</span>, z);
+z = [true(98,1);false(2,1)];
+FILTERS(2) = struct(<span class="string">'label'</span>,<span class="string">'GoodRows'</span>, <span class="string">'dimension'</span>, 1, <span class="string">'filter'</span>, z);
+</pre><h2>Coordinates<a name="5"></a></h2><p>Up to this point, we've considered our data strictly as a matrix, with rows as examples and columns as features. Of course, voxels exist in space, and in order to ultimately map weight vectors or information maps back into a brain-space for visualization, you'll need to know the coordinate of each voxel.</p><p>Like filters, coordinates are represented in a structure that allows descriptive labeling, and also allows you to store the three index/coordinate types that AFNI will output (via <b>3dMaskDump</b>):</p><div><ul><li><tt>ind</tt> - 1-dimensional index.</li><li><tt>ijk</tt> - the integer-valued data-space coordinates.</li><li><tt>xyz</tt> - the "real world" decimal valued coordinates (in <i>mm</i>).</li></ul></div><p>Something a bit awkward and idiosyncratic about the coordinate structure is that the field that functions the same as <tt>label</tt> so many other places in the metadata structure is, here, called <tt>orientation</tt>. This is because I figured the only reason one would have multiple coordinate spaces per subject is to represent the result of multiple warps. Each coordinate space resulting from a warp, in AFNI parlance, is an orientation. So, that is the etymology of the <tt>orientation</tt> label.</p><p>That all being said, I've been meaning to rename <tt>orientation</tt> to <tt>label</tt> for ages for the sake of internal consistency, and because <b>WholeBrain_MVPA</b> does not do anything special behind the scenes with the field. It is treated exactly as values in the <tt>label</tt> field are treated elsewhere. Which means there is nothing special about using <i>orig</i> or <i>tlrc</i> as values for the orientation field. (If there is part of the code the breaks if you don't use <i>orig</i> or <i>tlrc</i>, that would qualify as a bug!)</p><pre class="codeinput">ind = (1:nvoxels)';
+ijk = [(1:nvoxels)',ones(nvoxels,1),ones(nvoxels,1)];
+xyz = bsxfun(@minus, ijk, [nvoxels/2, 1, 1]);
+
+COORDS(1) = struct(<span class="string">'orientation'</span>,<span class="string">'orig'</span>,<span class="string">'ind'</span>,ind,<span class="string">'ijk'</span>,ijk,<span class="string">'xyz'</span>,xyz);
+COORDS(2) = struct(<span class="string">'orientation'</span>,<span class="string">'tlrc'</span>,<span class="string">'ind'</span>,ind,<span class="string">'ijk'</span>,ijk,<span class="string">'xyz'</span>,xyz);
+</pre><h2>Putting it all together<a name="6"></a></h2><p>The metadata object compiles these three items, along with a couple other bits of information, into a single structure. The metadata structure has several required fields:</p><div><ul><li><tt>subject</tt> - A numeric* subject ID.</li><li><tt>targets</tt> - Which will contain something like the <tt>TARGETS</tt> structure defined above.</li><li><tt>filters</tt> - Which will contain something like the <tt>FILTERS</tt> structure defined above.</li><li><tt>coords</tt> - Which will contain something like the <tt>COORDS</tt> structure defined above.</li><li><tt>cvind</tt> - Which will contain something like the <tt>SCHEMES</tt> matrix defined above.</li><li><tt>nrow</tt> - The number of rows in the data matrix for this subject (before applying any of the filters contained in <tt>metadata(s).filters</tt>).</li><li><tt>ncol</tt> - The number of columns in the data matrix for this subject (before applying any of the filters contained in <tt>metadata(s).filters</tt>).</li></ul></div><p>There will be a metadata structure for each subject, compiled into a structured array. Although in the example below subjects 100 and 101 are the same aside from their subject numbers, in practice they could be given different information.</p><pre class="codeinput"><span class="comment">% Subject 100</span>
+metadata(1).subject = 100;
+metadata(1).targets = TARGETS;
+metadata(1).filters = FILTERS;
+metadata(1).coords = COORDS;
+metadata(1).cvind = SCHEMES;
+metadata(1).nrow = nitems;
+metadata(1).ncol = nvoxels;
+
+<span class="comment">% Subject 101</span>
+metadata(2).subject = 101;
+metadata(2).targets = TARGETS;
+metadata(2).filters = FILTERS;
+metadata(2).coords = COORDS;
+metadata(2).cvind = SCHEMES;
+metadata(2).nrow = nitems;
+metadata(2).ncol = nvoxels;
+</pre><h2>Save the data to disk<a name="7"></a></h2><p>Despite having data and metadata organized properly in memory, before working with <b>WholeBrain_MVPA</b> we need to write the data to disk. The reason for this is that <b>WholeBrain_MVPA</b> is not written to be used interactively, but rather to facilitate to use in headless, batch applications particularly on distributed computing systems. <b>WholeBrain_MVPA</b> accepts paths to files on disk, as well as many other parameters. The data and metadata should be saved to a central location where it can be easily referenced. These files can be named whatever you like. You will be referencing them with explicit paths, and <b>WholeBrain_MVPA</b> does not make any assumptions about them. The program does assume that the <b>variable</b> names are X and metadata, but this default can be overwritten with certain parameters to <b>WholeBrain_MVPA</b> (data_var and metadata_var) if you prefer another convention.</p><pre class="codeinput">subjects = [metadata.subject];
+datadir = <span class="string">'./shared'</span>;
+<span class="keyword">if</span> ~exist(datadir,<span class="string">'dir'</span>)
+    mkdir(datadir);
+<span class="keyword">end</span>
+<span class="keyword">for</span> iSubj = 1:2
+	s = subjects(iSubj);
+
+    X = randn(nitems, nvoxels);
+<span class="comment">%   X = randn(nitems, nvoxels);</span>
+    X(1:50,1:10) = X(1:50,1:10) + 1;
+    filename = sprintf(<span class="string">'s%03d.mat'</span>, s);
+    filepath = fullfile(datadir,filename);
+    save(filepath, <span class="string">'X'</span>);
+    figure(iSubj)
+    imagesc(X(:,1:20));
+<span class="keyword">end</span>
+
+save(fullfile(datadir,<span class="string">'metadata.mat'</span>), <span class="string">'metadata'</span>);
+</pre><img vspace="5" hspace="5" src="project_setup_demo_01.png" alt=""> <img vspace="5" hspace="5" src="project_setup_demo_02.png" alt=""> <h2>Conclusion<a name="8"></a></h2><p>Setting up the metadata structure can be a bit of a hassle, and is by its nature labor intensive. It is important to take great care when setting it up, because the metadata structure is the primary data structure that <b>WholeBrain_MVPA</b> will reference when attempting to run analyses.</p><p>The good news is, that you do not need to set it up anew for every analysis. On the contrary, in an ideal world you should only need to specify the metadata structure one time per project, unless new filters, targets, or coordinates become necessary, or the underlying data matrices themselves change in some way.</p><p>Once the metadata structure is defined and saved to the hard-drive, we can get on with the more interesting work of specifying anayses.</p><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2014b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+%% Project Setup Demo
+% The trickiest part of using this toolbox, as with most projects, is the
+% organization and set up. Here, we'll start from scratch and set things up
+% for a fake analysis. After we do, we'll be able to run Lasso,
+% Searchlight, and SOS Lasso without doing much work at all.
+
+%% The data
+% The fMRI data should be formatted so that each row is a training
+% _example_, and the columns are the _features_ that express each example.
+% An _example_ might correspond to the activation over voxels at a
+% particular point in time, the beta values or t-values resulting from an
+% initial univariate model of a design matrix convolved with an HRF, or
+% anything else you like. Each feature, for our purposes, is a voxel. 
+%
+% * This matrix can be named whatever you like.
+% * It must be saved in a .mat file, either on it's own or along with other
+%   variables.
+% * The .mat file itself can be named whatever you like, with the one
+%   constraint that *WholeBrain_MVPA* will expect a subject number to be
+%   present somewhere in the filename.
+% * Numbers can be zero padded.
+%
+% In this demo, we'll call the matrix |X|, which will be the only variable we save to the .mat file.
+%
+% Imagine a study with 100 unique items, sampled equally from two
+% categories or belonging to two experimental conditions. Further, imagine that
+% there are 1,000 voxels in the cortex of this subject.
+%
+% Let |y| represent the category or condition labels of the items. This is
+% the target structure that we will be modelling based on the data in |X|.
+% Since all methods in this package are binary classifiers, |y| should be
+% binary. We'll make |y| dependent on independent contributions from 10
+% voxels.
+
+nitems = 100;
+nvoxels = 1000;
+y = (1:100 <= 50)';
+
+%% Targets metadata.targets
+% Information about targets (i.e., possible y vectors) should be stored in a
+% structure with 5 required fields:
+% 
+% # |label|
+% # |type|
+% # |targets|
+% # |sim_source|
+% # |sim_metric|
+%
+% Only the first three are relevant for classification analyses, but all
+% must be present.
+
+TARGETS(1) = struct(...
+  'label','faces',...
+  'type','category',...
+  'target',y, ...
+  'sim_source',[],'sim_metric',[]);
+TARGETS(2) = struct(...
+  'label','places',...
+  'type','category',...
+  'target',~y, ...
+  'sim_source',[],'sim_metric',[]);
+
+%% Cross-validation
+% Next, we'll define indexes for cross validation. A single
+% cross-validation _scheme_ is a vector, containing the whole-numbers |1:k|,
+% where |k| is the number of cross validation folds. 
+% 
+% The Matlab function |cvpartition|, which belongs to the Statistics Toolbox,
+% is very helpful for generating cross-validation schemes. One of the major
+% advantages of using |cvpartition| is that, if you give it a categorical
+% target structure as its first argument, it will pick |k| holdout sets
+% where each set has a balanced sample of each category.
+%
+% For example, try:
+%
+%   y = repmat((1:3)', 20, 1);
+%   c = cvpartition(y, 'kfold', 10);
+%   disp(c);
+%   for i = 1:10
+%       z = test(c, i);
+%       disp('Holdout index:');
+%       disp(find(z)');
+%       tabulate(y(z));
+%       fprintf('\n\n');
+%   end
+%
+% You can pre-specify multiple cross-validation schemes. If you specify
+% more than one, each individual scheme will be a column in a matrix. When
+% defining your analysis, you will provide a |cvscheme|, which will simply
+% be a column-index into this matrix you are defining.
+%
+% For example, let's set up 10 cross validation schemes, each defining a
+% different data partition for 10-fold cross validation.
+nschemes = 10;
+nfolds = 10;
+SCHEMES = zeros(nitems, nschemes);
+for iScheme = 1:nschemes
+    c = cvpartition(y,'KFold', nfolds);
+    for iFold = 1:nfolds
+        SCHEMES(:,iScheme) = SCHEMES(:,iScheme) + (test(c, iFold) * iFold);
+    end
+end
+
+%% Filters
+% You may want to be able to select/exclude subsets of voxels and items without
+% needed to make multiple copies of the data. By specifying filters, you can
+% pre-specify these subsets and apply them programmatically.
+%
+% A filter is represented as a structure with 3 required fields:
+%
+% # |label| - names the filter so that it can be easily referenced.
+% # |dimension| - encodes whether the filter applies to rows (1) or
+% columns (2) of X.
+% # |filter| - a binary vectory that represents the filter
+% itself.
+%
+% Here, lets set up (totally arbitrarily) two filters. The first will
+% define a region of interest and the second will exclude outliers.
+z = [true(500,1);false(9500,1)];
+FILTERS(1) = struct('label','ROI01', 'dimension', 2, 'filter', z);
+z = [true(98,1);false(2,1)];
+FILTERS(2) = struct('label','GoodRows', 'dimension', 1, 'filter', z);
+
+%% Coordinates
+% Up to this point, we've considered our data strictly as a matrix, with
+% rows as examples and columns as features. Of course, voxels exist in
+% space, and in order to ultimately map weight vectors or information maps
+% back into a brain-space for visualization, you'll need to know the
+% coordinate of each voxel.
+%
+% Like filters, coordinates are represented in a structure that allows
+% descriptive labeling, and also allows you to store the three
+% index/coordinate types that AFNI will output (via *3dMaskDump*):
+% 
+% * |ind| - 1-dimensional index.
+% * |ijk| - the integer-valued data-space coordinates.
+% * |xyz| - the "real world" decimal valued coordinates (in _mm_).
+% 
+% Something a bit awkward and idiosyncratic about the coordinate structure
+% is that the field that functions the same as |label| so many other places
+% in the metadata structure is, here, called |orientation|. This is because
+% I figured the only reason one would have multiple coordinate spaces
+% per subject is to represent the result of multiple warps. Each coordinate
+% space resulting from a warp, in AFNI parlance, is an orientation. So,
+% that is the etymology of the |orientation| label.
+%
+% That all being said, I've been meaning to rename |orientation| to |label|
+% for ages for the sake of internal consistency, and because
+% *WholeBrain_MVPA* does not do anything special behind the scenes with the
+% field. It is treated exactly as values in the |label| field are treated
+% elsewhere. Which means there is nothing special about using _orig_ or
+% _tlrc_ as values for the orientation field. (If there is part of the code
+% the breaks if you don't use _orig_ or _tlrc_, that would qualify as a
+% bug!)
+% 
+
+ind = (1:nvoxels)';
+ijk = [(1:nvoxels)',ones(nvoxels,1),ones(nvoxels,1)];
+xyz = bsxfun(@minus, ijk, [nvoxels/2, 1, 1]);
+
+COORDS(1) = struct('orientation','orig','ind',ind,'ijk',ijk,'xyz',xyz);
+COORDS(2) = struct('orientation','tlrc','ind',ind,'ijk',ijk,'xyz',xyz);
+
+%% Putting it all together
+% The metadata object compiles these three items, along with a couple other
+% bits of information, into a single structure. The metadata structure has
+% several required fields:
+% 
+% * |subject| - A numeric* subject ID.
+% * |targets| - Which will contain something like the |TARGETS| structure
+% defined above.
+% * |filters| - Which will contain something like the |FILTERS| structure
+% defined above.
+% * |coords| - Which will contain something like the |COORDS| structure
+% defined above.
+% * |cvind| - Which will contain something like the |SCHEMES| matrix
+% defined above.
+% * |nrow| - The number of rows in the data matrix for this subject (before
+% applying any of the filters contained in |metadata(s).filters|).
+% * |ncol| - The number of columns in the data matrix for this subject (before
+% applying any of the filters contained in |metadata(s).filters|).
+% 
+% There will be a metadata structure for each subject, compiled into a
+% structured array. Although in the example below subjects 100 and 101 are
+% the same aside from their subject numbers, in practice they could be
+% given different information.
+
+% Subject 100
+metadata(1).subject = 100;
+metadata(1).targets = TARGETS;
+metadata(1).filters = FILTERS;
+metadata(1).coords = COORDS;
+metadata(1).cvind = SCHEMES;
+metadata(1).nrow = nitems;
+metadata(1).ncol = nvoxels;
+
+% Subject 101
+metadata(2).subject = 101;
+metadata(2).targets = TARGETS;
+metadata(2).filters = FILTERS;
+metadata(2).coords = COORDS;
+metadata(2).cvind = SCHEMES;
+metadata(2).nrow = nitems;
+metadata(2).ncol = nvoxels;
+
+%% Save the data to disk
+% Despite having data and metadata organized properly in memory, before working
+% with *WholeBrain_MVPA* we need to write the data to disk. The reason for this
+% is that *WholeBrain_MVPA* is not written to be used interactively, but rather
+% to facilitate to use in headless, batch applications particularly on
+% distributed computing systems. *WholeBrain_MVPA* accepts paths to files on
+% disk, as well as many other parameters.
+% The data and metadata should be saved to a central location where it can be
+% easily referenced.
+% These files can be named whatever you like. You will be referencing them with
+% explicit paths, and *WholeBrain_MVPA* does not make any assumptions about them.
+% The program does assume that the *variable* names are X and metadata, but
+% this default can be overwritten with certain parameters to *WholeBrain_MVPA*
+% (data_var and metadata_var) if you prefer another convention.
+subjects = [metadata.subject];
+datadir = './shared';
+if ~exist(datadir,'dir')
+    mkdir(datadir);
+end
+for iSubj = 1:2
+	s = subjects(iSubj);
+  
+    X = randn(nitems, nvoxels);
+%   X = randn(nitems, nvoxels);
+    X(1:50,1:10) = X(1:50,1:10) + 1;
+    filename = sprintf('s%03d.mat', s);
+    filepath = fullfile(datadir,filename);
+    save(filepath, 'X');
+    figure(iSubj)
+    imagesc(X(:,1:20));
+end
+
+save(fullfile(datadir,'metadata.mat'), 'metadata');
+
+%% Conclusion
+% Setting up the metadata structure can be a bit of a hassle, and is by
+% its nature labor intensive. It is important to take great care when
+% setting it up, because the metadata structure is the primary
+% data structure that *WholeBrain_MVPA* will reference when attempting to
+% run analyses.
+%
+% The good news is, that you do not need to set it up anew for every
+% analysis. On the contrary, in an ideal world you should only need to
+% specify the metadata structure one time per project, unless new filters,
+% targets, or coordinates become necessary, or the underlying data matrices
+% themselves change in some way.
+%
+% Once the metadata structure is defined and saved to the hard-drive, we
+% can get on with the more interesting work of specifying anayses.
+
+
+
+##### SOURCE END #####
+--></body></html>

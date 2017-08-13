@@ -1,0 +1,17 @@
+This is pdfTeX, Version 3.14159265-2.6-1.40.17 (TeX Live 2016) (preloaded format=mex 2016.5.22)  13 AUG 2017 11:37
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**searchmightGNB.c
+(./searchmightGNB.c
+This is MeX  Version 1.05  18 XII 1993  (B. Jackowski & M. Ry\'cko)
+! You can't use `macro parameter character #' in vertical mode.
+l.1 #
+     include "mex.h"
+? 
+! Emergency stop.
+l.1 #
+     include "mex.h"
+End of file on the terminal!
+
+No pages of output.

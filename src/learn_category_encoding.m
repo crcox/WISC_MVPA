@@ -430,6 +430,11 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                             results(iii).alpha = 0;
                             results(iii).lambda = info.lambda;
 
+                        case 'lasso_glmnet'
+                            alpha_j = 1;
+                            results(iii).alpha = 1;
+                            results(iii).lambda = info(iSubject).lambda;
+
                         otherwise
                             results(iii).alpha = alpha;
                             results(iii).lambda = lambda;
@@ -467,7 +472,10 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                     switch lower(regularization)
                         case 'iterlasso_glmnet'
                             fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d | %10d|\n', ...
-                                icv,iSubject,alpha_j,lambda_k,err1,err2,diff1,diff2,wnz,numel(Iterations{iSubject}));
+                                icv,iSubject,alpha_j,lambda_k(iSubject),err1,err2,diff1,diff2,wnz,numel(Iterations{iSubject}));
+                        case 'lasso_glmnet'
+                            fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
+                                icv,iSubject,alpha_j,lambda_k(iSubject),err1,err2,diff1,diff2,wnz);
                         otherwise
                             fprintf('cv %3d: %3d |%6.2f |%6.2f |%10d |%10d |%10.4f |%10.4f |%10d |\n', ...
                                 icv,iSubject,alpha_j,lambda_k,err1,err2,diff1,diff2,wnz);

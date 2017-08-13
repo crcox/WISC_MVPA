@@ -158,10 +158,11 @@ DisplayModelSummary( header, b, b_ridge, yt, ytz, yh, yhz );
 % the holdout set, so we cannot say that all voxels that are selected are
 % contributing to above chance classification.
 %
-% Stability selection (reference needed) and permutation testing (reference
-% needed) are two methods which are being experimented with in the
-% literature which may help separate the wheat from the chaff among the
-% voxels selected by Lasso and other sparse methods.
+% <https://arxiv.org/pdf/0809.2932.pdf Stability selection> and
+% <https://arxiv.org/pdf/1403.4296.pdf permutation testing> are two methods
+% which are being experimented with in the literature which may help
+% separate the wheat from the chaff among the voxels selected by Lasso and
+% other sparse methods.
 %
 % The more salient issue with Lasso and other sparse methods is that you
 % cannot be sure that voxels that were not selected would not have also

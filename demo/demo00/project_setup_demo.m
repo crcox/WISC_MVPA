@@ -1,5 +1,8 @@
-%% Running SOS Lasso with *WholeBrain_MVPA*
-% 
+%% Project Setup Demo
+% The trickiest part of using this toolbox, as with most projects, is the
+% organization and set up. Here, we'll start from scratch and set things up
+% for a fake analysis. After we do, we'll be able to run Lasso,
+% Searchlight, and SOS Lasso without doing much work at all.
 
 %% The data
 % The fMRI data should be formatted so that each row is a training
@@ -31,14 +34,7 @@
 
 nitems = 100;
 nvoxels = 1000;
-X = randn(nitems, nvoxels);
-
-b = zeros(nvoxels, 1);
-b(1:10) = 10;
-y = X*b;
-y = y > median(y);
-
-tabulate(y);
+y = (1:100 <= 50)';
 
 %% Targets metadata.targets
 % Information about targets (i.e., possible y vectors) should be stored in a
@@ -227,13 +223,18 @@ if ~exist(datadir,'dir')
     mkdir(datadir);
 end
 for iSubj = 1:2
-  s = subjects(iSubj);
-  X = randn(nitems, nvoxels);
-  X(1:50,1:20) = X(1:50,1:20) + 2;
-  filename = sprintf('s%03d.mat', s);
-  filepath = fullfile(datadir,filename);
-  save(filepath, 'X');
+	s = subjects(iSubj);
+  
+    X = randn(nitems, nvoxels);
+%   X = randn(nitems, nvoxels);
+    X(1:50,1:10) = X(1:50,1:10) + 1;
+    filename = sprintf('s%03d.mat', s);
+    filepath = fullfile(datadir,filename);
+    save(filepath, 'X');
+    figure(iSubj)
+    imagesc(X(:,1:20));
 end
+
 save(fullfile(datadir,'metadata.mat'), 'metadata');
 
 %% Conclusion
@@ -252,100 +253,4 @@ save(fullfile(datadir,'metadata.mat'), 'metadata');
 % Once the metadata structure is defined and saved to the hard-drive, we
 % can get on with the more interesting work of specifying anayses.
 
-%% Define a parameter file
-% *WholeBrain_MVPA*, despite being written as a Matlab function, is a
-% pretty atypical function.
-%
-% First of all, it does not return anything. All results are written
-% to disk. In addition, while it is possible to invoke *WholeBrain_MVPA* from
-% within a script or at the interactive terminal, it is designed to take instructions from a json-formatted parameter filelook for a
-% parameter file if no arguments are provided. This all makes
-% *WholeBrain_MVPA* a bit counter-intuitive.
-% 
-% However, these design choices make
-% much more sense when considered in a distributed computing environment.
-% *WholeBrain_MVPA* can be deployed to a system, along with a json file
-% containing parameters, and it will parse the file and execute according to
-% the instructions. It is designed to be executed with bare minimum interaction.
-%
-% Defining a parameter file is simple. See the documentation for a list of
-% valid parameters. *WholeBrain_MVPA* reads json (<http://www.json.org/>), which is
-% a widely used text-based syntax for representing structured data.
-%
-% *The file must be named params.json!*
-%
-% I call this out in bold because it is important... but in practice, it
-% isn't something you will need to think much about. Another bit of code,
-% part of my <https://github.com/crcox/condortools CondorTools> repository,
-% called *setupJobs*, will write you params.json files for you. But we are
-% not quite there yet.
-%
-% To read and write json, you will need jsonlab
-% (<http://www.mathworks.com/matlabcentral/fileexchange/33381-jsonlab--a-toolbox-to-encode-decode-json-files>)
-% which is bundled with *WholeBrain_MVPA*:
-if ~exist('savejson','file')
-    addpath(GetFullPath(fullfile(pwd,'..','..','dependencies','jsonlab')));
-end
 
-% Put the parameter file where you want to run the analysis. Paths can be
-% relative with respect to where you execute *WholeBrain_MVPA*, but in most cases
-% it will probably make sense for them to be absolute. The following should
-% translate into a valid json file for the purpose of this demo. 
-params = struct('regularization', 'soslasso', 'bias', false, 'alpha', 0.1,...
-    'lambda', 0.9, 'shape', 'sphere', 'diameter', 10, 'overlap', 5,...
-    'cvscheme', 1,'cvholdout', 1:10, 'finalholdout', 0, 'target', 'faces',...
-    'data', {{'./shared/s100.mat', './shared/s101.mat'}}, 'data_var', 'X',...
-    'normalize', 'zscore', 'metadata', './shared/metadata.mat',...
-    'metadata_var', 'metadata', 'orientation', 'tlrc', 'filters', ...
-    {{'ROI01','GoodRows'}}, 'SmallFootprint', false, 'debug', false,...
-    'SaveResultsAs','json','subject_id_fmt','s%d.mat');
-savejson('',params,'FileName','params.json','ForceRootName',false);
-
-%% Run *WholeBrain_MVPA*: SOS Lasso
-%  ==============================
-% With data and metadata structured properly and saved to disk, and with a
-% parameter file named params.json in a folder where you would like to execute
-% the analysis and return results, all that remains is to boot up Matlab in the
-% directory that contains 'params.json' and execute _WholeBrain_MVPA()_ at the
-% command prompt. If you have compiled *WholeBrain_MVPA* into an executable (as
-% would be necessary on a distributed computing cluster), you can execute
-% *WholeBrain_MVPA* directly from the command line. In either case, it will read
-% the parameter file and begin analysis. When it completes you will find a
-% results.mat (or results.json) file in the directory where *WholeBrain_MVPA* was
-% executed.
-if ~exist('WholeBrain_MVPA','file')
-    addpath(GetFullPath(fullfile(pwd,'..','..','src')));
-end
-WholeBrain_MVPA()
-
-%%  Run *WholeBrain_MVPA*: Searchlight
-%  ================================
-% Put the parameter file where you want to run the analysis. Paths can be
-% relative with respect to where you execute WholeBrain_MVPA, but in most cases
-% it will probably make sense for them to be absolute. The following should
-% translate into a valid json file for the purpose of this demo. 
-% params = struct('algorithm', 'soslasso', 'bias', false, 'alpha', 0.4200556,...
-%     'lambda', 0.5863, 'shape', 'sphere', 'diameter', 18, 'overlap', 9,...
-%     'cvscheme', 1,'cvholdout', 1:10, 'finalholdout', 0, 'target', 'faces',...
-%     'data', {{'./shared/s100.mat', './shared/s101.mat'}}, 'data_var', 'X',...
-%     'normalize', 'zscore', 'metadata', './shared/metadata.mat',...
-%     'metadata_var', 'metadata', 'orientation', 'tlrc', 'filters', ...
-%     {{'ROI01','GoodRows'}}, 'SmallFootprint', false, 'debug', false,...
-%     'SaveResultsAs','json','subject_id_fmt','s%d.mat');
-% savejson('',params,'FileName','params.json','ForceRootName',false);
-
-% Compile Results
-% ===============
-% If you are using *WholeBrain_MVPA* on a distributed computing cluster, you will
-% quickly find that the volume of results is difficult to manage effectively. I
-% have written some utility functions in *WholeBrain_MVPA*/util that attempt to
-% facilitate common actions, like loading data from many jobs into a single
-% matlab structure, writing tables of data, dumping coordinates of identified
-% voxels, etc.
-% Alternatively, you may find that your volume of data demands a database
-% solution. Although the default is to return data in .mat files, which makes
-% it easy to read back into matlab, results can also be output in json format
-% which facilitates storing in a SQL or NoSQL database like MongoDB. Setting up
-% such a database solution is far beyond the scope of this demo, but the squall
-% project (github.com/ikinsella/squall) is a developing solution that utilizes
-% MongoDB to great effect.

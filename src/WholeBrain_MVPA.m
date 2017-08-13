@@ -243,9 +243,12 @@ function WholeBrain_MVPA(varargin)
                 delete(ppp);
             end
             for ii = 1:numel(results)
-                [M,ix] = selectbyfield(metadata,'subject',results(ii).subject);
+%                 [M,ix] = selectbyfield(metadata,'subject',results(ii).subject);
+                ix = results(ii).subject;
+                M = metadata(ix);
                 COORDS = selectbyfield(M.coords, 'orientation', orientation);
                 results(ii) = addMaskedCoordinates(results(ii), COORDS, orientation, colfilter{ix});
+                results(ii).subject = M.subject;
             end
 
         case 'iterlasso_glmnet'
