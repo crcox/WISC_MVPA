@@ -1,0 +1,30 @@
+{
+	"regularization": "soslasso",
+	"bias": 0,
+	"alpha": 0.1,
+	"lambda": 0.9,
+	"shape": "sphere",
+	"diameter": 10,
+	"overlap": 5,
+	"cvscheme": 1,
+	"cvholdout": [1,2,3,4,5,6,7,8,9,10],
+	"finalholdout": 0,
+	"target": "faces",
+	"data": [
+		"./shared/s100.mat",
+		"./shared/s101.mat"
+	],
+	"data_var": "X",
+	"normalize": "zscore",
+	"metadata": "./shared/metadata.mat",
+	"metadata_var": "metadata",
+	"orientation": "tlrc",
+	"filters": [
+		"ROI01",
+		"GoodRows"
+	],
+	"SmallFootprint": 0,
+	"debug": 0,
+	"SaveResultsAs": "json",
+	"subject_id_fmt": "s%d.mat"
+}
