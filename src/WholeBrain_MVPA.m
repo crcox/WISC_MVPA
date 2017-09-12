@@ -181,6 +181,49 @@ function WholeBrain_MVPA(varargin)
     fprintf('\n');
     Y = selectTargets(metadata, 'category', target_label, [], [], rowfilter);
 
+    % Note on randomization for permutation
+    % -------------------------------------
+    % A required argument when specifying permutations is a list of
+    % "RandomSeeds". These are applied near the beginning of the
+    % program (within WholeBrain_RSA), to seed the random number
+    % generator.
+    %
+    % If the PermutationMethod is 'manual', then the RandomSeed has a
+    % different (additional) function. It will be used to index into
+    % the columns of a n x p matrix, generated in advance, that
+    % contains the indexes to generate p unique permutations.
+    %
+    % In this case, the matrix should stored in a variable named
+    % PERMUTATION_INDEXES, contained within a file named
+    % PERMUTATION_INDEXES.mat
+    fprintf('PermutationTest: %d\n', PermutationTest);
+    if PermutationTest
+        switch PermutationMethod
+%                 case 'simple'
+%                     if RestrictPermutationByCV
+%                         C = permute_target(C, PermutationMethod, cvind);
+%                     else
+%                         C = permute_target(C, PermutationMethod);
+%                     end
+            case 'manual'
+                load(PermutationIndex, 'PERMUTATION_INDEX');
+                for i = 1:numel(Y)
+                    %  This is kind of a hack to handle the fact eliminating
+                    %  outlying rows and rows belonging to the final holdout
+                    %  set will create gaps in the index.
+                    [~, ix] = sort(PERMUTATION_INDEX{i}(rowfilter{i}, RandomSeed));
+                    [~, permutation_index] = sort(ix);
+                    PERMUTATION_INDEX{i} = permutation_index;
+                end
+            otherwise
+                error('crcox:NotImplemented', 'Permutations need to be specified manually.');
+        end
+    else
+        PERMUTATION_INDEX = cell(size(Y));
+        for i = 1:numel(Y)
+            PERMUTATION_INDEX{i} = (1:size(Y{i}, 1))';
+        end
+    end
     %% Report whether a bias unit will be used
     fprintf('%-26s', 'Including Bias Unit');
     msg = 'NO';
@@ -365,9 +408,10 @@ function WholeBrain_MVPA(varargin)
                 'DEBUG'          , DEBUG          , ...
                 'debias'         , debias         , ...
                 'SmallFootprint' , SmallFootprint , ...
-                'PermutationTest', PermutationTest, ...
-                'PermutationMethod', PermutationMethod, ...
-                'RestrictPermutationByCV', RestrictPermutationByCV, ...
+                'permutations'   , PERMUTATION_INDEX, ... % new
+                %'PermutationTest', PermutationTest, ...
+                %'PermutationMethod', PermutationMethod, ...
+                %'RestrictPermutationByCV', RestrictPermutationByCV, ...
                 'AdlasOpts'      , opts); %#ok<ASGLU>
             %% Revise cv indexes
             % Add the final holdout index to all results.

@@ -35,10 +35,10 @@ function X = permute_target(Y,method,cvind)
     end
 end
 
-function y = simple_perm(y)
+function x = simple_perm(y)
 % Takes y and randomly permutes it
     permix = randperm(size(y,1));
-    y = y(permix, :);
+    x = y(permix, :);
 end
 
 function x = stratified_perm(y)
