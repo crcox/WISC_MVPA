@@ -35,8 +35,8 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     BIAS      = p.Results.bias;
     DEBUG     = p.Results.DEBUG;
     VERBOSE   = p.Results.verbose;
-    DEBIAS    = p.Results.debias;
-    options   = p.Results.AdlasOpts;
+%     DEBIAS    = p.Results.debias;
+%     options   = p.Results.AdlasOpts;
     PARALLEL  = p.Results.PARALLEL;
     SMALL     = p.Results.SmallFootprint;
     permutations = p.Results.permutations;
@@ -157,7 +157,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
 %                 end
 %             end
 %         end
-    end
+%    end
 
     switch lower(regularization)
         case 'iterlasso_glmnet'
@@ -168,8 +168,8 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
 
     iii = 0;
     for permix = 1:nperm
-        permutation_index = permutations{subix}(:,permix);
         for i = 1:numel(Y)
+            permutation_index = permutations{i}(:,permix);
             Y{i} = Y{i}(permutation_index);
         end
         for i = 1:ncv
@@ -311,9 +311,9 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                                 [Wz, info] = SOS_logistic( ...
                                     subsetAll(X, train_set), ...
                                     subsetAll(Y, train_set), ...
-                                    1, lambda, G, ...
+                                    0, lambda, G, ...
                                     'l2'      ,    0, ...
-                                    'bias   ' , BIAS, ...
+                                    'bias'    , BIAS, ...
                                     'maxiter' , 1000, ...
                                     'tol'     , 1e-8, ...
                                     'W0'      ,   []);

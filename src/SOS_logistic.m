@@ -111,11 +111,15 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
 
         % the Armijo Goldstein line search
         while true
-            if lamSOS>0
+            if lamSOS>0 % CRC redefined the "else" block
                 Wzp = soslasso_projection(Ws - grad/gamma,lamSOS/gamma,lamL1,group_arr,groups);
             else
-                Wzp = Ws - grad/gamma;
+%                 Wzp = Ws - grad/gamma;
+                Wzp = soslasso_projection(Ws - grad/gamma, 0, lamL1/gamma,group_arr,groups);
             end
+%             % CRC moved conditional within the function ( this did not
+%             work, because lamL1 needs to be shrunk by gamma I think ... 
+%             Wzp = soslasso_projection(Ws - grad/gamma,lamSOS/gamma,lamL1,group_arr,groups);
             Fzp = funVal_eval(Wzp);
 
             delta_Wzp = Wzp - Ws;
@@ -144,11 +148,13 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
         if (grad_flag)
             break;
         end
-        if lamSOS>0
-            obj(iter) = Fzp + sos_eval(Wz,group_arr ,lamSOS,lamL1);
-        else
-            obj(iter) = Fzp;
-        end
+%         if lamSOS>0
+%             obj(iter) = Fzp + sos_eval(Wz,group_arr,lamSOS,lamL1);
+%         else
+%             obj(iter) = Fzp;
+%         end
+        % CRC moved conditional within the function
+        obj(iter) = Fzp + sos_eval(Wz,group_arr,lamSOS,lamL1);
 
         % convergence check.
         if iter>=2
@@ -171,21 +177,24 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
     % private functions
 
 function Wshr = soslasso_projection(W,lamSOS,lamL1,group_arr,groups)
-    % step 1: perform soft thresholding
-    X_soft = sign(W).*max(abs(W) - lamL1*lamSOS,0);
-
-    %step 2: perform group soft thresholding
-
-    X_soft = [X_soft; zeros(1,size(X_soft,2))]; % for the dummy
-    Xtemp = sum(X_soft.^2,2); %xtemp is now a vector
-    Xtemp = sum(Xtemp(group_arr),2);
-    Xtemp = sqrt(Xtemp);
-    Xtemp = max(Xtemp - lamSOS,0); % this is the multiplying factor
-    Xtemp = Xtemp./(Xtemp + lamSOS);
-    Xtemp = Xtemp(groups);
-    Xtemp = repmat(Xtemp,1,numel(X));
-    Wshr = X_soft(1:end-1,:).*Xtemp;
-
+    if lamSOS > 0 % CRC added this conditional and what happens if lamSOS == 0 ...
+        % step 1: perform soft thresholding
+        X_soft = sign(W).*max(abs(W) - lamL1*lamSOS,0);
+        
+        %step 2: perform group soft thresholding
+        X_soft = [X_soft; zeros(1,size(X_soft,2))]; % for the dummy
+        Xtemp = sum(X_soft.^2,2); %xtemp is now a vector
+        Xtemp = sum(Xtemp(group_arr),2);
+        Xtemp = sqrt(Xtemp);
+        Xtemp = max(Xtemp - lamSOS,0); % this is the multiplying factor
+        Xtemp = Xtemp./(Xtemp + lamSOS);
+        Xtemp = Xtemp(groups);
+        Xtemp = repmat(Xtemp,1,numel(X));
+        Wshr = X_soft(1:end-1,:).*Xtemp;
+    else
+        % step 1: perform soft thresholding
+        Wshr = sign(W).*max(abs(W) - lamL1,0);
+    end
 end
 
   function [grad_W, funcVal] = gradVal_eval(W)
@@ -219,13 +228,16 @@ end
       [n,~] = size(group_arr);
       Wtemp = [W;zeros(1,num_tasks)];
 
-      for ii = 1 : n
-          w = Wtemp(unique(group_arr(ii,:)), :);
-          w = w.^2;
-          regval = regval + lamSOS * sqrt(sum(w(:)));
+      if lamSOS > 0 % CRC added this conditional and what happens if lamSOS == 0 ...
+          for ii = 1 : n
+              w = Wtemp(unique(group_arr(ii,:)), :);
+              w = w.^2;
+              regval = regval + lamSOS * sqrt(sum(w(:)));
+          end
+          regval = regval + lamSOS*lamL1*norm(W(:),1);
+      else
+          regval = regval + lamL1*norm(W(:),1);
       end
-      regval = regval + lamSOS*lamL1*norm(W(:),1);
-
   end
 
   function b = validateW0(w0)

@@ -41,7 +41,8 @@ function WholeBrain_MVPA(varargin)
     % when running locally. DO NOT USE ON CONDOR.
     addParameter(p , 'PARALLEL'         , false   ,   @islogicallike );
     addParameter(p , 'PermutationTest'  , false   ,   @islogicallike );
-    addParameter(p , 'PermutationMethod', 'simple'  , @ischar        );
+    addParameter(p , 'PermutationMethod', 'manual'  , @ischar        );
+    addParameter(p , 'PermutationIndex' , 'PERMUTATION_STRUCT.mat', @ischar);
 	addParameter(p , 'RestrictPermutationByCV', false, @islogicallike);
     addParameter(p , 'RandomSeed'       , 0                          );
     addParameter(p , 'SaveResultsAs'    , 'mat'     , @isMatOrJSONOrCSV);
@@ -96,11 +97,13 @@ function WholeBrain_MVPA(varargin)
     RandomSeed       = p.Results.RandomSeed;
     PermutationTest  = p.Results.PermutationTest;
     PermutationMethod  = p.Results.PermutationMethod;
+    PermutationIndex   = p.Results.PermutationIndex;
+
     RestrictPermutationByCV = p.Results.RestrictPermutationByCV;
     SaveResultsAs    = p.Results.SaveResultsAs;
     FMT_subjid       = p.Results.subject_id_fmt;
 
-    if RandomSeed > 0
+    if numel(RandomSeed) == 1 && RandomSeed > 0
         rng(RandomSeed);
     end
 
@@ -206,12 +209,13 @@ function WholeBrain_MVPA(varargin)
 %                         C = permute_target(C, PermutationMethod);
 %                     end
             case 'manual'
-                load(PermutationIndex, 'PERMUTATION_INDEX');
+                load(PermutationIndex, 'PERMUTATION_STRUCT');
+                PERMUTATION_INDEX = cell(size(Y));
                 for i = 1:numel(Y)
                     %  This is kind of a hack to handle the fact eliminating
                     %  outlying rows and rows belonging to the final holdout
                     %  set will create gaps in the index.
-                    [~, ix] = sort(PERMUTATION_INDEX{i}(rowfilter{i}, RandomSeed));
+                    [~, ix] = sort(PERMUTATION_STRUCT(i).permutation_index(rowfilter{i}, RandomSeed));
                     [~, permutation_index] = sort(ix);
                     PERMUTATION_INDEX{i} = permutation_index;
                 end
@@ -278,9 +282,7 @@ function WholeBrain_MVPA(varargin)
                 'DEBUG'          , DEBUG          , ...
                 'SmallFootprint' , SmallFootprint , ...
                 'PARALLEL'       , PARALLEL       , ...
-                'PermutationTest', PermutationTest, ...
-                'PermutationMethod', PermutationMethod, ...
-                'RestrictPermutationByCV', RestrictPermutationByCV, ...
+                'permutations'   , PERMUTATION_INDEX, ... % new
                 'AdlasOpts'      , opts); %#ok<ASGLU>
             if ~isempty(gcp('nocreate')) && PARALLEL && (exist('ppp', 'var') == 1)
                 delete(ppp);
@@ -334,22 +336,44 @@ function WholeBrain_MVPA(varargin)
             end
             % Puts all voxels in one group, which nullifies local and multitask aspects
             % of SOS Lasso, reducing it to lasso. Alpha no longer matters and is set to
-            % 1.
+            % 0.
             noG = coordGrouping(xyz, inf, 0, 'cube');
             [results,info] = learn_category_encoding(Y, X, regularization, ...
                 'groups'         , noG            , ...
                 'lambda'         , lambda         , ...
-                'alpha'          , 1              , ...
+                'alpha'          , 0              , ...
                 'cvind'          , cvind          , ...
                 'cvholdout'      , cvholdout      , ...
                 'normalize'      , normalize      , ...
                 'bias'           , BIAS           , ...
                 'DEBUG'          , DEBUG          , ...
                 'SmallFootprint' , SmallFootprint , ...
-                'PermutationTest', PermutationTest, ...
-                'PermutationMethod', PermutationMethod, ...
-                'RestrictPermutationByCV', RestrictPermutationByCV, ...
+                'permutations'   , PERMUTATION_INDEX, ... % new
                 'AdlasOpts'      , opts); %#ok<ASGLU>
+            
+            %% Revise cv indexes
+            % Add the final holdout index to all results.
+            [results.finalholdout] = deal(finalholdoutInd);
+            % Adjust the cvholdout indexes to accomodate the final holdout index.
+            %    if isfield(results,'cvholdout') && finalholdoutInd > 0
+            %      cvholdout = [results.cvholdout];
+            %      z = cvholdout >= finalholdoutInd;
+            %      cvholdout(z) = cvholdout(z) + 1;
+            %      cvholdout = mat2cell(cvholdout(:),ones(numel(cvholdout),1));
+            %      [results.cvholdout] = deal(cvholdout{:});
+            %    end
+            %% Add extra parameter info
+            [results.diameter] = deal(diameter);
+            [results.overlap] = deal(overlap);
+            [results.shape] = deal(shape);
+            for ii = 1:numel(results)
+%                 [M,ix] = selectbyfield(metadata,'subject',results(ii).subject);
+                ix = results(ii).subject;
+                M = metadata(ix);
+                COORDS = selectbyfield(M.coords, 'orientation', orientation);
+                results(ii) = addMaskedCoordinates(results(ii), COORDS, orientation, colfilter{ix});
+                results(ii).subject = M.subject;
+            end
 
         case 'searchlight'
             X = uncell(X);
@@ -409,10 +433,10 @@ function WholeBrain_MVPA(varargin)
                 'debias'         , debias         , ...
                 'SmallFootprint' , SmallFootprint , ...
                 'permutations'   , PERMUTATION_INDEX, ... % new
+                'AdlasOpts'      , opts); %#ok<ASGLU>
                 %'PermutationTest', PermutationTest, ...
                 %'PermutationMethod', PermutationMethod, ...
                 %'RestrictPermutationByCV', RestrictPermutationByCV, ...
-                'AdlasOpts'      , opts); %#ok<ASGLU>
             %% Revise cv indexes
             % Add the final holdout index to all results.
             [results.finalholdout] = deal(finalholdoutInd);
@@ -428,6 +452,14 @@ function WholeBrain_MVPA(varargin)
             [results.diameter] = deal(diameter);
             [results.overlap] = deal(overlap);
             [results.shape] = deal(shape);
+            for ii = 1:numel(results)
+%                 [M,ix] = selectbyfield(metadata,'subject',results(ii).subject);
+                ix = results(ii).subject;
+                M = metadata(ix);
+                COORDS = selectbyfield(M.coords, 'orientation', orientation);
+                results(ii) = addMaskedCoordinates(results(ii), COORDS, orientation, colfilter{ix});
+                results(ii).subject = M.subject;
+            end
 
     end
     [results.target] = deal(target_label);
