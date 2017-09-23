@@ -427,7 +427,7 @@ function WholeBrain_MVPA(varargin)
                 results(permix).hitrate_map = hm;
                 results(permix).falsealarm_map = fm;
                 results(permix).pvalue_map = pm;
-                results(permix).subject = metadata(ix).subject;
+                results(permix).subject = metadata.subject;
                 results(permix).target = target_label;
                 results(permix).RandomSeed = RandomSeed(permix);
             end
