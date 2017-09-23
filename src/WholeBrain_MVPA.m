@@ -379,6 +379,7 @@ function WholeBrain_MVPA(varargin)
             X = uncell(X);
             Yo = uncell(Y);
             permutations = uncell(PERMUTATION_INDEX);
+            nperm = size(permutations,2);
             if min(Yo) == 0
                 Yo = Yo + 1;
             end
@@ -390,7 +391,7 @@ function WholeBrain_MVPA(varargin)
                     'subject', [], ...
                     'target', [], ...
                     'RandomSeed', []), ...
-                size(permutations,2), 1);
+                nperm, 1);
             for permix = 1:nperm
                 permutation_index = permutations(:,permix);
                 Y = Yo(permutation_index);
