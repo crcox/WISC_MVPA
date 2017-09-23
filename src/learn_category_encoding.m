@@ -167,10 +167,11 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     end
 
     iii = 0;
+    Yo = Y;
     for permix = 1:nperm
-        for i = 1:numel(Y)
+        for i = 1:numel(Yo)
             permutation_index = permutations{i}(:,permix);
-            Y{i} = Y{i}(permutation_index);
+            Y{i} = Yo{i}(permutation_index);
         end
         for i = 1:ncv
             icv = cvset(i);

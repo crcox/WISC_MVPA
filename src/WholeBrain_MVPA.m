@@ -377,43 +377,59 @@ function WholeBrain_MVPA(varargin)
 
         case 'searchlight'
             X = uncell(X);
-            Y = uncell(Y);
-            if min(Y) == 0
-                Y = Y + 1;
+            Yo = uncell(Y);
+            permutations = uncell(PERMUTATION_INDEX);
+            if min(Yo) == 0
+                Yo = Yo + 1;
             end
-            cvind = uncell(cvind);
-            colfilter = uncell(colfilter);
+            results = repmat( ...
+                struct('accuracy_map', [], ...
+                    'hitrate_map', [], ...
+                    'falsealarm', [], ...
+                    'pvalue_map', [], ...
+                    'subject', [], ...
+                    'target', [], ...
+                    'RandomSeed', []), ...
+                size(permutations,2), 1);
+            for permix = 1:nperm
+                permutation_index = permutations(:,permix);
+                Y = Yo(permutation_index);
+                cvind = uncell(cvind);
+                colfilter = uncell(colfilter);
 
-            % create a 3D binary mask
-            z = strcmp({metadata.coords.orientation}, orientation);
-            xyz = metadata.coords(z).xyz(colfilter,:);
-            [mask,dxyz] = coordsTo3dMask(xyz);
+                % create a 3D binary mask
+                z = strcmp({metadata.coords.orientation}, orientation);
+                xyz = metadata.coords(z).xyz(colfilter,:);
+                [mask,dxyz] = coordsTo3dMask(xyz);
 
-            % Translate slradius (in mm) to sl voxels
-            % N.B. Because voxels need not be symmetric cubes, but Seachmight will
-            % generate symmetric spheres from a single radius parameter, we need to
-            % select one value of the three that will be produced in this step. I am
-            % arbitrarily choosing the max, to err on the side of being inclusive.
-            slradius_ijk = max(round(slradius ./ dxyz));
+                % Translate slradius (in mm) to sl voxels
+                % N.B. Because voxels need not be symmetric cubes, but Seachmight will
+                % generate symmetric spheres from a single radius parameter, we need to
+                % select one value of the three that will be produced in this step. I am
+                % arbitrarily choosing the max, to err on the side of being inclusive.
+                slradius_ijk = max(round(slradius ./ dxyz));
 
-            % create the "meta" neighbourhood structure
-            meta = createMetaFromMask(mask, slradius_ijk);
+                % create the "meta" neighbourhood structure
+                meta = createMetaFromMask(mask, slradius_ijk);
 
-            % Prepare parameters
-            classifier = slclassifier;
-            if strcmp(slTestToUse,'accuracyOneSided_permutation')
-                TestToUseCfg = {'testToUse',slTestToUse,slpermutations};
-            else
-                TestToUseCfg = {'testToUse',slTestToUse};
+                % Prepare parameters
+                classifier = slclassifier;
+                if strcmp(slTestToUse,'accuracyOneSided_permutation')
+                    TestToUseCfg = {'testToUse',slTestToUse,slpermutations};
+                else
+                    TestToUseCfg = {'testToUse',slTestToUse};
+                end
+                [am,pm,hm,fm] = computeInformationMap(X,Y,cvind,classifier,'searchlight', ...
+                    meta.voxelsToNeighbours,meta.numberOfNeighbours,TestToUseCfg{:});
+
+                results(permix).accuracy_map = am;
+                results(permix).hitrate_map = hm;
+                results(permix).falsealarm_map = fm;
+                results(permix).pvalue_map = pm;
+                results(permix).subject = metadata(ix).subject;
+                results(permix).target = target_label;
+                results(permix).RandomSeed = RandomSeed(permix);
             end
-            [am,pm,hm,fm] = computeInformationMap(X,Y,cvind,classifier,'searchlight', ...
-                meta.voxelsToNeighbours,meta.numberOfNeighbours,TestToUseCfg{:});
-
-            results.accuracy_map = am;
-            results.hitrate_map = hm;
-            results.falsealarm_map = fm;
-            results.pvalue_map = pm;
-
         case 'soslasso'
             xyz = cell(numel(metadata),1);
             for ii = 1:numel(xyz)
