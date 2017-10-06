@@ -2,7 +2,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     p = inputParser();
     addRequired(p  , 'Y'                         );
     addRequired(p  , 'X'                         );
-    addRequired(p  , 'regularization'                     );
+    addRequired(p  , 'regularization'            );
     addParameter(p , 'lambda'         , []       );
     addParameter(p , 'alpha'          , 0        );
     addParameter(p , 'groups'         , {}       );
@@ -73,34 +73,34 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     end
 
     % Define results struct
-    results.Wz = [];
-    results.Wix = [];
-    results.Yz = [];
-    results.Wnz = [];
-    results.nvox = [];
-    results.coords = [];
-    results.subject = [];
-    results.target = [];
-    results.cvholdout = [];
+    results.Wz           = [];
+    results.Wix          = [];
+    results.Yz           = [];
+    results.Wnz          = [];
+    results.nvox         = [];
+    results.coords       = [];
+    results.subject      = [];
+    results.target       = [];
+    results.cvholdout    = [];
     results.finalholdout = [];
-    results.alpha = [];
-    results.lambda = [];
-    results.diameter = [];
-    results.overlap = [];
-    results.shape = [];
-    results.nt1  = [];
-    results.nt2  = [];
-    results.nd1  = [];
-    results.nd2  = [];
-    results.h1   = [];
-    results.h2   = [];
-    results.f1   = [];
-    results.f2   = [];
-    results.err1 = [];
-    results.err2 = [];
-    results.confusion1 = [];
-    results.confusion2 = [];
-    results.iterations = struct();
+    results.alpha        = [];
+    results.lambda       = [];
+    results.diameter     = [];
+    results.overlap      = [];
+    results.shape        = [];
+    results.nt1          = [];
+    results.nt2          = [];
+    results.nd1          = [];
+    results.nd2          = [];
+    results.h1           = [];
+    results.h2           = [];
+    results.f1           = [];
+    results.f2           = [];
+    results.err1         = [];
+    results.err2         = [];
+    results.confusion1   = [];
+    results.confusion2   = [];
+    results.iterations   = struct();
 
     % Preallocate
     if isempty(permutations)
@@ -161,9 +161,9 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
 
     switch lower(regularization)
         case 'iterlasso_glmnet'
-            fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s %11s\n', '','subj','alpha','lambda','test err','train err','test diff','train diff','n vox', 'n iter')
+            fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s %11s\n','','subj','alpha','lambda','test err','train err','test diff','train diff','n vox' ,'n iter')
         otherwise
-            fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n', '','subj','alpha','lambda','test err','train err','test diff','train diff','n vox')
+            fprintf('%7s%5s %7s %7s %11s %11s %11s %11s %11s\n'     ,'','subj','alpha','lambda','test err','train err','test diff','train diff','n vox')
     end
 
     iii = 0;
@@ -278,12 +278,12 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                                     subsetAll(X, train_set), ...
                                     subsetAll(Y, train_set), ...
                                     1, lambda,...
-                                    'cvind'   , subsetAll(cvind, train_set),...
-                                    'bias'    , BIAS, ...
-                                    'maxiter' , 1000, ...
-                                    'PARALLEL', PARALLEL, ...
-                                    'tol'     , 1e-8, ...
-                                    'W0'      ,   []);
+                                    'cvind'    , subsetAll(cvind, train_set),...
+                                    'bias'     , BIAS, ...
+                                    'maxiter'  , 1000, ...
+                                    'PARALLEL' , PARALLEL, ...
+                                    'tol'      , 1e-8, ...
+                                    'W0'       ,   []);
                                 lambda = info.lambda;
 
                             case 'iterlasso_glmnet'
@@ -301,12 +301,12 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                                     subsetAll(Y, train_set), ...
                                     subsetAll(Y, test_set), ...
                                     1, lambda,...
-                                    'cvind'   , subsetAll(cvind, train_set),...
-                                    'bias'    , BIAS, ...
-                                    'maxiter' ,   10, ...
-                                    'PARALLEL', PARALLEL, ...
-                                    'tol'     , 1e-8, ...
-                                    'W0'      ,   []);
+                                    'cvind'    , subsetAll(cvind, train_set),...
+                                    'bias'     , BIAS, ...
+                                    'maxiter'  ,   10, ...
+                                    'PARALLEL' , PARALLEL, ...
+                                    'tol'      , 1e-8, ...
+                                    'W0'       ,   []);
 
                             case 'lasso'
                                 [Wz, info] = SOS_logistic( ...
@@ -320,15 +320,15 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                                     'W0'      ,   []);
 
                             case 'soslasso'
-                                [Wz, info] = SOS_logistic( ...
-                                    subsetAll(X, train_set), ...
-                                    subsetAll(Y, train_set), ...
-                                    alpha,       lambda,  G, ...
-                                    'l2'      ,    0, ...
-                                    'bias'    , BIAS, ...
-                                    'maxiter' , 1000, ...
-                                    'tol'     , 1e-8, ...
-                                    'W0'      ,   []);
+                                if isempty(SOSLassoInstances(iii))
+                                    SOSLassoInstances(iii) = SOSLasso( ...
+                                        subsetAll(X, train_set), ...
+                                        subsetAll(Y, train_set), ...
+                                        alpha, lambda, G, [],    ...
+                                        struct('l2',0,'bias',BIAS,'maxiter',100000,'tol',1e-8));
+                                end
+                                SOSLassoInstances(iii) = SOSLassoInstances(iii).train(options);
+                                W = SOSLassoInstance.getW(false);
                         end
                     end
 
