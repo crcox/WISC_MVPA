@@ -17,6 +17,8 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     addParameter(p , 'PARALLEL'       , false    );
     addParameter(p , 'SmallFootprint' , false    );
     addParameter(p , 'permutations'   , []       );
+    addParameter(p , 'SOSLassoInstances', []     );
+    addParameter(p , 'hyperband'      , false    );
     %addParameter(p , 'PermutationTest', false   );
 	%addParameter(p , 'PermutationMethod', 'simple');
     %addParameter(p , 'RestrictPermutationByCV', false);
@@ -40,6 +42,8 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     PARALLEL  = p.Results.PARALLEL;
     SMALL     = p.Results.SmallFootprint;
     permutations = p.Results.permutations;
+    hyperband = p.Results.hyperband;
+    
     %PermutationTest = p.Results.PermutationTest;
     %PermutationMethod = p.Results.PermutationMethod;
     %RestrictPermutationByCV = p.Results.RestrictPermutationByCV;
@@ -110,6 +114,15 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     end
     results(t*ncv*nlam*nalpha*nperm).Wz = [];
 
+    if hyperband
+        nlam = 1;
+    end
+    
+    if isempty(p.Results.SOSLassoInstances) && p.Results.hyperband
+        SOSLassoInstances = repmat(SOSLasso,ncv*nalpha*nperm,1);
+    else
+        SOSLassoInstances = p.Results.SOSLassoInstances;
+    end
     % Permute if requested
 %    fprintf('PermutationTest: %d\n', PermutationTest);
 %    if PermutationTest
@@ -167,6 +180,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     end
 
     iii = 0;
+    jjj = 0;
     Yo = Y;
     for permix = 1:nperm
         for i = 1:numel(Yo)
@@ -235,6 +249,44 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                     alpha = ALPHA(j);
                 else
                     alpha = ALPHA;
+                end
+                
+                if hyperband && strcmpi('soslasso', regularization)
+                    if isempty(LAMBDA)
+                        lambda = nan(1);
+                    elseif length(LAMBDA) > 1
+                        lambda = LAMBDA(j);
+                    else
+                        lambda = LAMBDA;
+                    end
+                    
+                    jjj = jjj + 1;
+                    if isempty(SOSLassoInstances(jjj))
+                        SOSLassoInstances(jjj) = SOSLasso( ...
+                            subsetAll(X, train_set), ...
+                            subsetAll(Y, train_set), ...
+                            alpha, lambda, G, [],    ...
+                            struct('l2',0,'bias',BIAS,'maxiter',100000,'tol',1e-8));
+                    end
+                    SOSLassoInstances(jjj) = SOSLassoInstances(jjj).train();
+                    Wz = SOSLassoInstances(jjj).getW(false);
+                else
+                    if isempty(LAMBDA)
+                        lambda = nan(1);
+                    elseif length(LAMBDA) > 1
+                        lambda = LAMBDA(j);
+                    else
+                        lambda = LAMBDA;
+                    end
+%                     [Wz, info] = SOS_logistic( ...
+%                         subsetAll(X, train_set), ...
+%                         subsetAll(Y, train_set), ...
+%                         alpha,       lambda, G, ...
+%                         'l2'      ,    0, ...
+%                         'bias'    , BIAS, ...
+%                         'maxiter' , 1000, ...
+%                         'tol'     , 1e-8, ...
+%                         'W0'      ,   []);
                 end
 
                 for k = 1:nlam
@@ -320,15 +372,17 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                                     'W0'      ,   []);
 
                             case 'soslasso'
-                                if isempty(SOSLassoInstances(iii))
-                                    SOSLassoInstances(iii) = SOSLasso( ...
+                                if ~hyperband
+                                    [Wz, info] = SOS_logistic( ...
                                         subsetAll(X, train_set), ...
                                         subsetAll(Y, train_set), ...
-                                        alpha, lambda, G, [],    ...
-                                        struct('l2',0,'bias',BIAS,'maxiter',100000,'tol',1e-8));
+                                        alpha,       lambda, G, ...
+                                        'l2'      ,    0, ...
+                                        'bias'    , BIAS, ...
+                                        'maxiter' , 1000, ...
+                                        'tol'     , 1e-8, ...
+                                        'W0'      ,   []);
                                 end
-                                SOSLassoInstances(iii) = SOSLassoInstances(iii).train(options);
-                                W = SOSLassoInstance.getW(false);
                         end
                     end
 
@@ -351,7 +405,11 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
                             lambda_k = lambda;
                         end
                     else
-                        lambda_k = LAMBDA(k);
+                        if hyperband
+                            lambda_k = LAMBDA(j);
+                        else
+                            lambda_k = LAMBDA(k);
+                        end
                     end
 
                     for iSubject = 1:numel(X);

@@ -3,14 +3,14 @@ classdef SOSLasso
     %   Detailed explanation goes here
 
     properties
-    addParameter(p , 'verbose' , false                    );
         X
         Y
         alpha
         lambda
         lamSOS
-        lam1
+        lamL1
         l2 = 0
+        bias = 0
         Wz % model weights
         maxiter = 100000
         tol = 1e-8
@@ -20,8 +20,8 @@ classdef SOSLasso
         num_tasks
         dimension
         t = 1
-        iter
-        gamma
+        iter = 0
+        gamma = 1
         gamma_inc = 2
         objective_loss = zeros(100000,1);
     end
@@ -30,6 +30,7 @@ classdef SOSLasso
         EMPTY = 0;
         Wz_old % model weights
         t_old = 0
+        s % random seed
     end
 
     methods
@@ -68,8 +69,8 @@ classdef SOSLasso
             % Add dummy unit
             for j = 1:length(X);
                 obj.X{j} = [X{j},zeros(size(X{j},1),1)];
-                obj.X{j} = X{j}(:,ix(:,j));
-                obj.X{j} = X{j}';
+                obj.X{j} = obj.X{j}(:,ix(:,j));
+                obj.X{j} = obj.X{j}';
             end
 
             % Set lamL1 and lamSOS
@@ -82,16 +83,17 @@ classdef SOSLasso
             for i = 1:numel(fn)
                 obj.(fn{i}) = opts.(fn{i});
             end
-            obj.s = RandStream('mt19937ar','Seed',0);
+            obj.setRandomSeed(0);
             obj.EMPTY = 0;
         end
 
-        function obj = train(obj, opts)
-            fn = fieldnames(opts);
-            for i = 1:numel(fn)
-                obj.(fn{i}) = opts.(fn{i});
-            end
-            obj = SOSLasso_logistic(obj);
+        function obj = setRandomSeed(obj, seed)
+            obj.s = RandStream('mt19937ar','Seed',seed);
+        end
+
+        function obj = train(obj)
+            verbose = 0;
+            obj = SOSLasso_logistic(obj,verbose);
         end
 
         function x = isempty(obj)
@@ -104,10 +106,13 @@ classdef SOSLasso
     end
 end
 
-function objective_loss = SOSLasso_logistic(obj, verbosity)
+function obj = SOSLasso_logistic(obj, ~)
     grad_flag = 0;
+    dimension = length(obj.groups);
+    num_tasks = numel(obj.X);
+    obj.iter = 1;
 
-    while obj.iter < maxiter
+    while obj.iter < obj.maxiter
         zeta = (obj.t_old - 1) /obj.t;
         Ws = (1 + zeta) * obj.Wz - zeta * obj.Wz_old;
 
@@ -116,15 +121,12 @@ function objective_loss = SOSLasso_logistic(obj, verbosity)
 
         % the Armijo Goldstein line search
         while true
-            if lamSOS>0 % CRC redefined the "else" block
-                Wzp = soslasso_projection(Ws - grad/obj.gamma,lamSOS/obj.gamma,lamL1,group_arr,groups);
+            if obj.lamSOS>0 % CRC redefined the "else" block
+                Wzp = soslasso_projection(Ws - grad/obj.gamma,obj.lamSOS/obj.gamma,obj.lamL1,obj.group_arr,obj.groups);
             else
-%                 Wzp = Ws - grad/gamma;
-                Wzp = soslasso_projection(Ws - grad/obj.gamma, 0, lamL1/obj.gamma,group_arr,groups);
+%                 Wzp = lasso_projection(Ws - grad/obj.gamma, obj.lamL1/obj.gamma);
+                Wzp = Ws - grad/gamma;
             end
-%             % CRC moved conditional within the function ( this did not
-%             work, because lamL1 needs to be shrunk by gamma I think ... 
-%             Wzp = soslasso_projection(Ws - grad/gamma,lamSOS/gamma,lamL1,group_arr,groups);
             Fzp = funVal_eval(Wzp);
 
             delta_Wzp = Wzp - Ws;
@@ -133,7 +135,7 @@ function objective_loss = SOSLasso_logistic(obj, verbosity)
 
             Fzp_gamma = Fs + sum(sum(delta_Wzp.* grad)) + obj.gamma/2 * nrm_delta_Wzp;
 
-            if (r_sum <=1e-20)
+            if (obj.iter>1) && (r_sum <=1e-20)
                 grad_flag=1; % this shows that, the gradient step makes little improvement
                 break;
             end
@@ -151,17 +153,17 @@ function objective_loss = SOSLasso_logistic(obj, verbosity)
         if (grad_flag)
             break;
         end
-%         if lamSOS>0
-%             obj(iter) = Fzp + sos_eval(Wz,group_arr,lamSOS,lamL1);
-%         else
-%             obj(iter) = Fzp;
-%         end
-        % CRC moved conditional within the function
-        obj.objective_loss(obj.iter) = Fzp + sos_eval(obj.Wz,group_arr,lamSOS,lamL1);
+
+        if lamSOS>0
+            obj.objective_loss(obj.iter) = Fzp + sos_eval(obj.Wz,obj.group_arr,obj.lamSOS,obj.lamL1);
+        else
+%             obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.Wz,obj.lamL1);
+            obj(iter) = Fzp;
+        end
 
         % convergence check.
         if obj.iter>=2
-            if (abs( obj(end) - obj(end-1) ) <= tol*obj(end-1))
+            if (abs( obj.objective_loss(end) - obj.objective_loss(end-1) ) <= obj.tol*obj.objective_loss(end-1))
                 break;
             end
         end
@@ -173,24 +175,24 @@ function objective_loss = SOSLasso_logistic(obj, verbosity)
 
     % private functions
     function Wshr = soslasso_projection(W,lamSOS,lamL1,group_arr,groups)
-        if lamSOS > 0 % CRC added this conditional and what happens if lamSOS == 0 ...
-            % step 1: perform soft thresholding
-            X_soft = sign(W).*max(abs(W) - lamL1*lamSOS,0);
+        % step 1: perform soft thresholding
+        X_soft = sign(W).*max(abs(W) - lamL1*lamSOS,0);
 
-            %step 2: perform group soft thresholding
-            X_soft = [X_soft; zeros(1,size(X_soft,2))]; % for the dummy
-            Xtemp = sum(X_soft.^2,2); %xtemp is now a vector
-            Xtemp = sum(Xtemp(group_arr),2);
-            Xtemp = sqrt(Xtemp);
-            Xtemp = max(Xtemp - lamSOS,0); % this is the multiplying factor
-            Xtemp = Xtemp./(Xtemp + lamSOS);
-            Xtemp = Xtemp(groups);
-            Xtemp = repmat(Xtemp,1,numel(obj.X));
-            Wshr = X_soft(1:end-1,:).*Xtemp;
-        else
-            % step 1: perform soft thresholding
-            Wshr = sign(W).*max(abs(W) - lamL1,0);
-        end
+        %step 2: perform group soft thresholding
+        X_soft = [X_soft; zeros(1,size(X_soft,2))]; % for the dummy
+        Xtemp = sum(X_soft.^2,2); %xtemp is now a vector
+        Xtemp = sum(Xtemp(group_arr),2);
+        Xtemp = sqrt(Xtemp);
+        Xtemp = max(Xtemp - lamSOS,0); % this is the multiplying factor
+        Xtemp = Xtemp./(Xtemp + lamSOS);
+        Xtemp = Xtemp(groups);
+        Xtemp = repmat(Xtemp,1,numel(obj.X));
+        Wshr = X_soft(1:end-1,:).*Xtemp;
+    end
+
+    function Wshr = lasso_projection(W,lamL1)
+        % step 1: perform soft thresholding
+        Wshr = sign(W).*max(abs(W) - lamL1,0);
     end
 
     function [grad_W, funcVal] = gradVal_eval(W)
@@ -198,7 +200,7 @@ function objective_loss = SOSLasso_logistic(obj, verbosity)
         lossValVect = zeros (1 , num_tasks);
 
         for ii = 1:num_tasks
-            [ grad_W(:, ii), lossValVect(:, ii)] = unit_grad_eval( W(:, ii), obj.X{ii}, Y{ii});
+            [ grad_W(:, ii), lossValVect(:, ii)] = unit_grad_eval( W(:, ii), obj.X{ii}, obj.Y{ii});
         end
 
         grad_W = grad_W + obj.l2 * 2 * W;
@@ -210,7 +212,7 @@ function objective_loss = SOSLasso_logistic(obj, verbosity)
         funcVal = 0;
 
         for ii = 1: num_tasks
-            funcVal = funcVal + unit_funcVal_eval( W(:, ii), obj.X{ii}, Y{ii});
+            funcVal = funcVal + unit_funcVal_eval( W(:, ii), obj.X{ii}, obj.Y{ii});
         end
 
         funcVal = funcVal + obj.l2 * norm(W,'fro')^2;
@@ -220,19 +222,19 @@ function objective_loss = SOSLasso_logistic(obj, verbosity)
     % SOS regularizer value
     function [regval] = sos_eval(W,group_arr ,lamSOS,lamL1)
         regval = 0;
+
         [n,~] = size(group_arr);
         Wtemp = [W;zeros(1,num_tasks)];
-
-        if lamSOS > 0 % CRC added this conditional and what happens if lamSOS == 0 ...
-            for ii = 1 : n
-                w = Wtemp(unique(group_arr(ii,:)), :);
-                w = w.^2;
-                regval = regval + lamSOS * sqrt(sum(w(:)));
-            end
-            regval = regval + lamSOS*lamL1*norm(W(:),1);
-        else
-            regval = regval + lamL1*norm(W(:),1);
+        for ii = 1 : n
+            w = Wtemp(unique(group_arr(ii,:)), :);
+            w = w.^2;
+            regval = regval + lamSOS * sqrt(sum(w(:)));
         end
+        regval = regval + lamSOS*lamL1*norm(W(:),1);
+    end
+
+    function [regval] = L1_eval(W,lamL1)
+        regval = lamL1*norm(W(:),1);
     end
 
     function b = validateW0(w0)

@@ -73,7 +73,13 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
     end
 
     % Set lamL1 and lamSOS
-    [lamSOS, lamL1] = ratio2independent(alpha, lambda);
+    if alpha > 0
+        [lamSOS, lamL1] = ratio2independent(alpha, lambda);
+    else
+        % Rational: If alpha == 0, then we are attempting lasso. If we are
+        % attempting lasso, each voxel needs to be in its own group. This grouping is the critial bit. By setting alpha to 1, it allows 
+        lamSOS = 1; lamL1 = lambda;
+    end
     % Equivalent to:
     %   lamSOS = lambda * alpha;
     %   lamL1  = lambda * (1 - alpha);
@@ -112,10 +118,10 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
         % the Armijo Goldstein line search
         while true
             if lamSOS>0 % CRC redefined the "else" block
-                Wzp = soslasso_projection(Ws - grad/gamma,lamSOS/gamma,lamL1,group_arr,groups);
+                Wzp = soslasso_projection(Ws - grad/gamma,lamSOS/gamma,lamL1      ,group_arr,groups);
             else
 %                 Wzp = Ws - grad/gamma;
-                Wzp = soslasso_projection(Ws - grad/gamma, 0, lamL1/gamma,group_arr,groups);
+                Wzp = soslasso_projection(Ws - grad/gamma,           0,lamL1/gamma,group_arr,groups);
             end
 %             % CRC moved conditional within the function ( this did not
 %             work, because lamL1 needs to be shrunk by gamma I think ... 
@@ -129,7 +135,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
 
             Fzp_gamma = Fs + sum(sum(delta_Wzp.* grad)) + gamma/2 * nrm_delta_Wzp;
 
-            if (r_sum <=1e-20)
+            if (iter>1) && (r_sum <=1e-20)
                 grad_flag=1; % this shows that, the gradient step makes little improvement
                 break;
             end
@@ -157,7 +163,7 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
         obj(iter) = Fzp + sos_eval(Wz,group_arr,lamSOS,lamL1);
 
         % convergence check.
-        if iter>=2
+        if iter>1
             if (abs( obj(end) - obj(end-1) ) <= tol*obj(end-1))
                 break;
             end
@@ -176,26 +182,26 @@ function [W, obj] = SOS_logistic(X, Y,alpha,lambda,G,varargin)
     W = combineOverlappingWeights(W,G,'verbose',verbose);
     % private functions
 
-function Wshr = soslasso_projection(W,lamSOS,lamL1,group_arr,groups)
-    if lamSOS > 0 % CRC added this conditional and what happens if lamSOS == 0 ...
-        % step 1: perform soft thresholding
-        X_soft = sign(W).*max(abs(W) - lamL1*lamSOS,0);
-        
-        %step 2: perform group soft thresholding
-        X_soft = [X_soft; zeros(1,size(X_soft,2))]; % for the dummy
-        Xtemp = sum(X_soft.^2,2); %xtemp is now a vector
-        Xtemp = sum(Xtemp(group_arr),2);
-        Xtemp = sqrt(Xtemp);
-        Xtemp = max(Xtemp - lamSOS,0); % this is the multiplying factor
-        Xtemp = Xtemp./(Xtemp + lamSOS);
-        Xtemp = Xtemp(groups);
-        Xtemp = repmat(Xtemp,1,numel(X));
-        Wshr = X_soft(1:end-1,:).*Xtemp;
-    else
-        % step 1: perform soft thresholding
-        Wshr = sign(W).*max(abs(W) - lamL1,0);
+    function Wshr = soslasso_projection(W,lamSOS,lamL1,group_arr,groups)
+        if lamSOS > 0 % CRC added this conditional and what happens if lamSOS == 0 ...
+            % step 1: perform soft thresholding
+            X_soft = sign(W).*max(abs(W) - lamL1*lamSOS,0);
+
+            %step 2: perform group soft thresholding
+            X_soft = [X_soft; zeros(1,size(X_soft,2))]; % for the dummy
+            Xtemp = sum(X_soft.^2,2); %xtemp is now a vector
+            Xtemp = sum(Xtemp(group_arr),2);
+            Xtemp = sqrt(Xtemp);
+            Xtemp = max(Xtemp - lamSOS,0); % this is the multiplying factor
+            Xtemp = Xtemp./(Xtemp + lamSOS);
+            Xtemp = Xtemp(groups);
+            Xtemp = repmat(Xtemp,1,numel(X));
+            Wshr = X_soft(1:end-1,:).*Xtemp;
+        else
+            % step 1: perform soft thresholding
+            Wshr = sign(W).*max(abs(W) - lamL1,0);
+        end
     end
-end
 
   function [grad_W, funcVal] = gradVal_eval(W)
       grad_W = zeros(dimension, num_tasks);

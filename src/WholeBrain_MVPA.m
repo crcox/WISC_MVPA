@@ -1,58 +1,69 @@
 function WholeBrain_MVPA(varargin)
     p = inputParser;
     p.KeepUnmatched = false;
-    %% Parse and set parameters
-    addParameter(p , 'debug'            , false     , @islogicallike );
-    addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
+    % ----------------------Set parameters-----------------------------------------------
+    % Model definition
     addParameter(p , 'regularization'   , []        , @ischar        );
-    addParameter(p , 'debias'           , false      , @islogicallike );
-    addParameter(p , 'normalize'        , false                      );
     addParameter(p , 'bias'             , false     , @islogicallike );
-    addParameter(p , 'filters'          , []        , @ischarlike    );
+    addParameter(p , 'lambda'           , []                         );
+    addParameter(p , 'alpha'            , []        , @isnumeric     );
+    addParameter(p , 'diameter'         , []        , @isnumeric     );
+    addParameter(p , 'overlap'          , []        , @isnumeric     );
+    addParameter(p , 'shape'            , []        , @ischar        );
+    addParameter(p , 'debias'           , false      , @islogicallike );
+    addParameter(p , 'AdlasOpts'        , struct()  , @isstruct      );
+    % Target definition
     addParameter(p , 'target'           , []        , @ischar        );
     addParameter(p , 'target_type'      , []        , @ischar        );
+    % Data definition
+    addParameter(p , 'filters'          , []        , @ischarlike    );
     addParameter(p , 'data'             , []        , @ischarlike    );
     addParameter(p , 'data_var'         , 'X'       , @ischar        );
     addParameter(p , 'metadata'         , []        , @ischar        );
     addParameter(p , 'metadata_var'     , 'metadata', @ischar        );
+    addParameter(p , 'finalholdout'     , 0         , @isintegerlike );
     addParameter(p , 'cvscheme'         , []        , @isintegerlike );
     addParameter(p , 'cvholdout'        , []        , @isnumeric     );
     addParameter(p , 'orientation'      , []        , @ischar        );
-    addParameter(p , 'diameter'         , []        , @isnumeric     );
-    addParameter(p , 'overlap'          , []        , @isnumeric     );
-    addParameter(p , 'shape'            , []        , @ischar        );
+    % Normalization
+    addParameter(p , 'normalize'        , false                      );
+    % Permutation
+    addParameter(p , 'PermutationTest'  , false   ,   @islogicallike );
+    addParameter(p , 'PermutationMethod', 'manual'  , @ischar        );
+    addParameter(p , 'PermutationIndex' , 'PERMUTATION_STRUCT.mat', @ischar);
+    addParameter(p , 'RandomSeed'       , 0                          );
+	addParameter(p , 'RestrictPermutationByCV', false, @islogicallike);
+    % Hyperband (an alternative to grid search for hyperparameter selection)
+    addParameter(p , 'HYPERBAND'        , []                         );
+    addParameter(p , 'BRACKETS'         , []                         );
+    % Output control
+    addParameter(p , 'SmallFootprint'   , false     , @islogicallike );
+    addParameter(p , 'SaveResultsAs'    , 'mat'     , @isMatOrJSONOrCSV);
+    addParameter(p , 'subject_id_fmt'   , '%d'      , @ischar        );
+    % Debugging (none of which currently work...)
+    addParameter(p , 'debug'            , false     , @islogicallike );
+    addParameter(p , 'SanityCheckData'  , []        , @ischar        );
+    % --- searchlight specific --- %
     addParameter(p , 'searchlight'      , false     , @islogicallike );
     addParameter(p , 'slclassifier'     , 'gnb_searchmight',  @ischar);
     addParameter(p , 'slradius'         , []        , @isnumeric     );
     addParameter(p , 'slTestToUse'      , 'accuracyOneSided_analytical', @ischar);
     addParameter(p , 'slpermutations'   , 0         , @isscalar      );
-    addParameter(p , 'finalholdout'     , 0         , @isintegerlike );
-    addParameter(p , 'lambda'           , []                         );
-    addParameter(p , 'alpha'            , []        , @isnumeric     );
-    addParameter(p , 'AdlasOpts'        , struct()  , @isstruct      );
+    % Parallel only influences the GLMNET operations, and should only be used
+    % when running locally. DO NOT USE ON CONDOR.
+    addParameter(p , 'PARALLEL'         , false   ,   @islogicallike );
+    % Parameters in this section are unused in the analysis, may exist in
+    % the parameter file because other progams use them.
     addParameter(p , 'environment'      , 'condor'  , @ischar        );
-    addParameter(p , 'SanityCheckData'  , []        , @ischar        );
-    addParameter(p , 'subject_id_fmt'   , '%d'      , @ischar        );
     addParameter(p , 'COPY'             , []                         );
     addParameter(p , 'URLS'             , []                         );
     addParameter(p , 'executable'       , []                         );
     addParameter(p , 'wrapper'          , []                         );
-    % Parallel only influences the GLMNET operations, and should only be used
-    % when running locally. DO NOT USE ON CONDOR.
-    addParameter(p , 'PARALLEL'         , false   ,   @islogicallike );
-    addParameter(p , 'PermutationTest'  , false   ,   @islogicallike );
-    addParameter(p , 'PermutationMethod', 'manual'  , @ischar        );
-    addParameter(p , 'PermutationIndex' , 'PERMUTATION_STRUCT.mat', @ischar);
-	addParameter(p , 'RestrictPermutationByCV', false, @islogicallike);
-    addParameter(p , 'RandomSeed'       , 0                          );
-    addParameter(p , 'SaveResultsAs'    , 'mat'     , @isMatOrJSONOrCSV);
-    % Parameters in this section relate to Hyperband
-    addParameter(p , 'HYPERBAND'        , []                         );
-    addParameter(p , 'BRACKETS'         , []                         );
 
     if nargin > 0
         parse(p, varargin{:});
     else
+        % From json-formatted parameter file
         try
             jdat = loadjson('./params.json');
         catch ME
@@ -489,7 +500,8 @@ function WholeBrain_MVPA(varargin)
                         'SmallFootprint' , SmallFootprint , ...
                         'permutations'   , PERMUTATION_INDEX, ... % new
                         'AdlasOpts'      , opts           , ...
-                        'SOSLassoInstances' , SOSLassoInstances);
+                        'SOSLassoInstances' , SOSLassoInstances, ...
+                        'hyperband', true);
 
                     err1 = zeros(n(i), 1);
                     for j = 1:numel(lambda)
