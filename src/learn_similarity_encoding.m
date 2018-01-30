@@ -1,4 +1,4 @@
-function AdlasInstances = learn_similarity_encoding(AdlasInstances, C, V, regularization, varargin)
+function ModelInstances = learn_similarity_encoding(ModelInstances, C, V, regularization, varargin)
 % TO DO:
 % Currently, the function can only handle a single subject. It will also
 % only support HYPERBAND for a single hyperparameter, meaning that it can
@@ -8,7 +8,7 @@ function AdlasInstances = learn_similarity_encoding(AdlasInstances, C, V, regula
 % crossed with subject and cvholdout, and probably permutation index.
 
     p = inputParser();
-    addRequired(p  , 'AdlasInstances');
+    addRequired(p  , 'ModelInstances');
     addRequired(p  , 'C');
     addRequired(p  , 'V');
     addRequired(p  , 'regularization');
@@ -16,7 +16,7 @@ function AdlasInstances = learn_similarity_encoding(AdlasInstances, C, V, regula
     addParameter(p , 'permutations'            , []       );
     addParameter(p , 'AdlasOpts'               , struct() );
     addParameter(p , 'Verbose'                 , true     );
-    parse(p, AdlasInstances, C, V, regularization, varargin{:});
+    parse(p, ModelInstances, C, V, regularization, varargin{:});
 
     cvind          = p.Results.cvind;
     permutations   = p.Results.permutations;
@@ -33,18 +33,18 @@ function AdlasInstances = learn_similarity_encoding(AdlasInstances, C, V, regula
 %     fprintf('- Normalizing the data: %s ...\n', normalize_data);
 %     fprintf('- Normalizing the target dimensions: %s ...\n', normalize_target);
 
-    for i = 1:numel(AdlasInstances)
-        subix = AdlasInstances(i).subject;
-        cvix = AdlasInstances(i).cvholdout;
-        regularization = AdlasInstances(i).regularization;
-        normalize_data = AdlasInstances(i).normalize_data;
-        normalize_target = AdlasInstances(i).normalize_target;
-        normalizewrt = AdlasInstances(i).normalizewrt;
-        BIAS = AdlasInstances(i).bias;
-        P = selectbyfield(permutations,'subject', subix, 'RandomSeed', AdlasInstances(i).RandomSeed);
-        lam = AdlasInstances(i).lambda;
-        lam1 = AdlasInstances(i).lambda1;
-        LambdaSeq = AdlasInstances(i).LambdaSeq;
+    for i = 1:numel(ModelInstances)
+        subix = ModelInstances(i).subject;
+        cvix = ModelInstances(i).cvholdout;
+        regularization = ModelInstances(i).regularization;
+        normalize_data = ModelInstances(i).normalize_data;
+        normalize_target = ModelInstances(i).normalize_target;
+        normalizewrt = ModelInstances(i).normalizewrt;
+        BIAS = ModelInstances(i).bias;
+        P = selectbyfield(permutations,'subject', subix, 'RandomSeed', ModelInstances(i).RandomSeed);
+        lam = ModelInstances(i).lambda;
+        lam1 = ModelInstances(i).lambda1;
+        LambdaSeq = ModelInstances(i).LambdaSeq;
 
         train_set  = cvind{subix} ~= cvix; % CHECK THIS
 
@@ -77,6 +77,22 @@ function AdlasInstances = learn_similarity_encoding(AdlasInstances, C, V, regula
                     case 'inf'
                         lamseq = [lam+lam1, repmat(lam,1,d-1)];
                 end
+            case 'SOSLASSO'
+                % Should alpha and lambda be changed to lamSOS and lamL1 here?
+                % [lamSOS, lamL1] = ratio2independent(alpha, lambda);
+                for ii = 1:numel(xyz)
+                    z = strcmp({metadata(ii).coords.orientation}, orientation);
+                    xyz{ii} = metadata(ii).coords(z).xyz(colfilter{ii},:);
+                end
+                G = coordGrouping(xyz, diameter, overlap, shape);
+
+            case 'LASSO'
+                for ii = 1:numel(xyz)
+                    z = strcmp({metadata(ii).coords.orientation}, orientation);
+                    xyz{ii} = metadata(ii).coords(z).xyz(colfilter{ii},:);
+                end
+                G = coordGrouping(xyz, 0, 0, 'unitary');
+
             otherwise
                 error('%s is not an implemented regularization. check spelling', regularization);
         end
@@ -108,27 +124,27 @@ function AdlasInstances = learn_similarity_encoding(AdlasInstances, C, V, regula
         %   By not trying to train these models any more (which is fine,
         %   because they have converged on a solution already, anyway),
         %   this error should be avoided.
-        if isempty(AdlasInstances(i).Adlas)
+        if isempty(ModelInstances(i).Adlas)
             % LambdaSeq must be a column vector
-            AdlasInstances(i).Adlas = Adlas(V, C, lamseq(:), train_set, options);
-            AdlasInstances(i).Adlas = AdlasInstances(i).Adlas.train(options);
-        elseif AdlasInstances(i).Adlas.status == 2
-            AdlasInstances(i).Adlas = AdlasInstances(i).Adlas.train(options);
+            ModelInstances(i).Adlas = Adlas(V, C, lamseq(:), train_set, options);
+            ModelInstances(i).Adlas = ModelInstances(i).Adlas.train(options);
+        elseif ModelInstances(i).Adlas.status == 2
+            ModelInstances(i).Adlas = ModelInstances(i).Adlas.train(options);
         else
         % Do nothing
         end
-        AdlasInstances(i).Adlas = AdlasInstances(i).Adlas.test();
-        err1 = AdlasInstances(i).Adlas.testError;
-        err2 = AdlasInstances(i).Adlas.trainingError;
-        Unz = nnz(any(AdlasInstances(i).Adlas.X, 2));
-        nv = size(AdlasInstances(i).Adlas.X, 1);
+        ModelInstances(i).Adlas = ModelInstances(i).Adlas.test();
+        err1 = ModelInstances(i).Adlas.testError;
+        err2 = ModelInstances(i).Adlas.trainingError;
+        Unz = nnz(any(ModelInstances(i).Adlas.X, 2));
+        nv = size(ModelInstances(i).Adlas.X, 1);
         if isempty(lam1)
             lam1 = nan;
         end
 
         if VERBOSE
             fprintf('%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
-                cvix,lam,lam1,err1,err2,Unz,nv,AdlasInstances(i).Adlas.iter,AdlasInstances(i).Adlas.message);
+                cvix,lam,lam1,err1,err2,Unz,nv,ModelInstances(i).Adlas.iter,ModelInstances(i).Adlas.message);
         end
     end
 end
