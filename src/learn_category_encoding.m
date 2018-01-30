@@ -43,7 +43,7 @@ function [results,info] = learn_category_encoding(Y, X, regularization, varargin
     SMALL     = p.Results.SmallFootprint;
     permutations = p.Results.permutations;
     hyperband = p.Results.hyperband;
-    
+
     %PermutationTest = p.Results.PermutationTest;
     %PermutationMethod = p.Results.PermutationMethod;
     %RestrictPermutationByCV = p.Results.RestrictPermutationByCV;
