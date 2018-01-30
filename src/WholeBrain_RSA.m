@@ -342,7 +342,7 @@ function WholeBrain_RSA(varargin)
             HYPERPARAMETERS = struct('hyperband',SearchWithHyperband,'alpha',1,'lambda',lambda);
             SubjectsParameter = subjix;
         case 'soslasso'
-            HYPERPARAMETERS = struct('hyperband',SearchWithHyperband,'alpha',alpha,'lambda',lambda);
+            HYPERPARAMETERS = struct('hyperband',SearchWithHyperband,'alpha',alpha,'lambda',lambda,'diameter',diameter,'overlap',overlap,'shape',shape);
             SubjectsParameter = {subjix};
     end
 
