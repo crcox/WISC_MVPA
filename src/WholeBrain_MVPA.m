@@ -448,6 +448,7 @@ function WholeBrain_MVPA(varargin)
                 results(permix).target = target_label;
                 results(permix).RandomSeed = RandomSeed(permix);
             end
+
         case 'soslasso'
             xyz = cell(numel(metadata),1);
             for ii = 1:numel(xyz)
