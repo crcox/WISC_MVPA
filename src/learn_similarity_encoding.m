@@ -1,4 +1,4 @@
-function ModelInstances = learn_similarity_encoding(ModelInstances, C, V, regularization, varargin)
+function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regularization, varargin)
 % TO DO:
 % Currently, the function can only handle a single subject. It will also
 % only support HYPERBAND for a single hyperparameter, meaning that it can
@@ -9,22 +9,22 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, C, V, regula
 
     p = inputParser();
     addRequired(p  , 'ModelInstances');
-    addRequired(p  , 'C');
-    addRequired(p  , 'V');
+    addRequired(p  , 'Y');
+    addRequired(p  , 'X');
     addRequired(p  , 'regularization');
     addParameter(p , 'cvind'                   , []       );
     addParameter(p , 'permutations'            , []       );
     addParameter(p , 'AdlasOpts'               , struct() );
     addParameter(p , 'Verbose'                 , true     );
-    parse(p, ModelInstances, C, V, regularization, varargin{:});
+    parse(p, ModelInstances, Y, X, regularization, varargin{:});
 
     cvind          = p.Results.cvind;
     permutations   = p.Results.permutations;
     options        = p.Results.AdlasOpts;
     VERBOSE        = p.Results.Verbose;
 
-    Vorig = V;
-    Corig = C;
+    Xorig = X;
+    Yorig = Y;
 
     if VERBOSE
         fprintf('%8s%8s%8s%8s%8s%8s%8s%8s%16s\n', 'cv','lam','lam1','err1','err2','nzvox','nvox','iter','status')
@@ -48,27 +48,28 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, C, V, regula
 
         train_set  = cvind{subix} ~= cvix; % CHECK THIS
 
-        V = Vorig{subix};
-        C = Corig{subix}(P.index,:);
+        X = Xorig{subix};
+        Y = Yorig{subix}(P.index,:);
         switch normalizewrt
             case 'all_examples'
-                V = normalize_columns(V, normalize_data);
-                C = normalize_columns(C, normalize_target);
+                X = normalize_columns(X, normalize_data);
+                Y = normalize_columns(Y, normalize_target);
 
             case 'training_set'
-                V = normalize_columns(V, normalize_data, train_set);
-                C = normalize_columns(C, normalize_target, train_set);
+                X = normalize_columns(X, normalize_data, train_set);
+                Y = normalize_columns(Y, normalize_target, train_set);
         end
 
         if BIAS
-            V = [V, ones(size(V,1),1)]; %#ok<AGROW> It's not actually growing, see line 86.
+            X = [X, ones(size(X,1),1)]; %#ok<AGROW> It's not actually growing, see line 86.
         end
-        [~,d] = size(V);
+        [~,d] = size(X);
 
         switch upper(regularization)
             case 'L1L2'
                 lamseq = lam;
-            case {'GROWL','GROWL2'} % There is no real distinction between GROWL and GROWL2 anymore, but for continuity I'll make GROWL2 map to this anyway.
+            case {'GROWL','GROWL2'}
+                % There is no real distinction between GROWL and GROWL2 anymore, but for continuity I'll make GROWL2 map to this anyway.
                 switch lower(LambdaSeq)
                     case 'linear'
                         lamseq = lam1*(d:-1:1)/d + lam;
@@ -124,27 +125,31 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, C, V, regula
         %   By not trying to train these models any more (which is fine,
         %   because they have converged on a solution already, anyway),
         %   this error should be avoided.
-        if isempty(ModelInstances(i).Adlas)
+        if isempty(ModelInstances(i).Model)
             % LambdaSeq must be a column vector
-            ModelInstances(i).Adlas = Adlas(V, C, lamseq(:), train_set, options);
-            ModelInstances(i).Adlas = ModelInstances(i).Adlas.train(options);
-        elseif ModelInstances(i).Adlas.status == 2
-            ModelInstances(i).Adlas = ModelInstances(i).Adlas.train(options);
+            switch upper(regularization)
+                case {'LASSO','SOSLASSO'}
+                case {'L1L2','GROWL','GROWL2'}
+            end
+            ModelInstances(i).Model = Adlas(X, Y, lamseq(:), train_set, options);
+            ModelInstances(i).Model = ModelInstances(i).Model.train(options);
+        elseif ModelInstances(i).Model.status == 2
+            ModelInstances(i).Model = ModelInstances(i).Model.train(options);
         else
         % Do nothing
         end
-        ModelInstances(i).Adlas = ModelInstances(i).Adlas.test();
-        err1 = ModelInstances(i).Adlas.testError;
-        err2 = ModelInstances(i).Adlas.trainingError;
-        Unz = nnz(any(ModelInstances(i).Adlas.X, 2));
-        nv = size(ModelInstances(i).Adlas.X, 1);
+        ModelInstances(i).Model = ModelInstances(i).Model.test();
+        err1 = ModelInstances(i).Model.testError;
+        err2 = ModelInstances(i).Model.trainingError;
+        Unz = nnz(any(ModelInstances(i).Model.X, 2));
+        nv = size(ModelInstances(i).Model.X, 1);
         if isempty(lam1)
             lam1 = nan;
         end
 
         if VERBOSE
             fprintf('%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
-                cvix,lam,lam1,err1,err2,Unz,nv,ModelInstances(i).Adlas.iter,ModelInstances(i).Adlas.message);
+                cvix,lam,lam1,err1,err2,Unz,nv,ModelInstances(i).Model.iter,ModelInstances(i).Model.message);
         end
     end
 end

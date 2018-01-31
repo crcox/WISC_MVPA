@@ -1,26 +1,25 @@
 classdef Adlas
-    %UNTITLED Summary of this class goes here
-    %   Detailed explanation goes here
-
     properties
-        LambdaSequence
         A % Data
         B % Targets
-        X % Weights
+        W % Weights
+
+        LambdaSequence
+
+
         trainingFilter
         max_iter = 100000
-        fid = 1
-        optimIter = 1
-        gradIter = 20
         tolInfeas = 1e-6
         tolRelGap = 1e-8
+        iter = 0;
+        optimIter = 1
+        gradIter = 20
         n % size(A,2)
         r % size(B,2)
         s % RandStream('mt19937ar','Seed',0)
         L % Lipschitz constant
         t = 1
         eta = 2
-        iter = 0;
         status
         message
         verbosity = 0
@@ -33,8 +32,8 @@ classdef Adlas
     end
     properties ( Access = private, Hidden = true )
         EMPTY = 0;
-        tPrev
-        AxPrev
+        t_old
+        Ax_old
     end
 
     methods
@@ -73,7 +72,7 @@ classdef Adlas
             end
 
             if ~isfield(opts, 'xInit') || (isempty(opts.xInit))
-                obj.X = zeros(obj.n,obj.r);
+                obj.W = zeros(obj.n,obj.r);
             end
             obj.EMPTY = 0;
         end
@@ -85,7 +84,7 @@ classdef Adlas
             obj = Adlas1(obj);
         end
         function obj = test(obj)
-            x = obj.X;                        % Weights
+            x = obj.W;                        % Weights
             a = obj.A(~obj.trainingFilter,:); % Data
             b = obj.B(~obj.trainingFilter,:); % Targets
             obj.testError = nrsa_loss(b,a*x);
@@ -111,11 +110,12 @@ function obj = Adlas1(obj, verbosity)
         verbosity = 0;
     end
     % Initialize parameters
-    X       = obj.X; % Weights
-    A       = obj.A(obj.trainingFilter,:); % Data
-    B       = obj.B(obj.trainingFilter,:); % Targets
-    Ax      = A * X;
-    Y       = X;
+    W       = obj.W; % Weights
+    X       = obj.X(obj.trainingFilter,:); % Data
+    Y       = obj.Y(obj.trainingFilter,:); % Targets
+    Xw      = X * W;
+    Ws      = W;
+
     status  = STATUS_RUNNING;
 
     tolInfeas = obj.tolInfeas;
@@ -130,7 +130,7 @@ function obj = Adlas1(obj, verbosity)
     end
 
     if (verbosity > 0)
-        fprintf(fid,'%5s  %9s %9s  %9s  %9s\n','Iter','||r||_F','Gap','Infeas.','Rel. gap');
+        fprintf('%5s  %9s %9s  %9s  %9s\n','Iter','||r||_F','Gap','Infeas.','Rel. gap');
     end
 
     % -------------------------------------------------------------
@@ -140,12 +140,12 @@ function obj = Adlas1(obj, verbosity)
 
         % Compute the gradient at f(y)
         if (mod(obj.iter,obj.gradIter) == 0) % Includes first iterations
-            r = A*Y - B;
-            g = A'*(A*Y-B);
+            r = X*Ws - Y;
+            g = X'*(X*Ws-Y);
             f = trace(r'*r) / 2;
         else
-            r = (Ax + ((obj.tPrev - 1) / obj.t) * (Ax - obj.AxPrev)) - B;
-            g = A'*(A*Y-B);
+            r = (Xw + ((obj.t_old - 1) / obj.t) * (Xw - obj.Ax_old)) - Y;
+            g = X'*(X*Ws-Y);
             f = trace(r'*r) / 2;
         end
 
@@ -157,20 +157,19 @@ function obj = Adlas1(obj, verbosity)
             % Compute 'dual', check infeasibility and gap
             if (modeLasso)
                 gs = sqrt(sum(g.^2,2));
-                ys = sqrt(sum(Y.^2,2));
-
+                ws = sqrt(sum(Ws.^2,2));
                 infeas = max(norm(gs,inf)-obj.LambdaSequence,0);
 
-                objPrimal = f + obj.LambdaSequence*norm(ys,1);
-                objDual   = -f - trace(r'*B);
+                objPrimal = f + obj.LambdaSequence*norm(ws,1);
+                objDual   = -f - trace(r'*Y);
             else
                 gs     = sort(sqrt(sum(g.^2,2)),'descend');
-                ys     = sort(sqrt(sum(Y.^2,2)),'descend');
+                ws     = sort(sqrt(sum(Ws.^2,2)),'descend');
                 infeas = max(max(cumsum(gs-obj.LambdaSequence)),0);
 
                 % Compute primal and dual objective
-                objPrimal =  f + obj.LambdaSequence'*ys;
-                objDual  = -f - trace(r'*B);
+                objPrimal =  f + obj.LambdaSequence'*ws;
+                objDual  = -f - trace(r'*Y);
             end
 
             % Format string
@@ -191,7 +190,7 @@ function obj = Adlas1(obj, verbosity)
         if (verbosity > 0)
             if ((verbosity == 2) || ...
                     ((verbosity == 1) && (mod(obj.iter,obj.optimIter) == 0)))
-                fprintf(fid,'%5d  %9.2e%s\n', obj.iter,f,str);
+                fprintf('%5d  %9.2e%s\n', obj.iter,f,str);
             end
         end
 
@@ -204,27 +203,27 @@ function obj = Adlas1(obj, verbosity)
 
         if (status ~= 0)
             if verbosity > 0
-                fprintf(fid,'Exiting with status %d -- %s\n', status, STATUS_MSG{status});
+                fprintf('Exiting with status %d -- %s\n', status, STATUS_MSG{status});
             end
             break;
         end
 
         % Keep copies of previous values
-        obj.AxPrev = Ax;
-        xPrev  = X;
-        fPrev  = f;
-        obj.tPrev  = obj.t;
+        obj.Xw_old = Xw;
+        w_old  = W;
+        f_old  = f;
+        obj.t_old  = obj.t;
 
         % Lipschitz search
         while (obj.L < inf)
             % Compute prox mapping
-            X = proxFunction(Y - (1/obj.L)*g, obj.LambdaSequence/obj.L);
-            d = X - Y;
+            W = proxFunction(Ws - (1/obj.L)*g, obj.LambdaSequence/obj.L);
+            d = W - Ws;
 
-            Ax = A*X;%A1*vec(X);
-            r = Ax-B;
+            Xw = X*W;%A1*vec(W);
+            r = Xw-Y;
             f = trace(r'*r)/2;
-            q = fPrev + trace(d'*g) + (obj.L/2)*trace(d'*d);
+            q = f_old + trace(d'*g) + (obj.L/2)*trace(d'*d);
 
             obj.Aprods = obj.Aprods + 1;
 
@@ -237,7 +236,7 @@ function obj = Adlas1(obj, verbosity)
 
         % Update
         obj.t = (1 + sqrt(1 + 4*obj.t^2)) / 2;
-        Y = X + ((obj.tPrev - 1) / obj.t) * (X - xPrev);
+        Ws = W + ((obj.t_old - 1) / obj.t) * (W - w_old);
 
         % Check if all weights are set to zero
         if all(Y(:)==0) && obj.iter > 100
@@ -247,11 +246,11 @@ function obj = Adlas1(obj, verbosity)
     end
 
     % Set solution
-    obj.X = Y;
+    obj.W = Ws;
     obj.objPrimal = objPrimal;
     obj.objDual   = objDual;
     obj.infeas    = infeas;
-    if all(Y(:)==0)
+    if all(Ws(:)==0)
         obj.status = STATUS_ALLZERO;
     else
         obj.status = status;
@@ -260,9 +259,9 @@ function obj = Adlas1(obj, verbosity)
     obj.Aprods  = obj.Aprods + ceil(obj.iter / obj.gradIter);
 end
 
-function x = proxL1L2(Y,lambda)
-    tmp = Y;
-    r = size(Y,2);
+function x = proxL1L2(Ws,lambda)
+    tmp = Ws;
+    r = size(Ws,2);
     xtmp = tmp./(repmat(sqrt(sum(tmp.^2,2))+realmin,1,r));
     x = xtmp.*repmat(max(sqrt(sum(tmp.^2,2))-lambda,0),1,r);
 end

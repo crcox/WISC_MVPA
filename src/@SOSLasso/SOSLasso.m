@@ -1,49 +1,44 @@
 classdef SOSLasso
-    %UNTITLED Summary of this class goes here
-    %   Detailed explanation goes here
-
     properties
-        X
-        Y
-        alpha
-        lambda
+        X % Data
+        Y % Targets
+        W % Weights
+        G % Groups
         lamSOS
         lamL1
-        l2 = 0
-        bias = 0
-        Wz % model weights
+        lamL2 = 0
+        trainingFilter
         maxiter = 100000
         tol = 1e-8
-        G
-        group_arr
-        groups
         num_tasks
         dimension
-        t = 1
         iter = 0
-        gamma = 1
-        gamma_inc = 2
         objective_loss = zeros(100000,1);
     end
 
     properties ( Access = private, Hidden = true )
         EMPTY = 0;
         Wz_old % model weights
+        t = 1
         t_old = 0
         s % random seed
+        group_arr
+        groups
+        gamma = 1
+        gamma_inc = 2
     end
 
     methods
-        function obj = SOSLasso(X,Y,alpha,lambda,G,W0,opts)
+        function obj = SOSLasso(X,Y,lamSOS,lamL1,G,trainingFilter,opts)
             if (nargin == 0)
                 obj.EMPTY = 1;
                 return
             end
-            if (nargin <  4), opts = struct(); end
+            if (nargin < 4), opts = struct(); end
             obj.X = X;
             obj.Y = Y;
-            obj.alpha = alpha;
-            obj.lambda = lambda;
+            obj.lamSOS = lamSOS;
+            obj.lamL1 =lamL1;
             obj.G = G;
 
             % Setup group indexes
@@ -53,18 +48,25 @@ classdef SOSLasso
             obj.num_tasks = numel(obj.X);
             obj.dimension = length(obj.groups);
 
-            % initialize (can provide your own initialization)
-            if isempty(W0)
-                W0 = zeros(obj.dimension, obj.num_tasks);
+            if isempty(trainingFilter)
+                obj.trainingFilter = true(size(X,1), 1);
+            elseif numel(trainingFilter) ~= size(X,1);
+                error('The trainingFilter must have as many elements as there are targets (i.e., examples in the dataset).');
             else
-                for j = 1:length(X);
-                    W0{j} = [W0{j}(:); 0];
-                    W0{j} = W0{j}(ix(:,j));
-                end
-                W0 = cell2mat(W0);
+                obj.trainingFilter = trainingFilter;
             end
-            obj.Wz = W0;
-            obj.Wz_old = W0;
+            % initialize (can provide your own initialization)
+            % if isempty(W0)
+            W0 = zeros(obj.dimension, obj.num_tasks);
+            % else
+            %     for j = 1:length(X);
+            %         W0{j} = [W0{j}(:); 0];
+            %         W0{j} = W0{j}(ix(:,j));
+            %     end
+            %     W0 = cell2mat(W0);
+            % end
+            obj.W = W0;
+            obj.W_old = W0;
 
             % Add dummy unit
             for j = 1:length(X);
@@ -72,12 +74,6 @@ classdef SOSLasso
                 obj.X{j} = obj.X{j}(:,ix(:,j));
                 obj.X{j} = obj.X{j}';
             end
-
-            % Set lamL1 and lamSOS
-            [obj.lamSOS, obj.lamL1] = ratio2independent(alpha, lambda);
-            % Equivalent to:
-            %   lamSOS = lambda * alpha;
-            %   lamL1  = lambda * (1 - alpha);
 
             fn = fieldnames(opts);
             for i = 1:numel(fn)
@@ -101,20 +97,33 @@ classdef SOSLasso
         end
 
         function W = getW(obj, verbose)
-            W = combineOverlappingWeights(obj.Wz,obj.G,'verbose',verbose);
+            W = combineOverlappingWeights(obj.W,obj.G,'verbose',verbose);
+        end
+
+        function group_arr = getGroupArray(obj)
+            group_arr = obj.group_arr;
+        end
+
+        function group_vec = getGroupVector(obj)
+            group_vec = obj.groups;
+        end
+
+        function [alpha,lambda] = getAlphaLambda(obj)
+            [alpha,lambda] = independent2ratio(obj.lamSOS, obj.lamL1);
         end
     end
 end
 
-function obj = SOSLasso_logistic(obj, ~)
+function obj = SOSLasso_logistic(obj)
     grad_flag = 0;
     dimension = length(obj.groups);
     num_tasks = numel(obj.X);
-    obj.iter = 1;
 
     while obj.iter < obj.maxiter
         zeta = (obj.t_old - 1) /obj.t;
-        Ws = (1 + zeta) * obj.Wz - zeta * obj.Wz_old;
+        Ws = (1 + zeta) * obj.W - zeta * obj.W_old;
+
+        obj.iter = obj.iter + 1;
 
         % compute function value and gradients of the search point
         [grad, Fs ]  = gradVal_eval(Ws);
@@ -147,17 +156,17 @@ function obj = SOSLasso_logistic(obj, ~)
             end
         end
 
-        obj.Wz_old = obj.Wz;
-        obj.Wz = Wzp;
+        obj.W_old = obj.W;
+        obj.W = Wzp;
 
         if (grad_flag)
             break;
         end
 
         if lamSOS>0
-            obj.objective_loss(obj.iter) = Fzp + sos_eval(obj.Wz,obj.group_arr,obj.lamSOS,obj.lamL1);
+            obj.objective_loss(obj.iter) = Fzp + sos_eval(obj.W,obj.group_arr,obj.lamSOS,obj.lamL1);
         else
-%             obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.Wz,obj.lamL1);
+%             obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL1);
             obj(iter) = Fzp;
         end
 
@@ -168,7 +177,6 @@ function obj = SOSLasso_logistic(obj, ~)
             end
         end
 
-        obj.iter = obj.iter + 1;
         obj.t_old = obj.t;
         obj.t = 0.5 * (1 + (1+ 4 * obj.t^2)^0.5);
     end
@@ -203,9 +211,9 @@ function obj = SOSLasso_logistic(obj, ~)
             [ grad_W(:, ii), lossValVect(:, ii)] = unit_grad_eval( W(:, ii), obj.X{ii}, obj.Y{ii});
         end
 
-        grad_W = grad_W + obj.l2 * 2 * W;
-
-        funcVal = sum(lossValVect) + obj.l2*norm(W,'fro')^2;
+        % If the lamL2 parameter is > 0, then the gradient and funcVal are scaled.
+        grad_W = grad_W + (obj.lamL2 * 2 * W);
+        funcVal = sum(lossValVect) + obj.lamL2*norm(W,'fro')^2;
     end
 
     function [funcVal] = funVal_eval (W)
@@ -215,7 +223,7 @@ function obj = SOSLasso_logistic(obj, ~)
             funcVal = funcVal + unit_funcVal_eval( W(:, ii), obj.X{ii}, obj.Y{ii});
         end
 
-        funcVal = funcVal + obj.l2 * norm(W,'fro')^2;
+        funcVal = funcVal + obj.lamL2 * norm(W,'fro')^2;
     end
 
 

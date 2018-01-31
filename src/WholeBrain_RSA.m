@@ -81,7 +81,17 @@ function WholeBrain_RSA(varargin)
         jcell = [fields'; struct2cell(jdat)'];
         parse(p, jcell{:});
     end
-    assertRequiredParameters(p.Results);
+
+    % Check that the correct parameters are passed, given the desired regularization
+    regularization = p.Results.regularization;
+    switch upper(regularization)
+        case {'L1L2','GROWL','GROWL2'};
+            assert_required_parameters_RSA(p.Results);
+            hyperparameters = verify_setup_RSA(regularization, p.Results);
+        case {'LASSO','SOSLASSO'};
+            assert_required_parameters_MVPA(p.Results);
+            hyperparameters = verify_setup_MVPA(regularization, p.Results);
+    end
 
 %     DEBUG                   = p.Results.debug;
     PermutationTest         = p.Results.PermutationTest;
@@ -139,10 +149,6 @@ function WholeBrain_RSA(varargin)
         rng(RandomSeed);
     end
 
-    % Check that the correct parameters are passed, given the desired regularization
-    if ~isempty(regularization)
-        [lambda, lambda1, LambdaSeq] = verifyLambdaSetup(regularization, lambda, lambda1, LambdaSeq);
-    end
     if SEARCHLIGHT && ~strcmpi(slSim_Measure,'nrsa')
         assert(~isempty(slPermutationType));
         assert(~isempty(slPermutationCount));
@@ -334,14 +340,14 @@ function WholeBrain_RSA(varargin)
     end
 
     %% --- Setting regularization parameters and running models ---
-    switch lower(regularization)
-        case {'nrsa','l1l2'}
+    switch upper(regularization)
+        case {'NRSA','L1L2'}
             HYPERPARAMETERS = struct('hyperband',SearchWithHyperband,'LambdaSeq',LambdaSeq,'lambda',lambda,'lambda1',lambda1);
             SubjectsParameter = subjix;
-        case 'lasso'
+        case 'LASSO'
             HYPERPARAMETERS = struct('hyperband',SearchWithHyperband,'alpha',1,'lambda',lambda);
             SubjectsParameter = subjix;
-        case 'soslasso'
+        case 'SOSLASSO'
             HYPERPARAMETERS = struct('hyperband',SearchWithHyperband,'alpha',alpha,'lambda',lambda,'diameter',diameter,'overlap',overlap,'shape',shape);
             SubjectsParameter = {subjix};
     end
@@ -556,7 +562,73 @@ function WholeBrain_RSA(varargin)
 %     end
 end
 
-function [lam, lam1, lamSeq] = verifyLambdaSetup(regularization, lambda, lambda1, LambdaSeq)
+function [lamSOS, lamL1] = verify_setup_MVPA(regularization, p)
+    % Each regularization requires different lambda configurations. This private
+    % function ensures that everything has been properly specified.
+    switch upper(regularization)
+        case 'LASSO_GLMNET'
+            if isfield(p,'lambda') && isempty(p.lambda)
+                warning('Lamba was not specified. GLMnet will attempt to determine lambda1 through cross validation.');
+                lambda = nan(1);
+            else
+                lambda = p.lambda;
+            end
+            if ~isempty(alpha) && (alpha ~= 1)
+                warning('GLMnet performs lasso when alpha=1. Forcing alpha=1.');
+                alpha = 1;
+            else
+                alpha = p.alpha;
+            end
+            hyperparameters = struct('alpha',alpha,'lambda',lambda);
+
+        case 'LASSO'
+            assert(any(isfield(p,{'lambda','lamL1'})), 'Either lambda or lamL1 (synonymns for LASSO regularization) must be defined.');
+            if isfield(p,'alpha') && ~isempty(p.alpha)
+                warning('Alpha is not relevant for performing Lasso with SOSLasso_logistic. Forcing lamSOS=1, which means that lamL1 will not be scaled up or down. The critical thing for lasso is that all voxels get their own group. This is enforced elsewhere...');
+                lamSOS = 0;
+                lamL1 = p.lambda;
+            end
+            if isfield(p,'lamL1') && ~isempty(p.lamL1)
+                if isfield(p,'lambda') && ~isempty(p.lambda)
+                    warning('lamL1 takes precedence over lambda when both are defined. Lambda is being ignored.');
+                end
+                lamL1 = p.lamL1;
+            elseif isfield(p,'lambda') && ~isempty(p.lambda)
+                lamL1 = p.lambda;
+            end
+            if isfield(p,'lamSOS') && ~isempty(p.lamSOS)
+                if p.lamSOS ~= 1
+                    warning('lamSOS is not, strictly speaking, relevant for performing Lasso with SOSLasso_logistic. It will act as a scalar modifier on lamL1, which because lamL1 is just a constant anyway, is pointless. Forcing lamSOS=1 to prevent scaling lamL1.');
+                    lamSOS = 1;
+                else
+                    lamSOS = p.lamSOS;
+                end
+            end
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1)
+
+        case 'SOSLASSO'
+            assert(all(isfield(p,{'diameter','shape','overlap'})) && ~isempty(p.diameter) && ~isempty(p.shape) && ~isempty(p.overlap), 'diameter, shape, and overlap must all be defined for SOSLASSO regularization.');
+            assert( ...
+                all([isfield(p,{'alpha','lambda'}),~isempty(p.alpha),~isempty(p.lambda)]) || ...
+                all([isfield(p,{'lamSOS','lamL1'}),~isempty(p.lamSOS),~isempty(p.lamL1)]), ...
+                'Either (alpha and lambda) or (lamSOS and lamL1) must be defined for SOSLASSO regularization.');
+            if any(isfield(p,{'alpha','lambda'})) && ~all(isfield(p,{'lamSOS','lamL1'}))
+                assert(all(isfield(p,{'alpha','lambda'})), 'Alpha and lambda must both be specified to generate lamSOS and lamL1 for SOSLASSO regularization.')
+            end
+            if all(isfield(p,{'alpha','lambda'}) && all(~isempty(p.alpha),~isempty(p.lambda))
+                warning('Alpha will be translated to lamSOS with respect to lambda.');
+                warning('Lambda will be translated to lamL1 with respect to alpha.');
+                [lamSOS,lamL1] = ratio2independent(p.alpha,p.lambda);
+            elseif all(isfield(p,{'lamSOS','lamL1'}) && all(~isempty(p.lamSOS),~isempty(p.lamL1))
+                lamSOS = p.lamSOS;
+                lamL1 = p.lamL1;
+            end
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',p.diameter,'shape',p.shape,'overlap',p.overlap);
+
+    end
+end
+
+function [hyperparameters] = verify_setup_RSA(regularization, p)
     % Each regularization requires different lambda configurations. This private
     % function ensures that everything has been properly specified.
     switch upper(regularization)
@@ -564,28 +636,28 @@ function [lam, lam1, lamSeq] = verifyLambdaSetup(regularization, lambda, lambda1
             if ~isempty(lambda) || ~isempty(lambda1)
                 warning('Regularization was set to none, but lambda values were provided. They will be ignored.')
             end
-            lam    = [];
-            lam1   = [];
-            lamSeq = [];
-            
+            hyperparameters = struct();
+
         case 'L1L2_GLMNET'
             if isempty(lambda)
                 warning('Lamba was not specified. GLMnet will attempt to determine lambda1 through cross validation.');
                 lam = nan(1);
             else
-                lam    = lambda;
+                lam = lambda;
             end
-            lam1   = [];
-            lamSeq = [];
+            hyperparameters = struct('alpha',1,'lambda',p.lambda);
 
         case 'L1L2'
-            if ~isempty(lambda1)
+            if isfield(p,'lambda1') && ~isempty(lambda1)
                 warning('Group Lasso does not use the lambda1 parameter. It is being ignored.');
             end
-            assert(~isempty(lambda)   , 'Group Lasso requires lambda.');
+            if ~isempty(LambdaSeq) && all(~stcmp(LambdaSeq,'none'))
+                warning('Group Lasso does not use a lambda sequence. Setting to ''none''.');
+            end
+            assert(~isempty(lambda), 'Group Lasso requires lambda.');
             lam    = lambda;
             lam1   = [];
-            lamSeq = [];
+            lamSeq = 'none';
 
         case 'GROWL'
             assert(~isempty(lambda) && ~isnan(lambda), 'grOWL requires lambda.');
@@ -605,7 +677,7 @@ function [lam, lam1, lamSeq] = verifyLambdaSetup(regularization, lambda, lambda1
     end
 end
 
-function assertRequiredParameters(params)
+function assertRequiredParameters_RSA(params)
     required = {'target_label','sim_metric','sim_source','data', ...
         'metadata','cvscheme','cvholdout','finalholdout','orientation'};
     N = length(required);
