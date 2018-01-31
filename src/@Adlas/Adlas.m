@@ -1,7 +1,7 @@
 classdef Adlas
     properties
-        A % Data
-        B % Targets
+        X % Data
+        Y % Targets
         W % Weights
 
         LambdaSequence
@@ -14,41 +14,41 @@ classdef Adlas
         iter = 0;
         optimIter = 1
         gradIter = 20
-        n % size(A,2)
-        r % size(B,2)
-        s % RandStream('mt19937ar','Seed',0)
-        L % Lipschitz constant
-        t = 1
-        eta = 2
         status
         message
-        verbosity = 0
         objPrimal
         objDual
         infeas
-        Aprods
         trainingError
         testError
     end
     properties ( Access = private, Hidden = true )
         EMPTY = 0;
         t_old
-        Ax_old
+        Xw_old
+        Aprods
+        s % RandStream('mt19937ar','Seed',0)
+        n % size(X,2)
+        r % size(Y,2)
+        L % Lipschitz constant
+        t = 1
+        eta = 2
+        verbosity = 0
     end
 
     methods
-        function obj = Adlas(A,B,LambdaSequence,trainingFilter,opts)
+        function obj = Adlas(X,Y,LambdaSequence,trainingFilter,opts)
             if (nargin == 0)
                 obj.EMPTY = 1;
                 return
             end
             if (nargin <  4), opts = struct(); end
-            obj.n = size(A,2);
-            obj.r = size(B,2);
+            obj.n = size(X,2);
+            obj.r = size(Y,2);
             obj.s = RandStream('mt19937ar','Seed',0);
             obj.L = 1;
-            obj.A = A;
-            obj.B = B;
+            obj.X = X;
+            obj.Y = Y;
             % Ensure that lambda is non-increasing
             if ((length(LambdaSequence) > 1) && any(LambdaSequence(2:end) > LambdaSequence(1:end-1)))
                 error('Lambda must be non-increasing.');
@@ -60,8 +60,8 @@ classdef Adlas
             end
             obj.LambdaSequence = LambdaSequence;
             if isempty(trainingFilter)
-                obj.trainingFilter = true(obj.n, 1);
-            elseif numel(trainingFilter) ~= size(A,1);
+                obj.trainingFilter = true(size(X,1), 1);
+            elseif numel(trainingFilter) ~= size(X,1);
                 error('The trainingFilter must have as many elements as there are targets (i.e., examples in the dataset).');
             else
                 obj.trainingFilter = trainingFilter;
@@ -84,13 +84,13 @@ classdef Adlas
             obj = Adlas1(obj);
         end
         function obj = test(obj)
-            x = obj.W;                        % Weights
-            a = obj.A(~obj.trainingFilter,:); % Data
-            b = obj.B(~obj.trainingFilter,:); % Targets
-            obj.testError = nrsa_loss(b,a*x);
-            a = obj.A(obj.trainingFilter,:);  % Data
-            b = obj.B(obj.trainingFilter,:);  % Targets
-            obj.trainingError = nrsa_loss(b,a*x);
+            w = obj.W;                        % Weights
+            x = obj.X(~obj.trainingFilter,:); % Data
+            y = obj.Y(~obj.trainingFilter,:); % Targets
+            obj.testError = nrsa_loss(y,x*w);
+            x = obj.X(obj.trainingFilter,:);  % Data
+            w = obj.Y(obj.trainingFilter,:);  % Targets
+            obj.trainingError = nrsa_loss(y,x*w);
         end
         function x = isempty(obj)
             x = all([obj.EMPTY] == 1);
@@ -144,7 +144,7 @@ function obj = Adlas1(obj, verbosity)
             g = X'*(X*Ws-Y);
             f = trace(r'*r) / 2;
         else
-            r = (Xw + ((obj.t_old - 1) / obj.t) * (Xw - obj.Ax_old)) - Y;
+            r = (Xw + ((obj.t_old - 1) / obj.t) * (Xw - obj.Xw_old)) - Y;
             g = X'*(X*Ws-Y);
             f = trace(r'*r) / 2;
         end

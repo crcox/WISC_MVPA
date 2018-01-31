@@ -42,9 +42,6 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
         normalizewrt = ModelInstances(i).normalizewrt;
         BIAS = ModelInstances(i).bias;
         P = selectbyfield(permutations,'subject', subix, 'RandomSeed', ModelInstances(i).RandomSeed);
-        lam = ModelInstances(i).lambda;
-        lam1 = ModelInstances(i).lambda1;
-        LambdaSeq = ModelInstances(i).LambdaSeq;
 
         train_set  = cvind{subix} ~= cvix; % CHECK THIS
 
@@ -67,6 +64,9 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
 
         switch upper(regularization)
             case 'L1L2'
+                lam = ModelInstances(i).lambda;
+                lam1 = ModelInstances(i).lambda1;
+                LambdaSeq = ModelInstances(i).LambdaSeq;
                 lamseq = lam;
             case {'GROWL','GROWL2'}
                 % There is no real distinction between GROWL and GROWL2 anymore, but for continuity I'll make GROWL2 map to this anyway.
@@ -80,7 +80,7 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
                 end
             case 'SOSLASSO'
                 % Should alpha and lambda be changed to lamSOS and lamL1 here?
-                % [lamSOS, lamL1] = ratio2independent(alpha, lambda);
+                [lamSOS, lamL1] = ratio2independent(alpha, lambda);
                 for ii = 1:numel(xyz)
                     z = strcmp({metadata(ii).coords.orientation}, orientation);
                     xyz{ii} = metadata(ii).coords(z).xyz(colfilter{ii},:);
@@ -126,12 +126,13 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
         %   because they have converged on a solution already, anyway),
         %   this error should be avoided.
         if isempty(ModelInstances(i).Model)
-            % LambdaSeq must be a column vector
             switch upper(regularization)
                 case {'LASSO','SOSLASSO'}
+                    ModelInstances(i).Model = SOSLasso(X,Y,lamSOS,lamL1,G,W0,opts);
                 case {'L1L2','GROWL','GROWL2'}
+                    % LambdaSeq must be a column vector
+                    ModelInstances(i).Model = Adlas(X, Y, lamseq(:), train_set, options);
             end
-            ModelInstances(i).Model = Adlas(X, Y, lamseq(:), train_set, options);
             ModelInstances(i).Model = ModelInstances(i).Model.train(options);
         elseif ModelInstances(i).Model.status == 2
             ModelInstances(i).Model = ModelInstances(i).Model.train(options);
