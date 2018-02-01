@@ -5,11 +5,14 @@ function WholeBrain_RSA(varargin)
     % Model definition
 	addParameter(p , 'regularization' , []        , @ischar        );
     addParameter(p , 'bias'             , false   , @islogicallike );
-    addParameter(p , 'hyperparameters'  , struct(), @isstruct      );
+    addParameter(p , 'alpha'            , []      , @isnumeric     );
     addParameter(p , 'lambda'           , []      , @isnumeric     );
     addParameter(p , 'lambda1'          , []      , @isnumeric     );
     addParameter(p , 'LambdaSeq'        , []      , @ischar        );
     addParameter(p , 'AdlasOpts'        , struct(), @isstruct      );
+    addParameter(p , 'diameter'         , []      , @ischar        );
+    addParameter(p , 'shape'            , []      , @ischar        );
+    addParameter(p , 'overlap'          , []      , @ischar        );
     % Target definition
     addParameter(p , 'target_label'     , [], @ischar );
     addParameter(p , 'target_type'      , [], @ischar );
