@@ -4,6 +4,9 @@
 % described as a 100 x 1000 matrix, where each row is an example, and each
 % column is a voxel.
 
+X = randn(100, 1000);
+save('demo_data_1000.mat', 'X');
+
 load('demo_data_1000.mat', 'X');
 [nitems, nvoxels] = size(X);
 

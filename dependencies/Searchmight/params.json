@@ -3,20 +3,14 @@
 	"bias": 0,
 	"searchlight": 0,
 	"slclassifier": "gnb_searchmight",
-	"slradius": {
-		"_ArrayType_": "double",
-		"_ArraySize_": [0,0],
-		"_ArrayData_": null
-	},
-	"slTestToUse": "accuracyOneSided_analytical",
+	"slradius": 5,
+	"slTestToUse": "accuracyOneSided_permutation",
+	"slpermutations": 1000,
 	"cvscheme": 1,
 	"cvholdout": [1,2,3,4,5,6,7,8,9,10],
 	"finalholdout": 0,
 	"target": "faces",
-	"data": [
-		"./shared/s100.mat",
-		"./shared/s101.mat"
-	],
+	"data": "./shared/s100.mat",
 	"data_var": "X",
 	"normalize": "zscore",
 	"metadata": "./shared/metadata.mat",
