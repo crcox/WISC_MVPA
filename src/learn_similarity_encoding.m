@@ -120,10 +120,10 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
         if isempty(ModelInstances(i).Model)
             switch upper(regularization)
                 case {'LASSO','SOSLASSO'}
-                    ModelInstances(i).Model = SOSLasso(X,Y,lamSOS,lamL1,G,train_set,options);
+                    ModelInstances(i).Model = SOSLasso(X,Y,lamSOS,lamL1,G,train_set,BIAS,options);
                 case {'L1L2','GROWL','GROWL2'}
                     % LambdaSeq must be a column vector
-                    ModelInstances(i).Model = Adlas(X{subix}, Y{subix}, lamseq(:), train_set{subix}, options);
+                    ModelInstances(i).Model = Adlas(X{subix}, Y{subix}, lamseq(:), train_set{subix}, BIAS, options);
             end
             ModelInstances(i).Model = ModelInstances(i).Model.train(options);
         elseif ModelInstances(i).Model.status == 2
@@ -134,15 +134,16 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
         ModelInstances(i).Model = ModelInstances(i).Model.test();
         err1 = ModelInstances(i).Model.testError;
         err2 = ModelInstances(i).Model.trainingError;
-        Unz = nnz(any(ModelInstances(i).Model.X, 2));
+        Unz = cellfun(@(x) nnz(any(x,2)), ModelInstances(i).Model.getWeights());
+        
         nv = size(ModelInstances(i).Model.X, 1);
-        if isempty(lam1)
-            lam1 = nan;
+        if isempty(lamL1)
+            lamL1 = nan;
         end
 
         if VERBOSE
             fprintf('%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
-                cvix,lam,lam1,err1,err2,Unz,nv,ModelInstances(i).Model.iter,ModelInstances(i).Model.message);
+                cvix,lamSOS,lamL1,mean(err1),mean(err2),mean(Unz),mean(nv),ModelInstances(i).Model.iter,'soslasso');
         end
     end
 end

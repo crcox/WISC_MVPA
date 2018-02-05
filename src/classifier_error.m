@@ -13,7 +13,7 @@ function y = classifier_error(x,p)
 % misclassification error, adjusted for unequal sample sizes.
     pp = p > 0;
     pn = p <= 0;
-    xp = x > 0
+    xp = x > 0;
     xn = x <= 0;
 
     poscount = nnz(xp);
@@ -27,7 +27,7 @@ function y = classifier_error(x,p)
     hitrate = nnz(truepos) / poscount;
     rejectrate = nnz(trueneg) / negcount;
 
-    accuracy = (hitrate + rejectrate) / 2
+    accuracy = (hitrate + rejectrate) / 2;
 
-    y = 1 - accuracy
+    y = 1 - accuracy;
 end

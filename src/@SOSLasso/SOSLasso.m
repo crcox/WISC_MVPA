@@ -19,6 +19,7 @@ classdef SOSLasso
     end
 
     properties ( Access = public, Hidden = true )
+        ModelHasBiasUnit
         EMPTY = 0;
         W_old % model weights
         t = 1
@@ -31,17 +32,18 @@ classdef SOSLasso
     end
 
     methods
-        function obj = SOSLasso(X,Y,lamSOS,lamL1,G,trainingFilter,opts)
+        function obj = SOSLasso(X,Y,lamSOS,lamL1,G,trainingFilter,ModelHasBiasUnit,opts)
             if (nargin == 0)
                 obj.EMPTY = 1;
                 return
             end
             if (nargin < 4), opts = struct(); end
-            obj.X = X;
-            obj.Y = Y;
+            if iscell(X), obj.X = X; else obj.X = {X}; end
+            if iscell(Y), obj.Y = Y; else obj.Y = {Y}; end
             obj.lamSOS = lamSOS;
             obj.lamL1 =lamL1;
             obj.G = G;
+            obj.ModelHasBiasUnit = ModelHasBiasUnit;
 
             % Setup group indexes
             [Gc, ix]  = commonGrouping(G);
@@ -74,7 +76,6 @@ classdef SOSLasso
             for j = 1:length(X);
                 obj.X{j} = [X{j},zeros(size(X{j},1),1)];
                 obj.X{j} = obj.X{j}(:,ix(:,j));
-                obj.X{j} = obj.X{j}';
             end
 
             fn = fieldnames(opts);
@@ -97,28 +98,14 @@ classdef SOSLasso
         end
 
         function obj = test(obj)
-            if iscell(obj.W) || size(obj.W,2) > 1
-                obj.testError = zeros(1, numel(obj.W));
-                obj.trainingError = zeros(1, numel(obj.W));
-                for i = 1:numel(obj.W)
-                    w = obj.W{i};       % Weights
-                    z = obj.trainingFilter{i};
-                    x = obj.X{i}(~z,:); % Data
-                    y = obj.Y{i}(~z,:); % Targets
-                    obj.testError(i) = classifier_error(y,x*w);
-                    x = obj.X{i}(z,:);  % Data
-                    w = obj.Y{i}(z,:);  % Targets
-                    obj.trainingError(i) = classifier_error(y,x*w);
-                end
-            else
-                w = obj.W;       % Weights
-                z = obj.trainingFilter;
-                x = obj.X(~z,:); % Data
-                y = obj.Y(~z,:); % Targets
-                obj.testError = classifier_error(y,x*w);
-                x = obj.X(z,:);  % Data
-                w = obj.Y(z,:);  % Targets
-                obj.trainingError = classifier_error(y,x*w);
+            obj.testError = zeros(1, numel(obj.X));
+            obj.trainingError = zeros(1, numel(obj.X));
+            for i = 1:numel(obj.X)
+                w = obj.W(:,i);
+                [x,y] = obj.getTrainingData(i);
+                obj.testError(i) = classifier_error(y,x*w);
+                [x,y] = obj.getTestingData(i);
+                obj.trainingError(i) = classifier_error(y,x*w);
             end
         end
 
@@ -126,8 +113,121 @@ classdef SOSLasso
             x = all([obj.EMPTY] == 1);
         end
 
-        function W = getW(obj, verbose)
-            W = combineOverlappingWeights(obj.W,obj.G,'verbose',verbose);
+        function W = getWeights(obj, varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:numel(obj.X), @isnumeric);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'dropBias', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'verbose'  , false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            Wall = combineOverlappingWeights(obj.W,obj.G,'verbose',p.Results.verbose);
+            W = Wall(p.Results.subjects);
+            if obj.ModelHasBiasUnit && p.Results.dropBias
+                W = cellfun(@(w) w(1:end,:), W, 'UniformOutput', 0);
+            end
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                W = W{1};
+            end
+        end
+
+        function r = getResults(obj, varargin)
+            addOptional(p, 'subjects', 1:numel(obj.X), @isnumeric);
+            addOptional(p, 'metadata', struct(), @isstruct);
+            addParameter(p, 'Initialize', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'SmallFootprint', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+            r = struct( ...
+                'Wz'               , [] , ...
+                'Yz'               , [] , ...
+                'target_label'     , [] , ...
+                'target_type'      , [] , ...
+                'sim_source'       , [] , ...
+                'sim_metric'       , [] , ...
+                'data'             , [] , ...
+                'data_varname'     , [] , ...
+                'metadata'         , [] , ...
+                'metadata_varname' , [] , ...
+                'subject'          , [] , ...
+                'cvholdout'        , [] , ...
+                'finalholdout'     , [] , ...
+                'regularization'   , [] , ...
+                'lamSOS'           , [] , ...
+                'lamL1'            , [] , ...
+                'alpha'            , [] , ...
+                'lambda'           , [] , ...
+                'bias'             , [] , ...
+                'normalizewrt'     , [] , ...
+                'normalize_data'   , [] , ...
+                'normalize_target' , [] , ...
+                'nz_rows'          , [] , ...
+                'nzvox'            , [] , ...
+                'nvox'             , [] , ...
+                'coords'           , [] , ...
+                'nt1'              , [] , ...
+                'nt2'              , [] , ...
+                'nd1'              , [] , ...
+                'nd2'              , [] , ...
+                'h1'               , [] , ...
+                'h2'               , [] , ...
+                'f1'               , [] , ...
+                'f2'               , [] , ...
+                'err1'             , [] , ...
+                'err2'             , [] , ...
+                'iter'             , [] );
+
+                Wz = obj.getWeights('dropBias',true,'forceCell',true);
+                if ~isempty(p.Results.metadata)
+                    if numel(p.Results.metadata) > numel(p.Results.subjects)
+                        META = p.Results.metadata(p.Results.subjects);
+                    end
+                end
+                    COORDS = cell(size(Wz));
+                    COORDS_FIELDS = fieldnames(p.Results.coords);
+                    for i = 1:numel(Wz)
+                        ix = find(any(Wz, 2));
+                        COORDS{i} = p.Results.coords(i)
+                        for j = 1:numel(COORDS_FIELDS)
+                            cfield = COORDS_FIELDS{j};
+                            if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(p.Results.coords.(cfield))
+                                coords = p.Results.coords.(cfield)(ix,:);
+                            elseif any(strcmp(cfield, {'ind'})) && ~isempty(COORDS.(cfield))
+                                results(iResult).coords.(cfield) = COORDS.(cfield)(ix);
+                            end
+                        end
+                    results(iResult).Uz = Uz;
+                    results(iResult).Cz = A.Model.A * A.Model.X;
+                end
+                results(iResult).subject = A.subject;
+                results(iResult).bias = A.bias;
+                results(iResult).nz_rows = any(Uz,2);
+                results(iResult).nzv = nnz(results(iResult).nz_rows);
+                results(iResult).nvox = numel(results(iResult).nz_rows);
+                results(iResult).cvholdout = A.cvholdout;
+                results(iResult).finalholdout = finalholdoutInd;
+                results(iResult).lambda = A.lambda;
+                results(iResult).lambda1 = A.lambda1;
+                results(iResult).LambdaSeq = A.LambdaSeq;
+                results(iResult).regularization = A.regularization;
+                results(iResult).tau = tau;
+                results(iResult).normalize_data = A.normalize_data;
+                results(iResult).normalize_target = normalize_target;
+                results(iResult).normalizewrt = A.normalizewrt;
+                results(iResult).data = p.Results.data;
+                results(iResult).data_var = p.Results.data_varname;
+                results(iResult).metadata = p.Results.metadata;
+                results(iResult).metadata_var = p.Results.metadata_varname;
+                results(iResult).target_label = p.Results.target_label;
+                results(iResult).target_type = p.Results.target_type;
+                results(iResult).sim_source = p.Results.sim_source;
+                results(iResult).sim_metric = p.Results.sim_metric;
+                results(iResult).err1 = A.Model.testError;
+                results(iResult).err2 = A.Model.trainingError;
+                results(iResult).iter = A.Model.iter;
+                results(iResult).RandomSeed = A.RandomSeed;
+        %         results(iResult).RandomSeed = p.Results.PermutationIndex;
+            end
         end
 
         function group_arr = getGroupArray(obj)
@@ -140,6 +240,54 @@ classdef SOSLasso
 
         function [alpha,lambda] = getAlphaLambda(obj)
             [alpha,lambda] = independent2ratio(obj.lamSOS, obj.lamL1);
+        end
+        
+        function [X,Y] = getTrainingData(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:numel(obj.X), @isnumeric);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            X = cell(obj.X);
+            Y = cell(obj.Y);
+            for i = p.Results.subjects
+                if p.Results.transposeX
+                    X{i} = obj.X{i}(obj.trainingFilter{i},:)';
+                else
+                    X{i} = obj.X{i}(obj.trainingFilter{i},:);
+                end
+                Y{i} = obj.Y{i}(obj.trainingFilter{i});
+            end
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                X = X{1};
+                Y = Y{1};
+            end
+        end
+        
+        function [X,Y] = getTestingData(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:numel(obj.X), @isnumeric);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+            
+            X = cell(obj.X);
+            Y = cell(obj.Y);
+            for i = p.Results.subjects
+                if p.Results.transposeX
+                    X{i} = obj.X{i}(~obj.trainingFilter{i},:)';
+                else
+                    X{i} = obj.X{i}(~obj.trainingFilter{i},:);
+                end
+                Y{i} = obj.Y{i}(~obj.trainingFilter{i});
+            end
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                X = X{1};
+                Y = Y{1};
+            end
         end
 
         function disp(obj,varargin)
@@ -160,20 +308,16 @@ classdef SOSLasso
                             for i = 1:numel(obj.W)
                                 nzvox = nnz(obj.W{i});
                                 nvox = numel(obj.W{i});
-                                testError = obj.testError(i);
-                                trainingError = obj.trainingError(i);
                                 fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
-                                    subj,cvix,obj.lamSOS,obj.lamL1,testError,trainingError,nzvox,nvox,obj.iter,obj.message);
+                                    subj,cvix,obj.lamSOS,obj.lamL1,obj.testError(i),obj.trainingError(i),nzvox,nvox,obj.iter,obj.message);
                             end
                         end
 
                     otherwise
                         nzvox = nnz(obj.W);
                         nvox = numel(obj.W);
-                        testError = obj.testError;
-                        trainingError = obj.trainingError;
                         fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
-                            subj,cvix,obj.lamSOS,obj.lamL1,testError,trainingError,nzvox,nvox,obj.iter,obj.message);
+                            subj,cvix,obj.lamSOS,obj.lamL1,obj.testError,obj.trainingError,nzvox,nvox,obj.iter,obj.message);
                 end
             end
         end
@@ -182,14 +326,10 @@ end
 
 function obj = SOSLasso_logistic(obj)
     grad_flag = 0;
-    dimension = length(obj.groups);
-    num_tasks = numel(obj.X);
-    X = cell(num_tasks,1);
-    Y = cell(num_tasks,1);
-    for i = 1:num_tasks
-        X{i} = obj.X{i}(obj.trainingFilter{i},:);
-        Y{i} = obj.Y{i}(obj.trainingFilter{i},:);
-    end
+    [X,Y] = obj.getTrainingData('TransposeX', true);
+    
+%     dimension = length(obj.groups);
+%     num_tasks = numel(obj.X);
 
     while obj.iter < obj.maxiter
         zeta = (obj.t_old - 1) /obj.t;
@@ -198,7 +338,7 @@ function obj = SOSLasso_logistic(obj)
         obj.iter = obj.iter + 1;
 
         % compute function value and gradients of the search point
-        [grad, Fs ]  = gradVal_eval(Ws);
+        [grad, Fs ]  = gradVal_eval(Ws, X, Y, obj.lamL2);
 
         % the Armijo Goldstein line search
         while true
@@ -208,7 +348,7 @@ function obj = SOSLasso_logistic(obj)
 %                 Wzp = lasso_projection(Ws - grad/obj.gamma, obj.lamL1/obj.gamma);
                 Wzp = Ws - grad/gamma;
             end
-            Fzp = funVal_eval(Wzp);
+            Fzp = funVal_eval (Wzp, X, Y, obj.lamL2);
 
             delta_Wzp = Wzp - Ws;
             nrm_delta_Wzp = norm(delta_Wzp, 'fro')^2;
@@ -236,7 +376,7 @@ function obj = SOSLasso_logistic(obj)
         end
 
         if obj.lamSOS>0
-            obj.objective_loss(obj.iter) = Fzp + sos_eval(obj.W,obj.group_arr,obj.lamSOS,obj.lamL1);
+            obj.objective_loss(obj.iter) = Fzp + sos_eval(Wzp,obj.group_arr,obj.lamSOS,obj.lamL1);
         else
 %             obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL1);
             obj(iter) = Fzp;
@@ -252,84 +392,87 @@ function obj = SOSLasso_logistic(obj)
         obj.t_old = obj.t;
         obj.t = 0.5 * (1 + (1+ 4 * obj.t^2)^0.5);
     end
-
-    % private functions
-    function Wshr = soslasso_projection(W,lamSOS,lamL1,group_arr,groups)
-        % step 1: perform soft thresholding
-        X_soft = sign(W).*max(abs(W) - lamL1*lamSOS,0);
-
-        %step 2: perform group soft thresholding
-        X_soft = [X_soft; zeros(1,size(X_soft,2))]; % for the dummy
-        Xtemp = sum(X_soft.^2,2); %xtemp is now a vector
-        Xtemp = sum(Xtemp(group_arr),2);
-        Xtemp = sqrt(Xtemp);
-        Xtemp = max(Xtemp - lamSOS,0); % this is the multiplying factor
-        Xtemp = Xtemp./(Xtemp + lamSOS);
-        Xtemp = Xtemp(groups);
-        Xtemp = repmat(Xtemp,1,numel(obj.X));
-        Wshr = X_soft(1:end-1,:).*Xtemp;
-    end
-
-    function Wshr = lasso_projection(W,lamL1)
-        % step 1: perform soft thresholding
-        Wshr = sign(W).*max(abs(W) - lamL1,0);
-    end
-
-    function [grad_W, funcVal] = gradVal_eval(W)
-        grad_W = zeros(dimension, num_tasks);
-        lossValVect = zeros (1 , num_tasks);
-
-        for ii = 1:num_tasks
-            [ grad_W(:, ii), lossValVect(:, ii)] = unit_grad_eval( W(:, ii), obj.X{ii}, obj.Y{ii});
-        end
-
-        % If the lamL2 parameter is > 0, then the gradient and funcVal are scaled.
-        grad_W = grad_W + (obj.lamL2 * 2 * W);
-        funcVal = sum(lossValVect) + obj.lamL2*norm(W,'fro')^2;
-    end
-
-    function [funcVal] = funVal_eval (W)
-        funcVal = 0;
-
-        for ii = 1: num_tasks
-            funcVal = funcVal + unit_funcVal_eval( W(:, ii), obj.X{ii}, obj.Y{ii});
-        end
-
-        funcVal = funcVal + obj.lamL2 * norm(W,'fro')^2;
-    end
-
-
-    % SOS regularizer value
-    function [regval] = sos_eval(W,group_arr ,lamSOS,lamL1)
-        regval = 0;
-
-        [n,~] = size(group_arr);
-        Wtemp = [W;zeros(1,num_tasks)];
-        for ii = 1 : n
-            w = Wtemp(unique(group_arr(ii,:)), :);
-            w = w.^2;
-            regval = regval + lamSOS * sqrt(sum(w(:)));
-        end
-        regval = regval + lamSOS*lamL1*norm(W(:),1);
-    end
-
-    function [regval] = L1_eval(W,lamL1)
-        regval = lamL1*norm(W(:),1);
-    end
-
-    function b = validateW0(w0)
-        b = false;
-        if iscell(w0)
-            if numel(obj.X) == numel(w0)
-                b = true;
-            end
-        else
-            if isempty(w0)
-                b = true;
-            end
-        end
-    end
 end
+
+%% --- private functions ---
+function Wshr = soslasso_projection(W,lamSOS,lamL1,group_arr,groups)
+    num_tasks = size(W,2);
+    % step 1: perform soft thresholding
+    W_soft = sign(W).*max(abs(W) - lamL1*lamSOS,0);
+
+    %step 2: perform group soft thresholding
+    W_soft = [W_soft; zeros(1,size(W_soft,2))]; % for the dummy
+    Wtemp = sum(W_soft.^2,2); %xtemp is now a vector
+    Wtemp = sum(Wtemp(group_arr),2);
+    Wtemp = sqrt(Wtemp);
+    Wtemp = max(Wtemp - lamSOS,0); % this is the multiplying factor
+    Wtemp = Wtemp./(Wtemp + lamSOS);
+    Wtemp = Wtemp(groups);
+    Wtemp = repmat(Wtemp,1,num_tasks);
+    Wshr = W_soft(1:end-1,:).*Wtemp;
+end
+
+function Wshr = lasso_projection(W,lamL1)
+    % step 1: perform soft thresholding
+    Wshr = sign(W).*max(abs(W) - lamL1,0);
+end
+
+function [grad_W, funcVal] = gradVal_eval(W,X,Y,lamL2)
+    [dimension, num_tasks] = size(W);
+    grad_W = zeros(dimension, num_tasks);
+    lossValVect = zeros (1 , num_tasks);
+
+    for ii = 1:num_tasks
+        [ grad_W(:, ii), lossValVect(:, ii)] = unit_grad_eval( W(:, ii), X{ii}, Y{ii});
+    end
+
+    % If the lamL2 parameter is > 0, then the gradient and funcVal are scaled.
+    grad_W = grad_W + (lamL2 * 2 * W);
+    funcVal = sum(lossValVect) + lamL2*norm(W,'fro')^2;
+end
+
+function [funcVal] = funVal_eval (W, X, Y, lamL2)
+    num_tasks = size(W,2);
+    funcVal = 0;
+
+    for ii = 1: num_tasks
+        funcVal = funcVal + unit_funcVal_eval( W(:, ii), X{ii}, Y{ii});
+    end
+
+    funcVal = funcVal + lamL2 * norm(W,'fro')^2;
+end
+
+% SOS regularizer value
+function [regval] = sos_eval(W, group_arr, lamSOS, lamL1)
+    num_tasks = size(W, 2);
+    regval = 0;
+
+    [n,~] = size(group_arr);
+    Wtemp = [W;zeros(1,num_tasks)];
+    for ii = 1 : n
+        w = Wtemp(unique(group_arr(ii,:)), :);
+        w = w.^2;
+        regval = regval + lamSOS * sqrt(sum(w(:)));
+    end
+    regval = regval + lamSOS*lamL1*norm(W(:),1);
+end
+
+function [regval] = L1_eval(W,lamL1)
+    regval = lamL1*norm(W(:),1);
+end
+
+% function b = validateW0(w0)
+%     b = false;
+%     if iscell(w0)
+%         if numel(obj.X) == numel(w0)
+%             b = true;
+%         end
+%     else
+%         if isempty(w0)
+%             b = true;
+%         end
+%     end
+% end
 
 function [ grad_w, funcVal ] = unit_grad_eval( w, x, y)
     %gradient and logistic evaluation for each task
@@ -364,7 +507,7 @@ function W = combineOverlappingWeights(Wc, G, varargin)
     addRequired(p, 'Wc');
     addRequired(p, 'G');
     addParameter(p , 'verbose' , true);
-    parse(p, Wc,G,varargin{:});
+    parse(p, Wc, G, varargin{:});
 
     Wc = p.Results.Wc;
     G = p.Results.G;

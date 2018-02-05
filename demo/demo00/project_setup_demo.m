@@ -116,7 +116,7 @@ end
 %
 % Here, lets set up (totally arbitrarily) two filters. The first will
 % define a region of interest and the second will exclude outliers.
-z = [true(500,1);false(9500,1)];
+z = [true(50,1);false(950,1)];
 FILTERS(1) = struct('label','ROI01', 'dimension', 2, 'filter', z);
 z = [true(98,1);false(2,1)];
 FILTERS(2) = struct('label','GoodRows', 'dimension', 1, 'filter', z);
