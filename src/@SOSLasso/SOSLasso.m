@@ -8,6 +8,8 @@ classdef SOSLasso
         lamL1
         lamL2 = 0
         trainingFilter
+        testError
+        trainingError
         maxiter = 100000
         tol = 1e-8
         num_tasks
@@ -16,9 +18,9 @@ classdef SOSLasso
         objective_loss = zeros(100000,1);
     end
 
-    properties ( Access = private, Hidden = true )
+    properties ( Access = public, Hidden = true )
         EMPTY = 0;
-        Wz_old % model weights
+        W_old % model weights
         t = 1
         t_old = 0
         s % random seed
@@ -86,10 +88,38 @@ classdef SOSLasso
         function obj = setRandomSeed(obj, seed)
             obj.s = RandStream('mt19937ar','Seed',seed);
         end
+        function obj = train(obj, opts)
+            fn = fieldnames(opts);
+            for i = 1:numel(fn)
+                obj.(fn{i}) = opts.(fn{i});
+            end
+            obj = SOSLasso_logistic(obj);
+        end
 
-        function obj = train(obj)
-            verbose = 0;
-            obj = SOSLasso_logistic(obj,verbose);
+        function obj = test(obj)
+            if iscell(obj.W) || size(obj.W,2) > 1
+                obj.testError = zeros(1, numel(obj.W));
+                obj.trainingError = zeros(1, numel(obj.W));
+                for i = 1:numel(obj.W)
+                    w = obj.W{i};       % Weights
+                    z = obj.trainingFilter{i};
+                    x = obj.X{i}(~z,:); % Data
+                    y = obj.Y{i}(~z,:); % Targets
+                    obj.testError(i) = classifier_error(y,x*w);
+                    x = obj.X{i}(z,:);  % Data
+                    w = obj.Y{i}(z,:);  % Targets
+                    obj.trainingError(i) = classifier_error(y,x*w);
+                end
+            else
+                w = obj.W;       % Weights
+                z = obj.trainingFilter;
+                x = obj.X(~z,:); % Data
+                y = obj.Y(~z,:); % Targets
+                obj.testError = classifier_error(y,x*w);
+                x = obj.X(z,:);  % Data
+                w = obj.Y(z,:);  % Targets
+                obj.trainingError = classifier_error(y,x*w);
+            end
         end
 
         function x = isempty(obj)
@@ -111,6 +141,42 @@ classdef SOSLasso
         function [alpha,lambda] = getAlphaLambda(obj)
             [alpha,lambda] = independent2ratio(obj.lamSOS, obj.lamL1);
         end
+
+        function disp(obj,varargin)
+            if nargin < 2
+                header = false;
+                cvix = 0;
+                subject = 0;
+            else
+                switch lower(varargin{1})
+                    case 'header'
+                        fprintf('%8s%8s%8s%8s%8s%8s%8s%8s%16s\n', 'subj','cv','lamSOS','lamL1','err1','err2','nzvox','nvox','iter','status');
+                    case 'bysubject'
+                        cvix = varargin{2};
+                        subj = varargin{3};
+                        if iscell(obj.W)
+                            nvox = zeros(1, numel(obj.W));
+                            nzvox = zeros(1, numel(obj.W));
+                            for i = 1:numel(obj.W)
+                                nzvox = nnz(obj.W{i});
+                                nvox = numel(obj.W{i});
+                                testError = obj.testError(i);
+                                trainingError = obj.trainingError(i);
+                                fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
+                                    subj,cvix,obj.lamSOS,obj.lamL1,testError,trainingError,nzvox,nvox,obj.iter,obj.message);
+                            end
+                        end
+
+                    otherwise
+                        nzvox = nnz(obj.W);
+                        nvox = numel(obj.W);
+                        testError = obj.testError;
+                        trainingError = obj.trainingError;
+                        fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
+                            subj,cvix,obj.lamSOS,obj.lamL1,testError,trainingError,nzvox,nvox,obj.iter,obj.message);
+                end
+            end
+        end
     end
 end
 
@@ -118,6 +184,12 @@ function obj = SOSLasso_logistic(obj)
     grad_flag = 0;
     dimension = length(obj.groups);
     num_tasks = numel(obj.X);
+    X = cell(num_tasks,1);
+    Y = cell(num_tasks,1);
+    for i = 1:num_tasks
+        X{i} = obj.X{i}(obj.trainingFilter{i},:);
+        Y{i} = obj.Y{i}(obj.trainingFilter{i},:);
+    end
 
     while obj.iter < obj.maxiter
         zeta = (obj.t_old - 1) /obj.t;
@@ -163,7 +235,7 @@ function obj = SOSLasso_logistic(obj)
             break;
         end
 
-        if lamSOS>0
+        if obj.lamSOS>0
             obj.objective_loss(obj.iter) = Fzp + sos_eval(obj.W,obj.group_arr,obj.lamSOS,obj.lamL1);
         else
 %             obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL1);

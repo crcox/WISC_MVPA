@@ -63,7 +63,7 @@ function ac = ModelContainer(varargin)
     end
     fn = fieldnames(expand_struct); n = numel(fn);
     expand_struct_p = structfun(@pack, expand_struct, 'UniformOutput', 0);
-    expand_struct_pu = structfun(@unique, expand_struct_p, 'UniformOutput', 0);
+    expand_struct_pu = structfun(@safeunique, expand_struct_p, 'UniformOutput', 0);
     for i = 1:n
         if isempty(expand_struct_pu.(fn{i}));
             expand_struct_pu.(fn{i}) = {[]};
@@ -103,3 +103,13 @@ function c = pack(x)
         c = x;
     end
 end
+function u = safeunique(x)
+    if iscell(x)
+        if any(cellfun(@isnumeric, x))
+            u = x;
+            return
+        end
+    end
+    u = unique(x);
+end
+            

@@ -41,26 +41,28 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
         normalize_target = ModelInstances(i).normalize_target;
         normalizewrt = ModelInstances(i).normalizewrt;
         BIAS = ModelInstances(i).bias;
-        P = selectbyfield(permutations,'subject', subix, 'RandomSeed', ModelInstances(i).RandomSeed);
 
-        train_set  = cvind{subix} ~= cvix; % CHECK THIS
+        if iscell(X)
+            train_set = cell(numel(X),1);
+            for j = 1:numel(X)
+                P = selectbyfield(permutations,'subject', subix(j), 'RandomSeed', ModelInstances(i).RandomSeed);
+                X{j} = Xorig{j};
+                Y{j} = Yorig{j}(P.index,:);
+                train_set{j}  = cvind{j} ~= cvix; % CHECK THIS
+                switch normalizewrt
+                    case 'all_examples'
+                        X{j} = normalize_columns(X{j}, normalize_data);
+                        Y{j} = normalize_columns(Y{j}, normalize_target);
 
-        X = Xorig{subix};
-        Y = Yorig{subix}(P.index,:);
-        switch normalizewrt
-            case 'all_examples'
-                X = normalize_columns(X, normalize_data);
-                Y = normalize_columns(Y, normalize_target);
-
-            case 'training_set'
-                X = normalize_columns(X, normalize_data, train_set);
-                Y = normalize_columns(Y, normalize_target, train_set);
+                    case 'training_set'
+                        X{j} = normalize_columns(X{j}, normalize_data, train_set);
+                        Y{j} = normalize_columns(Y{j}, normalize_target, train_set);
+                end
+                if BIAS
+                    X{j} = [X{j}, ones(size(X,1),1)]; %#ok<AGROW> It's not actually growing, see line 86.
+                end
+            end
         end
-
-        if BIAS
-            X = [X, ones(size(X,1),1)]; %#ok<AGROW> It's not actually growing, see line 86.
-        end
-        [~,d] = size(X);
 
         switch upper(regularization)
             case 'L1L2'
@@ -70,6 +72,7 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
                 lamseq = lam;
             case {'GROWL','GROWL2'}
                 % There is no real distinction between GROWL and GROWL2 anymore, but for continuity I'll make GROWL2 map to this anyway.
+                [~,d] = size(X{subix});
                 switch lower(LambdaSeq)
                     case 'linear'
                         lamseq = lam1*(d:-1:1)/d + lam;
@@ -78,21 +81,10 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
                     case 'inf'
                         lamseq = [lam+lam1, repmat(lam,1,d-1)];
                 end
-            case 'SOSLASSO'
-                % Should alpha and lambda be changed to lamSOS and lamL1 here?
-                [lamSOS, lamL1] = ratio2independent(alpha, lambda);
-                for ii = 1:numel(xyz)
-                    z = strcmp({metadata(ii).coords.orientation}, orientation);
-                    xyz{ii} = metadata(ii).coords(z).xyz(colfilter{ii},:);
-                end
-                G = coordGrouping(xyz, diameter, overlap, shape);
-
-            case 'LASSO'
-                for ii = 1:numel(xyz)
-                    z = strcmp({metadata(ii).coords.orientation}, orientation);
-                    xyz{ii} = metadata(ii).coords(z).xyz(colfilter{ii},:);
-                end
-                G = coordGrouping(xyz, 0, 0, 'unitary');
+            case {'LASSO','SOSLASSO'}
+                lamSOS = ModelInstances(i).lamSOS;
+                lamL1 = ModelInstances(i).lamL1;
+                G = ModelInstances(i).G;
 
             otherwise
                 error('%s is not an implemented regularization. check spelling', regularization);
@@ -128,10 +120,10 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
         if isempty(ModelInstances(i).Model)
             switch upper(regularization)
                 case {'LASSO','SOSLASSO'}
-                    ModelInstances(i).Model = SOSLasso(X,Y,lamSOS,lamL1,G,W0,opts);
+                    ModelInstances(i).Model = SOSLasso(X,Y,lamSOS,lamL1,G,train_set,options);
                 case {'L1L2','GROWL','GROWL2'}
                     % LambdaSeq must be a column vector
-                    ModelInstances(i).Model = Adlas(X, Y, lamseq(:), train_set, options);
+                    ModelInstances(i).Model = Adlas(X{subix}, Y{subix}, lamseq(:), train_set{subix}, options);
             end
             ModelInstances(i).Model = ModelInstances(i).Model.train(options);
         elseif ModelInstances(i).Model.status == 2
@@ -164,6 +156,8 @@ function y = normalize_columns(x, method, wrt)
     % By default, divide each column by one.
     ss = ones(1, size(x,2));
     switch lower(method)
+        case 'none'
+            % Do nothing
         case {'zscore','zscored'}
             mm = mean(x(wrt,:),1);
             ss = std(x(wrt,:),0,1);
