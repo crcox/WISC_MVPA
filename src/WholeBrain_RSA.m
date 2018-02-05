@@ -10,9 +10,9 @@ function WholeBrain_RSA(varargin)
     addParameter(p , 'lambda1'          , []      , @isnumeric     );
     addParameter(p , 'LambdaSeq'        , []      , @ischar        );
     addParameter(p , 'AdlasOpts'        , struct(), @isstruct      );
-    addParameter(p , 'diameter'         , []      , @ischar        );
+    addParameter(p , 'diameter'         , []      , @isnumeric     );
     addParameter(p , 'shape'            , []      , @ischar        );
-    addParameter(p , 'overlap'          , []      , @ischar        );
+    addParameter(p , 'overlap'          , []      , @isnumeric     );
     % Target definition
     addParameter(p , 'target_label'     , [], @ischar );
     addParameter(p , 'target_type'      , [], @ischar );
@@ -53,6 +53,8 @@ function WholeBrain_RSA(varargin)
     % --- searchlight specific --- %
     % N.B. Searchlight is currently broken.
     addParameter(p , 'searchlight'      , 0         , @islogicallike );
+    addParameter(p , 'slclassifier'     , ''        , @ischar        );
+    addParameter(p , 'slTestToUse'      , ''        , @ischar        );
     addParameter(p , 'slShape'          , ''        , @ischar        );
     addParameter(p , 'slSim_Measure'    , ''        , @ischar        );
     addParameter(p , 'slRadius'         , []        , @isnumeric     );
@@ -88,12 +90,13 @@ function WholeBrain_RSA(varargin)
     % Check that the correct parameters are passed, given the desired regularization
     regularization = p.Results.regularization;
     switch upper(regularization)
+        % The verify_setup_* functions can probably be merged...
         case {'L1L2','GROWL','GROWL2'};
-            assert_required_parameters_RSA(p.Results);
-            hyperparameters = verify_setup_RSA(regularization, p.Results);
+%             assert_required_parameters_RSA(p.Results);
+            HYPERPARAMETERS = verify_setup_RSA(regularization, p.Results);
         case {'LASSO','SOSLASSO'};
-            assert_required_parameters_MVPA(p.Results);
-            hyperparameters = verify_setup_MVPA(regularization, p.Results);
+%             assert_required_parameters_MVPA(p.Results);
+            HYPERPARAMETERS = verify_setup_MVPA(regularization, p.Results);
     end
 
 %     DEBUG                   = p.Results.debug;
@@ -177,13 +180,14 @@ function WholeBrain_RSA(varargin)
     %% Load metadata
     StagingContainer = load(metafile, metadata_varname);
     metadata = StagingContainer.(metadata_varname); clear StagingContainer;
+    subject_label = {metadata.subject};
     [metadata, subjix] = subsetMetadata(metadata, datafiles, FMT_subjid);
 %     N = length(metadata);
 
     %% Load data
     X = cell(max(subjix),1);
     for i = 1:numel(datafiles);
-        X(subjix(i)) = loadData(datafiles{i}, data_varname);
+        X(subjix(i)) = loadData_new(datafiles{i}, data_varname);
     end
 %     if iscell(X) && numel(X) == 1
 %         X = X{1};
@@ -205,12 +209,12 @@ function WholeBrain_RSA(varargin)
     cvind     = cell(max(subjix),1);
     cvindAll  = cell(max(subjix),1);
     for i = subjix
-        M = selectbyfield(metadata,'subject', i);
+        M = selectbyfield(metadata,'subject', subject_label{i});
         if isempty(filter_labels)
             rowfilter{i} = true(1,M.nrow);
             colfilter{i} = true(1,M.ncol);
         else
-            [rowfilter{i},colfilter{i}] = composeFilters(M.filters, filter_labels);
+            [rowfilter{i},colfilter{i}] = composeFilters_new(M.filters, filter_labels);
         end
         cvindAll{i} = M.cvind(:,cvscheme);
         finalholdout = cvindAll{i} == finalholdoutInd;
@@ -343,22 +347,18 @@ function WholeBrain_RSA(varargin)
     end
 
     %% --- Setting regularization parameters and running models ---
+    % This is being handled within the 
     switch upper(regularization)
-        case {'NRSA','L1L2'}
-            HYPERPARAMETERS = struct('hyperband',SearchWithHyperband,'LambdaSeq',LambdaSeq,'lambda',lambda,'lambda1',lambda1);
-            SubjectsParameter = subjix;
-        case 'LASSO'
-            HYPERPARAMETERS = struct('hyperband',SearchWithHyperband,'alpha',1,'lambda',lambda);
+        case {'NRSA','L1L2','LASSO'}
             SubjectsParameter = subjix;
         case 'SOSLASSO'
-            HYPERPARAMETERS = struct('hyperband',SearchWithHyperband,'alpha',alpha,'lambda',lambda,'diameter',diameter,'overlap',overlap,'shape',shape);
-            SubjectsParameter = {subjix};
+            SubjectsParameter = {{subjix}};
     end
 
     if exist('checkpoint.mat','file')
-        load('checkpoint.mat', 'AdlasInstances', 'bracket_index');
+        load('checkpoint.mat', 'ModelInstances', 'bracket_index');
     else
-        AdlasInstances = AdlasContainer( ...
+        ModelInstances = ModelContainer( ...
             'subject'          , SubjectsParameter, ...
             'RandomSeed'       , RandomSeed       , ...
             'cvholdout'        , cvholdout        , ...
@@ -371,20 +371,40 @@ function WholeBrain_RSA(varargin)
         bracket_index = 1;
     end
 
+    xyz = cell(numel(metadata),1);
+    for ii = 1:numel(metadata)
+        z = strcmp({metadata(ii).coords.orientation}, orientation);
+        xyz{ii} = metadata(ii).coords(z).xyz;
+    end
+    switch upper(regularization)
+        case 'SOSLASSO'
+            for ii = 1:numel(ModelInstances)
+                diameter = ModelInstances(ii).diameter;
+                overlap = ModelInstances(ii).overlap;
+                shape = ModelInstances(ii).shape;
+                ModelInstances(ii).G = coordGrouping(xyz, diameter, overlap, shape);
+            end
+
+        case 'LASSO'
+            for ii = 1:numel(ModelInstances)
+                ModelInstances(ii).G = coordGrouping(xyz, 0, 0, 'unitary');
+            end
+    end
+
     if SearchWithHyperband
         n = BRACKETS.n;
         r = BRACKETS.r;
         while 1
             opts.max_iter = r(bracket_index) * 1000; % This 1000 is an important constant... might want to think about this/expose it as a parameter.
-            AdlasInstances = learn_similarity_encoding(AdlasInstances, C, X, regularization,...
+            ModelInstances = learn_similarity_encoding(ModelInstances, C, X, regularization,...
                 'cvind'          , cvind        , ...
                 'permutations'   , Permutations , ...
                 'AdlasOpts'      , opts);
             % Delete low ranked configurations:
-            AdlasInstances = hyperband_pick_top_n(AdlasInstances, n(bracket_index));
+            ModelInstances = hyperband_pick_top_n(ModelInstances, n(bracket_index));
             bracket_index = bracket_index + 1;
             if bracket_index < numel(n)
-                save('checkpoint.mat', 'AdlasInstances', 'bracket_index');
+                save('checkpoint.mat', 'ModelInstances', 'bracket_index');
             else
                 if exist('checkpoint.mat', 'file')
                     delete('checkpoint.mat');
@@ -394,7 +414,7 @@ function WholeBrain_RSA(varargin)
         end
     else
         % Grid search
-        AdlasInstances = learn_similarity_encoding(AdlasInstances, C, X, regularization,...
+        ModelInstances = learn_similarity_encoding(ModelInstances, C, X, regularization,...
             'cvind'          , cvind        , ...
             'permutations'   , Permutations , ...
             'AdlasOpts'      , opts);
@@ -431,13 +451,13 @@ function WholeBrain_RSA(varargin)
         'coords'           , [] , ...
         'err1'             , [] , ...
         'err2'             , [] , ...
-        'iter'             , [] ), numel(AdlasInstances), 1);
-    for iResult = 1:numel(AdlasInstances)
-        A = AdlasInstances(iResult);
+        'iter'             , [] ), numel(ModelInstances), 1);
+    for iResult = 1:numel(ModelInstances)
+        A = ModelInstances(iResult);
         if A.bias
-            Uz = A.Adlas.X(1:end-1,:);
+            Uz = A.Model.X(1:end-1,:);
         else
-            Uz = A.Adlas.X;
+            Uz = A.Model.X;
         end
         if ~SmallFootprint
             results(iResult).coords = COORDS;
@@ -451,7 +471,7 @@ function WholeBrain_RSA(varargin)
                 end
             end
             results(iResult).Uz = Uz;
-            results(iResult).Cz = A.Adlas.A * A.Adlas.X;
+            results(iResult).Cz = A.Model.A * A.Model.X;
         end
         results(iResult).subject = A.subject;
         results(iResult).bias = A.bias;
@@ -476,9 +496,9 @@ function WholeBrain_RSA(varargin)
         results(iResult).target_type = p.Results.target_type;
         results(iResult).sim_source = p.Results.sim_source;
         results(iResult).sim_metric = p.Results.sim_metric;
-        results(iResult).err1 = A.Adlas.testError;
-        results(iResult).err2 = A.Adlas.trainingError;
-        results(iResult).iter = A.Adlas.iter;
+        results(iResult).err1 = A.Model.testError;
+        results(iResult).err2 = A.Model.trainingError;
+        results(iResult).iter = A.Model.iter;
         results(iResult).RandomSeed = A.RandomSeed;
 %         results(iResult).RandomSeed = p.Results.PermutationIndex;
     end
@@ -565,9 +585,10 @@ function WholeBrain_RSA(varargin)
 %     end
 end
 
-function [lamSOS, lamL1] = verify_setup_MVPA(regularization, p)
+function [hyperparameters] = verify_setup_MVPA(regularization, p)
     % Each regularization requires different lambda configurations. This private
     % function ensures that everything has been properly specified.
+    SearchWithHyperband = ~isempty(p.HYPERBAND);
     switch upper(regularization)
         case 'LASSO_GLMNET'
             if isfield(p,'lambda') && isempty(p.lambda)
@@ -576,13 +597,13 @@ function [lamSOS, lamL1] = verify_setup_MVPA(regularization, p)
             else
                 lambda = p.lambda;
             end
-            if ~isempty(alpha) && (alpha ~= 1)
+            if isfield(p,'alpha') && ~isempty(p.alpha) && (p.alpha ~= 1)
                 warning('GLMnet performs lasso when alpha=1. Forcing alpha=1.');
                 alpha = 1;
             else
                 alpha = p.alpha;
             end
-            hyperparameters = struct('alpha',alpha,'lambda',lambda);
+            hyperparameters = struct('alpha',alpha,'lambda',lambda,'hyperband',SearchWithHyperband);
 
         case 'LASSO'
             assert(any(isfield(p,{'lambda','lamL1'})), 'Either lambda or lamL1 (synonymns for LASSO regularization) must be defined.');
@@ -607,26 +628,26 @@ function [lamSOS, lamL1] = verify_setup_MVPA(regularization, p)
                     lamSOS = p.lamSOS;
                 end
             end
-            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1)
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'hyperband',SearchWithHyperband);
 
         case 'SOSLASSO'
             assert(all(isfield(p,{'diameter','shape','overlap'})) && ~isempty(p.diameter) && ~isempty(p.shape) && ~isempty(p.overlap), 'diameter, shape, and overlap must all be defined for SOSLASSO regularization.');
             assert( ...
-                all([isfield(p,{'alpha','lambda'}),~isempty(p.alpha),~isempty(p.lambda)]) || ...
-                all([isfield(p,{'lamSOS','lamL1'}),~isempty(p.lamSOS),~isempty(p.lamL1)]), ...
+                all(isfield(p,{'alpha','lambda'})) && ~isempty(p.alpha) && ~isempty(p.lambda) || ...
+                all(isfield(p,{'lamSOS','lamL1'})) && ~isempty(p.lamSOS) && ~isempty(p.lamL1), ...
                 'Either (alpha and lambda) or (lamSOS and lamL1) must be defined for SOSLASSO regularization.');
             if any(isfield(p,{'alpha','lambda'})) && ~all(isfield(p,{'lamSOS','lamL1'}))
                 assert(all(isfield(p,{'alpha','lambda'})), 'Alpha and lambda must both be specified to generate lamSOS and lamL1 for SOSLASSO regularization.')
             end
-            if all(isfield(p,{'alpha','lambda'}) && all(~isempty(p.alpha),~isempty(p.lambda))
+            if all(isfield(p,{'alpha','lambda'})) && ~isempty(p.alpha) && ~isempty(p.lambda)
                 warning('Alpha will be translated to lamSOS with respect to lambda.');
                 warning('Lambda will be translated to lamL1 with respect to alpha.');
                 [lamSOS,lamL1] = ratio2independent(p.alpha,p.lambda);
-            elseif all(isfield(p,{'lamSOS','lamL1'}) && all(~isempty(p.lamSOS),~isempty(p.lamL1))
+            elseif all(isfield(p,{'lamSOS','lamL1'}) && all(~isempty(p.lamSOS),~isempty(p.lamL1)))
                 lamSOS = p.lamSOS;
                 lamL1 = p.lamL1;
             end
-            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',p.diameter,'shape',p.shape,'overlap',p.overlap);
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',p.diameter,'shape',p.shape,'overlap',p.overlap,'hyperband',SearchWithHyperband);
 
     end
 end
@@ -634,21 +655,22 @@ end
 function [hyperparameters] = verify_setup_RSA(regularization, p)
     % Each regularization requires different lambda configurations. This private
     % function ensures that everything has been properly specified.
+    SearchWithHyperband = ~isempty(p.HYPERBAND);
     switch upper(regularization)
         case 'NONE'
             if ~isempty(lambda) || ~isempty(lambda1)
                 warning('Regularization was set to none, but lambda values were provided. They will be ignored.')
             end
-            hyperparameters = struct();
+            hyperparameters = struct('hyperband',false);
 
         case 'L1L2_GLMNET'
-            if isempty(lambda)
+            if isfield(p,'lambda') && ~isempty(p.lambda)
+                lam = p.lambda;
+            else
                 warning('Lamba was not specified. GLMnet will attempt to determine lambda1 through cross validation.');
                 lam = nan(1);
-            else
-                lam = lambda;
             end
-            hyperparameters = struct('alpha',1,'lambda',p.lambda);
+            hyperparameters = struct('alpha',1,'lambda',lam,'hyperband',SearchWithHyperband);
 
         case 'L1L2'
             if isfield(p,'lambda1') && ~isempty(lambda1)
@@ -661,6 +683,7 @@ function [hyperparameters] = verify_setup_RSA(regularization, p)
             lam    = lambda;
             lam1   = [];
             lamSeq = 'none';
+            hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',SearchWithHyperband);
 
         case 'GROWL'
             assert(~isempty(lambda) && ~isnan(lambda), 'grOWL requires lambda.');
@@ -669,6 +692,7 @@ function [hyperparameters] = verify_setup_RSA(regularization, p)
             lam    = lambda;
             lam1   = lambda1;
             lamSeq = LambdaSeq;
+            hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',SearchWithHyperband);
 
         case 'GROWL2'
             assert(~isempty(lambda)    , 'grOWL2 requires lambda.');
@@ -677,19 +701,21 @@ function [hyperparameters] = verify_setup_RSA(regularization, p)
             lam    = lambda;
             lam1   = lambda1;
             lamSeq = LambdaSeq;
+            hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',SearchWithHyperband);
+
     end
 end
 
-function assertRequiredParameters_RSA(params)
-    required = {'target_label','sim_metric','sim_source','data', ...
-        'metadata','cvscheme','cvholdout','finalholdout','orientation'};
-    N = length(required);
-    for i = 1:N
-        req = required{i};
-        assert(isfield(params,req), '%s must exist in params structure! Exiting.',req);
-        assert(~isempty(params.(req)), '%s must be set. Exiting.',req);
-    end
-end
+% function assertRequiredParameters_RSA(params)
+%     required = {'target_label','sim_metric','sim_source','data', ...
+%         'metadata','cvscheme','cvholdout','finalholdout','orientation'};
+%     N = length(required);
+%     for i = 1:N
+%         req = required{i};
+%         assert(isfield(params,req), '%s must exist in params structure! Exiting.',req);
+%         assert(~isempty(params.(req)), '%s must be set. Exiting.',req);
+%     end
+% end
 
 function permutation_index = extend_permutation_index(permutation_index, target_length)
     remainder = rem(target_length, size(permutation_index, 1));
