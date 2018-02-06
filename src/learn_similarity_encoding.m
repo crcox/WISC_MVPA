@@ -26,10 +26,7 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
     Xorig = X;
     Yorig = Y;
 
-    if VERBOSE
-        fprintf('%8s%8s%8s%8s%8s%8s%8s%8s%16s\n', 'cv','lam','lam1','err1','err2','nzvox','nvox','iter','status')
-    end
-%     fprintf('Normalize with respect to: %s\n', strrep(normalizewrt,'_',' '));
+%     fprintf('Normalize with respect to: %s\n', strrep(normalize_wrt,'_',' '));
 %     fprintf('- Normalizing the data: %s ...\n', normalize_data);
 %     fprintf('- Normalizing the target dimensions: %s ...\n', normalize_target);
 
@@ -39,7 +36,7 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
         regularization = ModelInstances(i).regularization;
         normalize_data = ModelInstances(i).normalize_data;
         normalize_target = ModelInstances(i).normalize_target;
-        normalizewrt = ModelInstances(i).normalizewrt;
+        normalize_wrt = ModelInstances(i).normalize_wrt;
         BIAS = ModelInstances(i).bias;
 
         if iscell(X)
@@ -49,14 +46,14 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
                 X{j} = Xorig{j};
                 Y{j} = Yorig{j}(P.index,:);
                 train_set{j}  = cvind{j} ~= cvix; % CHECK THIS
-                switch normalizewrt
+                switch normalize_wrt
                     case 'all_examples'
                         X{j} = normalize_columns(X{j}, normalize_data);
                         Y{j} = normalize_columns(Y{j}, normalize_target);
 
                     case 'training_set'
-                        X{j} = normalize_columns(X{j}, normalize_data, train_set);
-                        Y{j} = normalize_columns(Y{j}, normalize_target, train_set);
+                        X{j} = normalize_columns(X{j}, normalize_data, train_set{j});
+                        Y{j} = normalize_columns(Y{j}, normalize_target, train_set{j});
                 end
                 if BIAS
                     X{j} = [X{j}, ones(size(X,1),1)]; %#ok<AGROW> It's not actually growing, see line 86.
@@ -66,21 +63,25 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
 
         switch upper(regularization)
             case 'L1L2'
-                lam = ModelInstances(i).lambda;
-                lam1 = ModelInstances(i).lambda1;
-                LambdaSeq = ModelInstances(i).LambdaSeq;
-                lamseq = lam;
+                options.lambda = ModelInstances(i).lambda;
+                options.lambda1 = ModelInstances(i).lambda1;
+                lamseq = options.lambda;
+                
             case {'GROWL','GROWL2'}
                 % There is no real distinction between GROWL and GROWL2 anymore, but for continuity I'll make GROWL2 map to this anyway.
                 [~,d] = size(X{subix});
+                options.lambda = ModelInstances(i).lambda;
+                options.lambda1 = ModelInstances(i).lambda1;
+                LambdaSeq = ModelInstances(i).lambdaSeq;
                 switch lower(LambdaSeq)
                     case 'linear'
-                        lamseq = lam1*(d:-1:1)/d + lam;
+                        lamseq = options.lambda1*(d:-1:1)/d + options.lambda;
                     case 'exponential'
-                        lamseq = lam*sqrt(2*log((d*ones(1,d))./(1:d)));
+                        lamseq = options.lambda*sqrt(2*log((d*ones(1,d))./(1:d)));
                     case 'inf'
-                        lamseq = [lam+lam1, repmat(lam,1,d-1)];
+                        lamseq = [options.lambda+options.lambda1, repmat(options.lambda,1,d-1)];
                 end
+                
             case {'LASSO','SOSLASSO'}
                 lamSOS = ModelInstances(i).lamSOS;
                 lamL1 = ModelInstances(i).lamL1;
@@ -132,19 +133,21 @@ function ModelInstances = learn_similarity_encoding(ModelInstances, Y, X, regula
         % Do nothing
         end
         ModelInstances(i).Model = ModelInstances(i).Model.test();
-        err1 = ModelInstances(i).Model.testError;
-        err2 = ModelInstances(i).Model.trainingError;
-        Unz = cellfun(@(x) nnz(any(x,2)), ModelInstances(i).Model.getWeights());
-        
-        nv = size(ModelInstances(i).Model.X, 1);
-        if isempty(lamL1)
-            lamL1 = nan;
-        end
-
-        if VERBOSE
-            fprintf('%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
-                cvix,lamSOS,lamL1,mean(err1),mean(err2),mean(Unz),mean(nv),ModelInstances(i).Model.iter,'soslasso');
-        end
+        if i == 1, disp(ModelInstances(i).Model, 'header'); end
+        disp(ModelInstances(i).Model, 'bysubject', ModelInstances(i).cvholdout, ModelInstances(i).subject);
+%         err1 = ModelInstances(i).Model.testError;
+%         err2 = ModelInstances(i).Model.trainingError;
+%         Unz = cellfun(@(x) nnz(any(x,2)), ModelInstances(i).Model.getWeights());
+%         
+%         nv = size(ModelInstances(i).Model.X, 1);
+%         if isempty(lamL1)
+%             lamL1 = nan;
+%         end
+% 
+%         if VERBOSE
+%             fprintf('%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
+%                 cvix,lamSOS,lamL1,mean(err1),mean(err2),mean(Unz),mean(nv),ModelInstances(i).Model.iter,'soslasso');
+%         end
     end
 end
 

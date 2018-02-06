@@ -34,7 +34,7 @@ function WholeBrain_RSA(varargin)
     % Normalization
     addParameter(p , 'normalize_data'  , 'none'        , @ischar ); % NEW NAME!
     addParameter(p , 'normalize_target', 'none'        , @ischar ); % NEW VARIABLE!
-    addParameter(p , 'normalizewrt'    , 'all_examples', @ischar ); % NEW VARIABLE!
+    addParameter(p , 'normalize_wrt'    , 'all_examples', @ischar ); % NEW VARIABLE!
     % Permutation
     addParameter(p , 'RandomSeed'             , []                    );
     addParameter(p , 'PermutationTest'        , false, @islogicallike );
@@ -109,7 +109,7 @@ function WholeBrain_RSA(varargin)
     SmallFootprint          = p.Results.SmallFootprint;
     RandomSeed              = p.Results.RandomSeed;
     regularization          = p.Results.regularization;
-    normalizewrt            = p.Results.normalizewrt;
+    normalize_wrt            = p.Results.normalize_wrt;
     normalize_data          = p.Results.normalize_data;
     normalize_target        = p.Results.normalize_target;
     BIAS                    = p.Results.bias;
@@ -131,10 +131,14 @@ function WholeBrain_RSA(varargin)
     metafile                = p.Results.metadata;
     metadata_varname        = p.Results.metadata_varname;
     tau                     = p.Results.tau;
-    alpha                   = p.Results.alpha;
-    lambda                  = p.Results.lambda;
-    lambda1                 = p.Results.lambda1;
-    LambdaSeq               = p.Results.LambdaSeq;
+% --- These are handled in verify_setup* function ---
+% --- and stored in HYPERPARAMETERS               ---
+%     alpha                   = p.Results.alpha;
+%     lambda                  = p.Results.lambda;
+%     lamSOS                  = p.Results.alpha;
+%     lamL1                   = p.Results.lambda;
+%     lambda1                 = p.Results.lambda1;
+%     LambdaSeq               = p.Results.LambdaSeq;
     opts                    = p.Results.AdlasOpts;
     SaveResultsAs           = p.Results.SaveResultsAs;
     FMT_subjid              = p.Results.subject_id_fmt;
@@ -351,7 +355,7 @@ function WholeBrain_RSA(varargin)
     %% --- Setting regularization parameters and running models ---
     % This is being handled within the 
     switch upper(regularization)
-        case {'NRSA','L1L2','LASSO'}
+        case {'GROWL','GROWL2','L1L2','LASSO'}
             SubjectsParameter = subjix;
         case 'SOSLASSO'
             SubjectsParameter = {{subjix}};
@@ -364,12 +368,40 @@ function WholeBrain_RSA(varargin)
             'subject'          , SubjectsParameter, ...
             'RandomSeed'       , RandomSeed       , ...
             'cvholdout'        , cvholdout        , ...
+            'finalholdout'     , finalholdout     , ...
             'bias'             , BIAS             , ...
+            'target_label'     , target_label     , ...
+            'target_type'      , target_type      , ...
             'normalize_data'   , normalize_data   , ...
             'normalize_target' , normalize_target , ...
-            'normalizewrt'     , normalizewrt     , ...
+            'normalize_wrt'     , normalize_wrt     , ...
             'regularization'   , regularization   , ...
             'HYPERPARAMETERS'  , HYPERPARAMETERS);
+        % TODO: There is probably a smart way to incorporate this
+        % functionality (basically, child fields that are associated with a
+        % parent field) within the ModelContainer expansion function.
+        for i = 1:numel(ModelInstances)
+            if iscell(datafiles) && numel(datafiles) > 1;
+                ModelInstances(i).data = datafiles(ModelInstances(i).subject);
+            else
+                ModelInstances(i).data = ascell(datafiles);
+            end
+            if iscell(data_varname) && numel(data_varname) > 1;
+                ModelInstances(i).data_varname = data_varname(ModelInstances(i).subject);
+            else
+                ModelInstances(i).data_varname = ascell(data_varname);
+            end
+            if iscell(metafile) && numel(metafile) > 1;
+                ModelInstances(i).metadata = metafile(ModelInstances(i).subject);
+            else
+                ModelInstances(i).metadata = ascell(metafile);
+            end
+            if iscell(metadata_varname) && numel(metadata_varname) > 1;
+                ModelInstances(i).metadata_varname = metadata_varname(ModelInstances(i).subject);
+            else
+                ModelInstances(i).metadata_varname = ascell(metadata_varname);
+            end
+        end
         bracket_index = 1;
     end
 
@@ -422,6 +454,20 @@ function WholeBrain_RSA(varargin)
             'AdlasOpts'      , opts);
     end
 
+    cur = 0;
+    n = numel(ModelInstances);
+    for i = 1:n
+        MODEL = ModelInstances(i).Model;
+        CONTEXT = rmfield(ModelInstances(i), 'Model');
+        if i == 1
+            % Preallocate on first pass
+            [results,nResultsPerModel] = MODEL.getResults(CONTEXT,metadata,'Initialize',n);
+        end
+        a = cur + 1;
+        b = cur + nResultsPerModel;
+        results(a:b) = MODEL.getResults(CONTEXT,metadata);
+        cur = a;
+    end
     %% --- Package results ---
 %     results = repmat(struct( ...
 %         'Uz'               , [] , ...
@@ -444,7 +490,7 @@ function WholeBrain_RSA(varargin)
 %         'LambdaSeq'        , [] , ...
 %         'tau'              , [] , ...
 %         'bias'             , [] , ...
-%         'normalizewrt'     , [] , ...
+%         'normalize_wrt'     , [] , ...
 %         'normalize_data'   , [] , ...
 %         'normalize_target' , [] , ...
 %         'nz_rows'          , [] , ...
@@ -489,7 +535,7 @@ function WholeBrain_RSA(varargin)
 %         results(iResult).tau = tau;
 %         results(iResult).normalize_data = A.normalize_data;
 %         results(iResult).normalize_target = normalize_target;
-%         results(iResult).normalizewrt = A.normalizewrt;
+%         results(iResult).normalize_wrt = A.normalize_wrt;
 %         results(iResult).data = p.Results.data;
 %         results(iResult).data_var = p.Results.data_varname;
 %         results(iResult).metadata = p.Results.metadata;
@@ -505,7 +551,7 @@ function WholeBrain_RSA(varargin)
 % %         results(iResult).RandomSeed = p.Results.PermutationIndex;
 %     end
 
-    fprintf('Saving stuff.....\n');
+    fprintf('Saving stuff...\n');
 
     %% Save results
     rinfo = whos('results');
@@ -675,34 +721,25 @@ function [hyperparameters] = verify_setup_RSA(regularization, p)
             hyperparameters = struct('alpha',1,'lambda',lam,'hyperband',SearchWithHyperband);
 
         case 'L1L2'
-            if isfield(p,'lambda1') && ~isempty(lambda1)
+            if isfield(p,'lambda1') && ~isempty(p.lambda1)
                 warning('Group Lasso does not use the lambda1 parameter. It is being ignored.');
             end
-            if ~isempty(LambdaSeq) && all(~stcmp(LambdaSeq,'none'))
+            if isfield(p,'LambdaSeq') && ~isempty(p.LambdaSeq) && all(~stcmp(p.LambdaSeq,'none'))
                 warning('Group Lasso does not use a lambda sequence. Setting to ''none''.');
             end
-            assert(~isempty(lambda), 'Group Lasso requires lambda.');
-            lam    = lambda;
+            assert(~isempty(p.lambda), 'Group Lasso requires lambda.');
+            lam    = p.lambda;
             lam1   = [];
             lamSeq = 'none';
             hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',SearchWithHyperband);
 
-        case 'GROWL'
-            assert(~isempty(lambda) && ~isnan(lambda), 'grOWL requires lambda.');
-            assert(~isempty(lambda1) && ~isnan(lambda1), 'grOWL requires lambda1.');
-            assert(~isempty(LambdaSeq), 'A LambdaSeq type (linear or exponential) must be set when using grOWL*.');
-            lam    = lambda;
-            lam1   = lambda1;
-            lamSeq = LambdaSeq;
-            hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',SearchWithHyperband);
-
-        case 'GROWL2'
-            assert(~isempty(lambda)    , 'grOWL2 requires lambda.');
-            assert(~isempty(lambda1)   , 'grOWL2 requires lambda1.');
-            assert(~isempty(LambdaSeq) , 'A LambdaSeq type (linear or exponential) must be set when using grOWL*.');
-            lam    = lambda;
-            lam1   = lambda1;
-            lamSeq = LambdaSeq;
+        case {'GROWL','GROWL2'}
+            assert(isfield(p,'lambda') && ~isempty(p.lambda) && ~isnan(p.lambda), 'grOWL requires lambda.');
+            assert(isfield(p,'lambda1') && ~isempty(p.lambda1) && ~isnan(p.lambda1), 'grOWL requires lambda1.');
+            assert(isfield(p,'LambdaSeq') && ~isempty(p.LambdaSeq), 'A LambdaSeq type (linear or exponential) must be set when using grOWL*.');
+            lam    = p.lambda;
+            lam1   = p.lambda1;
+            lamSeq = p.LambdaSeq;
             hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',SearchWithHyperband);
 
     end

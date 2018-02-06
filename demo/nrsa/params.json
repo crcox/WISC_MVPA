@@ -1,0 +1,31 @@
+{
+	"regularization": "GrOWL2",
+	"bias": 0,
+	"tau": 0.2,
+	"lambda1": 0.4200556,
+	"lambda": 0.5863,
+	"LambdaSeq": "inf",
+	"cvscheme": 1,
+	"cvholdout": [1,2,3,4,5,6,7,8,9,10],
+	"finalholdout": 0,
+	"target_label": "visual",
+	"target_type": "similarity",
+	"sim_source": "chamfer",
+	"sim_metric": "chamfer",
+	"data": "./shared/s100.mat",
+	"data_var": "X",
+	"normalize_data": "zscore",
+	"normalize_wrt": "training_set",
+	"normalize_target": "center",
+	"metadata": "./shared/metadata.mat",
+	"metadata_varname": "metadata",
+	"orientation": "tlrc",
+	"filters": [
+		"ROI01",
+		"GoodRows"
+	],
+	"SmallFootprint": 0,
+	"debug": 0,
+	"SaveResultsAs": "mat",
+	"subject_id_fmt": "s%03d.mat"
+}

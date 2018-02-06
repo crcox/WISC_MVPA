@@ -29,6 +29,7 @@ classdef SOSLasso
         groups
         gamma = 1
         gamma_inc = 2
+        message = '';
     end
 
     methods
@@ -38,8 +39,8 @@ classdef SOSLasso
                 return
             end
             if (nargin < 4), opts = struct(); end
-            if iscell(X), obj.X = X; else obj.X = {X}; end
-            if iscell(Y), obj.Y = Y; else obj.Y = {Y}; end
+            if iscell(X), obj.X = X(:); else obj.X = {X}; end
+            if iscell(Y), obj.Y = Y(:); else obj.Y = {Y}; end
             obj.lamSOS = lamSOS;
             obj.lamL1 =lamL1;
             obj.G = G;
@@ -49,7 +50,7 @@ classdef SOSLasso
             [Gc, ix]  = commonGrouping(G);
             obj.group_arr = group2mat(Gc);
             obj.groups    = group2lab(Gc);
-            obj.num_tasks = numel(obj.X);
+            obj.num_tasks = obj.num_tasks;
             obj.dimension = length(obj.groups);
 
             if isempty(trainingFilter)
@@ -98,9 +99,9 @@ classdef SOSLasso
         end
 
         function obj = test(obj)
-            obj.testError = zeros(1, numel(obj.X));
-            obj.trainingError = zeros(1, numel(obj.X));
-            for i = 1:numel(obj.X)
+            obj.testError = zeros(1, obj.num_tasks);
+            obj.trainingError = zeros(1, obj.num_tasks);
+            for i = 1:obj.num_tasks
                 w = obj.W(:,i);
                 [x,y] = obj.getTrainingData(i);
                 obj.testError(i) = classifier_error(y,x*w);
@@ -111,123 +112,6 @@ classdef SOSLasso
 
         function x = isempty(obj)
             x = all([obj.EMPTY] == 1);
-        end
-
-        function W = getWeights(obj, varargin)
-            p = inputParser();
-            addRequired(p, 'obj');
-            addOptional(p, 'subjects', 1:numel(obj.X), @isnumeric);
-            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
-            addParameter(p, 'dropBias', false, @(x) islogical(x) || x==1 || x==0);
-            addParameter(p, 'verbose'  , false, @(x) islogical(x) || x==1 || x==0);
-            parse(p, obj, varargin{:});
-
-            Wall = combineOverlappingWeights(obj.W,obj.G,'verbose',p.Results.verbose);
-            W = Wall(p.Results.subjects);
-            if obj.ModelHasBiasUnit && p.Results.dropBias
-                W = cellfun(@(w) w(1:end,:), W, 'UniformOutput', 0);
-            end
-            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
-                W = W{1};
-            end
-        end
-
-        function r = getResults(obj, varargin)
-            addOptional(p, 'subjects', 1:numel(obj.X), @isnumeric);
-            addOptional(p, 'metadata', struct(), @isstruct);
-            addParameter(p, 'Initialize', false, @(x) islogical(x) || x==1 || x==0);
-            addParameter(p, 'SmallFootprint', false, @(x) islogical(x) || x==1 || x==0);
-            parse(p, obj, varargin{:});
-            r = struct( ...
-                'Wz'               , [] , ...
-                'Yz'               , [] , ...
-                'target_label'     , [] , ...
-                'target_type'      , [] , ...
-                'sim_source'       , [] , ...
-                'sim_metric'       , [] , ...
-                'data'             , [] , ...
-                'data_varname'     , [] , ...
-                'metadata'         , [] , ...
-                'metadata_varname' , [] , ...
-                'subject'          , [] , ...
-                'cvholdout'        , [] , ...
-                'finalholdout'     , [] , ...
-                'regularization'   , [] , ...
-                'lamSOS'           , [] , ...
-                'lamL1'            , [] , ...
-                'alpha'            , [] , ...
-                'lambda'           , [] , ...
-                'bias'             , [] , ...
-                'normalizewrt'     , [] , ...
-                'normalize_data'   , [] , ...
-                'normalize_target' , [] , ...
-                'nz_rows'          , [] , ...
-                'nzvox'            , [] , ...
-                'nvox'             , [] , ...
-                'coords'           , [] , ...
-                'nt1'              , [] , ...
-                'nt2'              , [] , ...
-                'nd1'              , [] , ...
-                'nd2'              , [] , ...
-                'h1'               , [] , ...
-                'h2'               , [] , ...
-                'f1'               , [] , ...
-                'f2'               , [] , ...
-                'err1'             , [] , ...
-                'err2'             , [] , ...
-                'iter'             , [] );
-
-                Wz = obj.getWeights('dropBias',true,'forceCell',true);
-                if ~isempty(p.Results.metadata)
-                    if numel(p.Results.metadata) > numel(p.Results.subjects)
-                        META = p.Results.metadata(p.Results.subjects);
-                    end
-                end
-                    COORDS = cell(size(Wz));
-                    COORDS_FIELDS = fieldnames(p.Results.coords);
-                    for i = 1:numel(Wz)
-                        ix = find(any(Wz, 2));
-                        COORDS{i} = p.Results.coords(i)
-                        for j = 1:numel(COORDS_FIELDS)
-                            cfield = COORDS_FIELDS{j};
-                            if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(p.Results.coords.(cfield))
-                                coords = p.Results.coords.(cfield)(ix,:);
-                            elseif any(strcmp(cfield, {'ind'})) && ~isempty(COORDS.(cfield))
-                                results(iResult).coords.(cfield) = COORDS.(cfield)(ix);
-                            end
-                        end
-                    results(iResult).Uz = Uz;
-                    results(iResult).Cz = A.Model.A * A.Model.X;
-                end
-                results(iResult).subject = A.subject;
-                results(iResult).bias = A.bias;
-                results(iResult).nz_rows = any(Uz,2);
-                results(iResult).nzv = nnz(results(iResult).nz_rows);
-                results(iResult).nvox = numel(results(iResult).nz_rows);
-                results(iResult).cvholdout = A.cvholdout;
-                results(iResult).finalholdout = finalholdoutInd;
-                results(iResult).lambda = A.lambda;
-                results(iResult).lambda1 = A.lambda1;
-                results(iResult).LambdaSeq = A.LambdaSeq;
-                results(iResult).regularization = A.regularization;
-                results(iResult).tau = tau;
-                results(iResult).normalize_data = A.normalize_data;
-                results(iResult).normalize_target = normalize_target;
-                results(iResult).normalizewrt = A.normalizewrt;
-                results(iResult).data = p.Results.data;
-                results(iResult).data_var = p.Results.data_varname;
-                results(iResult).metadata = p.Results.metadata;
-                results(iResult).metadata_var = p.Results.metadata_varname;
-                results(iResult).target_label = p.Results.target_label;
-                results(iResult).target_type = p.Results.target_type;
-                results(iResult).sim_source = p.Results.sim_source;
-                results(iResult).sim_metric = p.Results.sim_metric;
-                results(iResult).err1 = A.Model.testError;
-                results(iResult).err2 = A.Model.trainingError;
-                results(iResult).iter = A.Model.iter;
-                results(iResult).RandomSeed = A.RandomSeed;
-        %         results(iResult).RandomSeed = p.Results.PermutationIndex;
-            end
         end
 
         function group_arr = getGroupArray(obj)
@@ -241,17 +125,87 @@ classdef SOSLasso
         function [alpha,lambda] = getAlphaLambda(obj)
             [alpha,lambda] = independent2ratio(obj.lamSOS, obj.lamL1);
         end
-        
+
+        function [W,nzvox,nvox] = getWeights(obj, varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'dropBias', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'combine', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'verbose'  , false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            if p.Results.combine
+                Wall = combineOverlappingWeights(obj.W,obj.G,'verbose',p.Results.verbose);
+            else
+                Wall = mat2cell(obj.W,size(obj.W,1),ones(1,size(obj.W,2)));
+            end
+            W = Wall(p.Results.subjects);
+            if obj.ModelHasBiasUnit && p.Results.dropBias
+                W = cellfun(@(w) w(1:end,:), W, 'UniformOutput', 0);
+            end
+            nzvox = cellfun(@(x) nnz(any(x,2)), W, 'UniformOutput', 1);
+            nvox = cellfun(@(x) size(x,1), W, 'UniformOutput', 1);
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                W = W{1};
+            end
+        end
+
+        function y = getTarget(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'subset', 'all', @ischar);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            y = obj.Y(p.Results.subjects);
+            switch lower(p.Results.subset)
+                case 'all'
+                    for i = 1:numel(y), y{i} = y{i}; end
+                case {'test','testing','testset','testingset'}
+                    for i = 1:numel(y), y{i} = y{i}(~obj.trainingFilter{i}); end
+                case {'train','training','trainset','trainingset'}
+                    for i = 1:numel(y), y{i} = y{i}(obj.trainingFilter{i}); end
+            end
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                y = y{1};
+            end
+        end
+
+        function x = getData(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'subset', 'all', @ischar);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            x = obj.X(p.Results.subjects);
+            switch lower(p.Results.subset)
+                case 'all'
+                    for i = 1:numel(x), x{i} = x{i}; end
+                case {'test','testing','testset','testingset'}
+                    for i = 1:numel(x), x{i} = x{i}(~obj.trainingFilter{i},:); end
+                case {'train','training','trainset','trainingset'}
+                    for i = 1:numel(x), x{i} = x{i}(obj.trainingFilter{i},:); end
+            end
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                x = x{1};
+            end
+        end
+
         function [X,Y] = getTrainingData(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj');
-            addOptional(p, 'subjects', 1:numel(obj.X), @isnumeric);
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            X = cell(obj.X);
-            Y = cell(obj.Y);
+            X = cell(size(obj.X));
+            Y = cell(size(obj.Y));
             for i = p.Results.subjects
                 if p.Results.transposeX
                     X{i} = obj.X{i}(obj.trainingFilter{i},:)';
@@ -265,17 +219,17 @@ classdef SOSLasso
                 Y = Y{1};
             end
         end
-        
+
         function [X,Y] = getTestingData(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj');
-            addOptional(p, 'subjects', 1:numel(obj.X), @isnumeric);
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
-            
-            X = cell(obj.X);
-            Y = cell(obj.Y);
+
+            X = cell(size(obj.X));
+            Y = cell(size(obj.Y));
             for i = p.Results.subjects
                 if p.Results.transposeX
                     X{i} = obj.X{i}(~obj.trainingFilter{i},:)';
@@ -290,36 +244,159 @@ classdef SOSLasso
             end
         end
 
-        function disp(obj,varargin)
-            if nargin < 2
-                header = false;
-                cvix = 0;
-                subject = 0;
-            else
-                switch lower(varargin{1})
-                    case 'header'
-                        fprintf('%8s%8s%8s%8s%8s%8s%8s%8s%16s\n', 'subj','cv','lamSOS','lamL1','err1','err2','nzvox','nvox','iter','status');
-                    case 'bysubject'
-                        cvix = varargin{2};
-                        subj = varargin{3};
-                        if iscell(obj.W)
-                            nvox = zeros(1, numel(obj.W));
-                            nzvox = zeros(1, numel(obj.W));
-                            for i = 1:numel(obj.W)
-                                nzvox = nnz(obj.W{i});
-                                nvox = numel(obj.W{i});
-                                fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
-                                    subj,cvix,obj.lamSOS,obj.lamL1,obj.testError(i),obj.trainingError(i),nzvox,nvox,obj.iter,obj.message);
-                            end
-                        end
+        function Yz = getPrediction(obj, varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'subset', 'all', @ischar);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
 
-                    otherwise
-                        nzvox = nnz(obj.W);
-                        nvox = numel(obj.W);
-                        fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
-                            subj,cvix,obj.lamSOS,obj.lamL1,obj.testError,obj.trainingError,nzvox,nvox,obj.iter,obj.message);
+            w = obj.getWeights(p.Results.subjects,'forceCell',true,'dropBias',false,'combine',false);
+            x = obj.getData(p.Results.subjects,'subset',p.Results.subset);
+            Yz = cell(size(x));
+            for i = 1:numel(x)
+                Yz{i} = x{i} * w{i};
+            end
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                Yz = Yz{1};
+            end
+        end
+
+        function [truepos,falsepos,poscount,negcount] = getTFPos(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'subset', 'test', @ischar);
+            parse(p, obj, varargin{:});
+
+            x = obj.getTarget('subset',p.Results.subset);
+            P = obj.getPrediction('subset',p.Results.subset);
+
+            poscount = zeros(size(x));
+            negcount = zeros(size(x));
+            truepos = zeros(size(x));
+            falsepos = zeros(size(x));
+            for i = 1:numel(x)
+                pp = P{i} > 0;
+%                 pn = P{i} <= 0;
+                xp = x{i} > 0;
+                xn = x{i} <= 0;
+
+                poscount(i) = nnz(xp);
+                negcount(i) = nnz(xn);
+
+                truepos(i) = nnz(xp & pp);
+                falsepos(i) = nnz(xn & pp);
+            end
+        end
+
+        function [r,n] = getResults(obj, varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'modelcontext', struct(), @isstruct);
+            addOptional(p, 'metadata', struct(), @isstruct);
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'Initialize', 0, @isnumeric);
+            addParameter(p, 'SmallFootprint', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            Wz = obj.getWeights(p.Results.subjects,'dropBias',true,'forceCell',true,'combine',true);
+            nz_rows = cellfun(@(x) any(x,2), Wz, 'UniformOutput', 0);
+            nzvox = cellfun(@(x) nnz(x), nz_rows, 'UniformOutput', 0);
+            nvox = cellfun(@(x) numel(x), nz_rows, 'UniformOutput', 0);
+            Yz = obj.getPrediction('subset','all');
+            [truepos.testset,falsepos.testset,poscount.testset,negcount.testset] = ...
+                obj.getTFPos(p.Results.subjects,'subset','TestSet');
+            [truepos.trainingset,falsepos.trainingset,poscount.trainingset,negcount.trainingset] = ...
+                obj.getTFPos(p.Results.subjects,'subset','TrainingSet');
+            [alpha,lambda] = obj.getAlphaLambda();
+            CONTEXT = p.Results.modelcontext;
+            META = p.Results.metadata(p.Results.subjects);
+            COORDS = cell(size(Wz));
+            for i = 1:numel(Wz)
+                ix = find(any(Wz{i}, 2));
+                COORDS{i} = META(i).coords;
+                COORDS_FIELDS = fieldnames(META(i).coords);
+                for j = 1:numel(COORDS_FIELDS)
+                    cfield = COORDS_FIELDS{j};
+                    if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(META(i).coords.(cfield))
+                        COORDS{i}.(cfield) = META(i).coords.(cfield)(ix,:);
+                    elseif any(strcmp(cfield, {'ind'})) && ~isempty(META(i).coords.(cfield))
+                        COORDS{i}.(cfield) = META(i).coords.(cfield)(ix);
+                    end
                 end
             end
+
+            r = struct( ...
+                'Wz'               , Wz , ...
+                'Yz'               , Yz , ...
+                'target_label'     , CONTEXT.target_label , ...
+                'target_type'      , CONTEXT.target_type  , ...
+                'data'             , CONTEXT.data(:) , ...
+                'data_varname'     , CONTEXT.data_varname(:) , ...
+                'metadata'         , CONTEXT.metadata(:) , ...
+                'metadata_varname' , CONTEXT.metadata_varname(:) , ...
+                'subject'          , {META.subject}' , ...
+                'cvholdout'        , CONTEXT.cvholdout , ...
+                'finalholdout'     , CONTEXT.finalholdout , ...
+                'regularization'   , CONTEXT.regularization , ...
+                'lamSOS'           , obj.lamSOS , ...
+                'lamL1'            , obj.lamL1 , ...
+                'alpha'            , alpha , ...
+                'lambda'           , lambda , ...
+                'bias'             , obj.ModelHasBiasUnit , ...
+                'normalize_wrt'    , CONTEXT.normalize_wrt , ...
+                'normalize_data'   , CONTEXT.normalize_data , ...
+                'normalize_target' , CONTEXT.normalize_target , ...
+                'nz_rows'          , nz_rows , ...
+                'nzvox'            , nzvox , ...
+                'nvox'             , nvox , ...
+                'coords'           , COORDS(:) , ...
+                'nt1'              , num2cell(poscount.testset) , ...
+                'nt2'              , num2cell(poscount.trainingset) , ...
+                'nd1'              , num2cell(negcount.testset) , ...
+                'nd2'              , num2cell(negcount.trainingset) , ...
+                'h1'               , num2cell(truepos.testset) , ...
+                'h2'               , num2cell(truepos.trainingset) , ...
+                'f1'               , num2cell(falsepos.testset) , ...
+                'f2'               , num2cell(falsepos.trainingset) , ...
+                'err1'             , num2cell(obj.testError(:)) , ...
+                'err2'             , num2cell(obj.trainingError(:)) , ...
+                'RandomSeed'       , CONTEXT.RandomSeed , ...
+                'iter'             , obj.iter );
+
+            n = numel(r);
+            if p.Results.Initialize > 0
+                r = repmat(structfun(@(x) [], r(1), 'UniformOutput', false),p.Results.Initialize * n, 1);
+            end
+        end
+
+        function disp(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'outputcontrol', 'bycv', @ischar);
+            addOptional(p, 'cvindex', 0, @isnumeric);
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            parse(p, obj, varargin{:});
+
+            cvix = p.Results.cvindex;
+            subj = p.Results.subjects;
+            switch lower(p.Results.outputcontrol)
+                case 'header'
+                    fprintf('%8s%8s%8s%8s%8s%8s%8s%8s%8s%16s\n', 'subj','cvindex','lamSOS','lamL1','err1','err2','nzvox','nvox','iter','status');
+                case 'bysubject'
+                    [w, nzvox, nvox] = obj.getWeights(p.Results.subjects,'forceCell',true,'dropBias',true,'combine',true);
+                    for i = 1:numel(w)
+                        fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
+                            subj(i),cvix,obj.lamSOS,obj.lamL1,obj.testError(i),obj.trainingError(i),nzvox(i),nvox(i),obj.iter,obj.message);
+                    end
+
+                case 'bycv'
+                    fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
+                        0,cvix,obj.lamSOS,obj.lamL1,mean(obj.testError),mean(obj.trainingError),mean(nzvox),mean(nvox),obj.iter,obj.message);
+            end
+
         end
     end
 end
@@ -327,9 +404,9 @@ end
 function obj = SOSLasso_logistic(obj)
     grad_flag = 0;
     [X,Y] = obj.getTrainingData('TransposeX', true);
-    
+
 %     dimension = length(obj.groups);
-%     num_tasks = numel(obj.X);
+%     num_tasks = obj.num_tasks;
 
     while obj.iter < obj.maxiter
         zeta = (obj.t_old - 1) /obj.t;
@@ -464,7 +541,7 @@ end
 % function b = validateW0(w0)
 %     b = false;
 %     if iscell(w0)
-%         if numel(obj.X) == numel(w0)
+%         if obj.num_tasks == numel(w0)
 %             b = true;
 %         end
 %     else
@@ -516,7 +593,7 @@ function W = combineOverlappingWeights(Wc, G, varargin)
     S = subjectfilters(G);
     % Combine (and, in the process, sort into subject order).
     N = cellmax(G);
-    W = cell(1,size(G,2));
+    W = cell(size(G,2),1);
     if verbose
         fprintf('%8s%8s%8s\n','subject','nnz','unique');
     end

@@ -18,3 +18,5 @@ demo/params.json
 demo/results.json
 mccExcludedFiles.log
 readme.txt
+src/testtest.m
+src/learn_category_encoding.m.rej

@@ -1,19 +1,20 @@
 classdef Adlas
+    %UNTITLED Summary of this class goes here
+    %   Detailed explanation goes here
+
     properties
-        X % Data
-        Y % Targets
-        W % Weights
-
         LambdaSequence
-
-
+        A % Data
+        B % Targets
+        X % Weights
         trainingFilter
         max_iter = 100000
+        fid = 1
+        optimIter = 1
+        gradIter = 20
         tolInfeas = 1e-6
         tolRelGap = 1e-8
         iter = 0;
-        optimIter = 1
-        gradIter = 20
         status
         message
         objPrimal
@@ -23,13 +24,18 @@ classdef Adlas
         testError
     end
     properties ( Access = private, Hidden = true )
+        ModelHasBiasUnit
+        lambda
+        lambda1
         EMPTY = 0;
-        t_old
-        Xw_old
+        AxPrev
+        tPrev
         Aprods
         s % RandStream('mt19937ar','Seed',0)
-        n % size(X,2)
-        r % size(Y,2)
+        nitems  % size(A,1)
+        nvoxels % size(A,2)
+        num_tasks
+        r % size(B,2)
         L % Lipschitz constant
         t = 1
         eta = 2
@@ -37,18 +43,20 @@ classdef Adlas
     end
 
     methods
-        function obj = Adlas(X,Y,LambdaSequence,trainingFilter,opts)
+        function obj = Adlas(A,B,LambdaSequence,trainingFilter,ModelHasBiasUnit,opts)
             if (nargin == 0)
                 obj.EMPTY = 1;
                 return
             end
             if (nargin <  4), opts = struct(); end
-            obj.n = size(X,2);
-            obj.r = size(Y,2);
+            [obj.nitems,obj.nvoxels] = size(A);
+            obj.r = size(B,2);
             obj.s = RandStream('mt19937ar','Seed',0);
             obj.L = 1;
-            obj.X = X;
-            obj.Y = Y;
+            obj.A = A;
+            obj.B = B;
+            obj.num_tasks = 1;
+            obj.ModelHasBiasUnit = ModelHasBiasUnit;
             % Ensure that lambda is non-increasing
             if ((length(LambdaSequence) > 1) && any(LambdaSequence(2:end) > LambdaSequence(1:end-1)))
                 error('Lambda must be non-increasing.');
@@ -59,9 +67,11 @@ classdef Adlas
                 error('Lambda must have at least one nonnegative entry.');
             end
             obj.LambdaSequence = LambdaSequence;
+            obj.lambda = opts.lambda;
+            obj.lambda1 = opts.lambda1;
             if isempty(trainingFilter)
-                obj.trainingFilter = true(size(X,1), 1);
-            elseif numel(trainingFilter) ~= size(X,1);
+                obj.trainingFilter = true(obj.nitems, 1);
+            elseif numel(trainingFilter) ~= size(A,1);
                 error('The trainingFilter must have as many elements as there are targets (i.e., examples in the dataset).');
             else
                 obj.trainingFilter = trainingFilter;
@@ -72,10 +82,11 @@ classdef Adlas
             end
 
             if ~isfield(opts, 'xInit') || (isempty(opts.xInit))
-                obj.W = zeros(obj.n,obj.r);
+                obj.X = zeros(obj.nvoxels,obj.r);
             end
             obj.EMPTY = 0;
         end
+
         function obj = train(obj, opts)
             fn = fieldnames(opts);
             for i = 1:numel(fn)
@@ -83,101 +94,232 @@ classdef Adlas
             end
             obj = Adlas1(obj);
         end
+
         function obj = test(obj)
-            w = obj.W;                        % Weights
-            x = obj.X(~obj.trainingFilter,:); % Data
-            y = obj.Y(~obj.trainingFilter,:); % Targets
-            obj.testError = nrsa_loss(y,x*w);
-            x = obj.X(obj.trainingFilter,:);  % Data
-            w = obj.Y(obj.trainingFilter,:);  % Targets
-            obj.trainingError = nrsa_loss(y,x*w);
+            x = obj.X;                        % Weights
+            a = obj.A(~obj.trainingFilter,:); % Data
+            b = obj.B(~obj.trainingFilter,:); % Targets
+            obj.testError = nrsa_loss(b,a*x);
+            a = obj.A(obj.trainingFilter,:);  % Data
+            b = obj.B(obj.trainingFilter,:);  % Targets
+            obj.trainingError = nrsa_loss(b,a*x);
         end
         function x = isempty(obj)
             x = all([obj.EMPTY] == 1);
         end
-        function r = getResults(obj)
-%     results = repmat(struct( ...
-%         'Uz'               , [] , ...
-%         'Cz'               , [] , ...
-%         'Sz'               , [] , ...
-%         'target_label'     , [] , ...
-%         'target_type'      , [] , ...
-%         'sim_source'       , [] , ...
-%         'sim_metric'       , [] , ...
-%         'data'             , [] , ...
-%         'data_varname'     , [] , ...
-%         'metadata'         , [] , ...
-%         'metadata_varname' , [] , ...
-%         'subject'          , [] , ...
-%         'cvholdout'        , [] , ...
-%         'finalholdout'     , [] , ...
-%         'regularization'   , [] , ...
-%         'lambda'           , [] , ...
-%         'lambda1'          , [] , ...
-%         'LambdaSeq'        , [] , ...
-%         'tau'              , [] , ...
-%         'bias'             , [] , ...
-%         'normalizewrt'     , [] , ...
-%         'normalize_data'   , [] , ...
-%         'normalize_target' , [] , ...
-%         'nz_rows'          , [] , ...
-%         'nzv'              , [] , ...
-%         'nvox'             , [] , ...
-%         'coords'           , [] , ...
-%         'err1'             , [] , ...
-%         'err2'             , [] , ...
-%         'iter'             , [] ), numel(ModelInstances), 1);
-%     for iResult = 1:numel(ModelInstances)
-%         A = ModelInstances(iResult);
-%         if A.bias
-%             Uz = A.Model.X(1:end-1,:);
-%         else
-%             Uz = A.Model.X;
-%         end
-%         if ~SmallFootprint
-%             results(iResult).coords = COORDS;
-%             ix = find(any(Uz, 2));
-%             for j = 1:numel(COORDS_FIELDS)
-%                 cfield = COORDS_FIELDS{j};
-%                 if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(COORDS.(cfield))
-%                     results(iResult).coords.(cfield) = COORDS.(cfield)(ix,:);
-%                 elseif any(strcmp(cfield, {'ind'})) && ~isempty(COORDS.(cfield))
-%                     results(iResult).coords.(cfield) = COORDS.(cfield)(ix);
-%                 end
-%             end
-%             results(iResult).Uz = Uz;
-%             results(iResult).Cz = A.Model.A * A.Model.X;
-%         end
-%         results(iResult).subject = A.subject;
-%         results(iResult).bias = A.bias;
-%         results(iResult).nz_rows = any(Uz,2);
-%         results(iResult).nzv = nnz(results(iResult).nz_rows);
-%         results(iResult).nvox = numel(results(iResult).nz_rows);
-%         results(iResult).cvholdout = A.cvholdout;
-%         results(iResult).finalholdout = finalholdoutInd;
-%         results(iResult).lambda = A.lambda;
-%         results(iResult).lambda1 = A.lambda1;
-%         results(iResult).LambdaSeq = A.LambdaSeq;
-%         results(iResult).regularization = A.regularization;
-%         results(iResult).tau = tau;
-%         results(iResult).normalize_data = A.normalize_data;
-%         results(iResult).normalize_target = normalize_target;
-%         results(iResult).normalizewrt = A.normalizewrt;
-%         results(iResult).data = p.Results.data;
-%         results(iResult).data_var = p.Results.data_varname;
-%         results(iResult).metadata = p.Results.metadata;
-%         results(iResult).metadata_var = p.Results.metadata_varname;
-%         results(iResult).target_label = p.Results.target_label;
-%         results(iResult).target_type = p.Results.target_type;
-%         results(iResult).sim_source = p.Results.sim_source;
-%         results(iResult).sim_metric = p.Results.sim_metric;
-%         results(iResult).err1 = A.Model.testError;
-%         results(iResult).err2 = A.Model.trainingError;
-%         results(iResult).iter = A.Model.iter;
-%         results(iResult).RandomSeed = A.RandomSeed;
-% %         results(iResult).RandomSeed = p.Results.PermutationIndex;
-%     end
+
+        function [W,nzvox,nvox] = getWeights(obj, varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:numel(obj.A), @isnumeric); % not used
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'dropBias', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'verbose'  , false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+            W = obj.X;
+            if obj.ModelHasBiasUnit && p.Results.dropBias
+                W = W(1:end,:);
+            end
+            nzvox = nnz(any(W,2));
+            nvox = size(W,1);
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                W = W{1};
+            end
         end
+
+        function y = getTarget(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'subset', 'all', @ischar);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            y = obj.B;
+            switch lower(p.Results.subset)
+                case 'all'
+                    y = y;
+                case {'test','testing','testset','testingset'}
+                    y = y(~obj.trainingFilter,:);
+                case {'train','training','trainset','trainingset'}
+                    y = y(obj.trainingFilter,:);
+            end
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                y = y{1};
+            end
+        end
+
+        function x = getData(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'subset', 'all', @ischar);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            x = obj.A(p.Results.subjects);
+            switch lower(p.Results.subset)
+                case 'all'
+%                     x = x;
+                case {'test','testing','testset','testingset'}
+                    x = x(~obj.trainingFilter,:);
+                case {'train','training','trainset','trainingset'}
+                    x = x(obj.trainingFilter,:);
+            end
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                x = x{1};
+            end
+        end
+
+        function [x,y] = getTrainingData(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            x = obj.A;
+            y = obj.B;
+            if p.Results.transposeX
+                x = obj.X(obj.trainingFilter,:)';
+            else
+                x = obj.X(obj.trainingFilter,:);
+            end
+            y = obj.Y(obj.trainingFilter,:);
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                x = x{1};
+                y = y{1};
+            end
+        end
+
+        function [X,Y] = getTestingData(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            if p.Results.transposeX
+                X = obj.X(~obj.trainingFilter,:)';
+            else
+                X = obj.X(~obj.trainingFilter,:);
+            end
+            Y = obj.Y(~obj.trainingFilter,:);
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                X = X{1};
+                Y = Y{1};
+            end
+        end
+
+        function Yz = getPrediction(obj, varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'subset', 'all', @ischar);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            w = obj.getWeights(p.Results.subjects); % subjects aren't used yet.
+            x = obj.getData(p.Results.subjects,'subset',p.Results.subset);
+            Yz = cell(size(x));
+            Yz = x * w;
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+                Yz = Yz{1};
+            end
+        end
+
+        function [r,n] = getResults(obj, varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'modelcontext', struct(), @isstruct);
+            addOptional(p, 'metadata', struct(), @isstruct);
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'Initialize', 0, @isnumeric);
+            addParameter(p, 'SmallFootprint', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, varargin{:});
+
+            Uz = obj.getWeights(p.Results.subjects,'dropBias',true,'forceCell',true); % subjects aren't used yet
+            nz_rows = cellfun(@(x) any(x,2), Uz, 'UniformOutput', 0);
+            nzvox = cellfun(@(x) nnz(x), nz_rows, 'UniformOutput', 0);
+            nvox = cellfun(@(x) numel(x), nz_rows, 'UniformOutput', 0);
+            Yz = obj.getPrediction('subset','all');
+            CONTEXT = p.Results.modelcontext;
+            META = p.Results.metadata(p.Results.subjects);
+            ix = find(any(Uz, 2));
+            COORDS = META.coords;
+            COORDS_FIELDS = fieldnames(META.coords);
+            for j = 1:numel(COORDS_FIELDS)
+                cfield = COORDS_FIELDS{j};
+                if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(META.coords.(cfield))
+                    COORDS.(cfield) = META.coords.(cfield)(ix,:);
+                elseif any(strcmp(cfield, {'ind'})) && ~isempty(META.coords.(cfield))
+                    COORDS.(cfield) = META.coords.(cfield)(ix);
+                end
+            end
+
+            r = struct( ...
+                'Uz'               , Uz , ...
+                'Cz'               , Cz , ...
+                'target_label'     , CONTEXT.target_label , ...
+                'target_type'      , CONTEXT.target_type  , ...
+                'sim_source'       , CONTEXT.sim_source, ...
+                'sim_metric'       , CONTEXT.sim_metric, ...
+                'data'             , CONTEXT.data(:) , ...
+                'data_varname'     , CONTEXT.data_varname(:) , ...
+                'metadata'         , CONTEXT.metadata(:) , ...
+                'metadata_varname' , CONTEXT.metadata_varname(:) , ...
+                'subject'          , {META.subject}' , ...
+                'cvholdout'        , CONTEXT.cvholdout , ...
+                'finalholdout'     , CONTEXT.finalholdout , ...
+                'regularization'   , CONTEXT.regularization , ...
+                'lambda'           , obj.lambda , ...
+                'lambda1'          , obj.lambda1 , ...
+                'bias'             , obj.ModelHasBiasUnit , ...
+                'normalize_wrt'    , CONTEXT.normalize_wrt , ...
+                'normalize_data'   , CONTEXT.normalize_data , ...
+                'normalize_target' , CONTEXT.normalize_target , ...
+                'nz_rows'          , nz_rows , ...
+                'nzvox'            , nzvox , ...
+                'nvox'             , nvox , ...
+                'coords'           , COORDS(:) , ...
+                'err1'             , num2cell(obj.testError(:)) , ...
+                'err2'             , num2cell(obj.trainingError(:)) , ...
+                'RandomSeed'       , CONTEXT.RandomSeed , ...
+                'iter'             , obj.iter );
+
+            n = numel(r);
+            if p.Results.Initialize > 0
+                r = repmat(structfun(@(x) [], r(1), 'UniformOutput', false),p.Results.Initialize * n, 1);
+            end
+        end
+
+        function disp(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'outputcontrol', 'bycv', @ischar);
+            addOptional(p, 'cvindex', 0, @isnumeric);
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            parse(p, obj, varargin{:});
+
+            cvix = p.Results.cvindex;
+            subj = p.Results.subjects;
+            switch lower(p.Results.outputcontrol)
+                case 'header'
+                    fprintf('%8s%8s%8s%8s%8s%8s%8s%8s%8s%16s\n', 'subj','cvindex','lambda','lambda1','err1','err2','nzvox','nvox','iter','status');
+                case 'bysubject'
+                    [~, nzvox, nvox] = obj.getWeights(p.Results.subjects,'forceCell',true,'dropBias',true);
+                    fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
+                        subj,cvix,obj.lambda,obj.lambda1,obj.testError,obj.trainingError,nzvox,nvox,obj.iter,obj.message);
+
+                case 'bycv'
+                    fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
+                        0,cvix,obj.lambda,obj.lambda1,mean(obj.testError),mean(obj.trainingError),mean(nzvox),mean(nvox),obj.iter,obj.message);
+            end
+
+        end
+
     end
 end
 
@@ -193,12 +335,11 @@ function obj = Adlas1(obj, verbosity)
         verbosity = 0;
     end
     % Initialize parameters
-    W       = obj.W; % Weights
-    X       = obj.X(obj.trainingFilter,:); % Data
-    Y       = obj.Y(obj.trainingFilter,:); % Targets
-    Xw      = X * W;
-    Ws      = W;
-
+    X       = obj.X; % Weights
+    A       = obj.A(obj.trainingFilter,:); % Data
+    B       = obj.B(obj.trainingFilter,:); % Targets
+    Ax      = A * X;
+    Y       = X;
     status  = STATUS_RUNNING;
 
     tolInfeas = obj.tolInfeas;
@@ -213,7 +354,7 @@ function obj = Adlas1(obj, verbosity)
     end
 
     if (verbosity > 0)
-        fprintf('%5s  %9s %9s  %9s  %9s\n','Iter','||r||_F','Gap','Infeas.','Rel. gap');
+        fprintf(fid,'%5s  %9s %9s  %9s  %9s\n','Iter','||r||_F','Gap','Infeas.','Rel. gap');
     end
 
     % -------------------------------------------------------------
@@ -223,12 +364,12 @@ function obj = Adlas1(obj, verbosity)
 
         % Compute the gradient at f(y)
         if (mod(obj.iter,obj.gradIter) == 0) % Includes first iterations
-            r = X*Ws - Y;
-            g = X'*(X*Ws-Y);
+            r = A*Y - B;
+            g = A'*(A*Y-B);
             f = trace(r'*r) / 2;
         else
-            r = (Xw + ((obj.t_old - 1) / obj.t) * (Xw - obj.Xw_old)) - Y;
-            g = X'*(X*Ws-Y);
+            r = (Ax + ((obj.tPrev - 1) / obj.t) * (Ax - obj.AxPrev)) - B;
+            g = A'*(A*Y-B);
             f = trace(r'*r) / 2;
         end
 
@@ -240,19 +381,20 @@ function obj = Adlas1(obj, verbosity)
             % Compute 'dual', check infeasibility and gap
             if (modeLasso)
                 gs = sqrt(sum(g.^2,2));
-                ws = sqrt(sum(Ws.^2,2));
+                ys = sqrt(sum(Y.^2,2));
+
                 infeas = max(norm(gs,inf)-obj.LambdaSequence,0);
 
-                objPrimal = f + obj.LambdaSequence*norm(ws,1);
-                objDual   = -f - trace(r'*Y);
+                objPrimal = f + obj.LambdaSequence*norm(ys,1);
+                objDual   = -f - trace(r'*B);
             else
                 gs     = sort(sqrt(sum(g.^2,2)),'descend');
-                ws     = sort(sqrt(sum(Ws.^2,2)),'descend');
+                ys     = sort(sqrt(sum(Y.^2,2)),'descend');
                 infeas = max(max(cumsum(gs-obj.LambdaSequence)),0);
 
                 % Compute primal and dual objective
-                objPrimal =  f + obj.LambdaSequence'*ws;
-                objDual  = -f - trace(r'*Y);
+                objPrimal =  f + obj.LambdaSequence'*ys;
+                objDual  = -f - trace(r'*B);
             end
 
             % Format string
@@ -273,7 +415,7 @@ function obj = Adlas1(obj, verbosity)
         if (verbosity > 0)
             if ((verbosity == 2) || ...
                     ((verbosity == 1) && (mod(obj.iter,obj.optimIter) == 0)))
-                fprintf('%5d  %9.2e%s\n', obj.iter,f,str);
+                fprintf(fid,'%5d  %9.2e%s\n', obj.iter,f,str);
             end
         end
 
@@ -286,27 +428,27 @@ function obj = Adlas1(obj, verbosity)
 
         if (status ~= 0)
             if verbosity > 0
-                fprintf('Exiting with status %d -- %s\n', status, STATUS_MSG{status});
+                fprintf(fid,'Exiting with status %d -- %s\n', status, STATUS_MSG{status});
             end
             break;
         end
 
         % Keep copies of previous values
-        obj.Xw_old = Xw;
-        w_old  = W;
-        f_old  = f;
-        obj.t_old  = obj.t;
+        obj.AxPrev = Ax;
+        xPrev  = X;
+        fPrev  = f;
+        obj.tPrev  = obj.t;
 
         % Lipschitz search
         while (obj.L < inf)
             % Compute prox mapping
-            W = proxFunction(Ws - (1/obj.L)*g, obj.LambdaSequence/obj.L);
-            d = W - Ws;
+            X = proxFunction(Y - (1/obj.L)*g, obj.LambdaSequence/obj.L);
+            d = X - Y;
 
-            Xw = X*W;%A1*vec(W);
-            r = Xw-Y;
+            Ax = A*X;%A1*vec(X);
+            r = Ax-B;
             f = trace(r'*r)/2;
-            q = f_old + trace(d'*g) + (obj.L/2)*trace(d'*d);
+            q = fPrev + trace(d'*g) + (obj.L/2)*trace(d'*d);
 
             obj.Aprods = obj.Aprods + 1;
 
@@ -319,7 +461,7 @@ function obj = Adlas1(obj, verbosity)
 
         % Update
         obj.t = (1 + sqrt(1 + 4*obj.t^2)) / 2;
-        Ws = W + ((obj.t_old - 1) / obj.t) * (W - w_old);
+        Y = X + ((obj.tPrev - 1) / obj.t) * (X - xPrev);
 
         % Check if all weights are set to zero
         if all(Y(:)==0) && obj.iter > 100
@@ -329,11 +471,11 @@ function obj = Adlas1(obj, verbosity)
     end
 
     % Set solution
-    obj.W = Ws;
+    obj.X = Y;
     obj.objPrimal = objPrimal;
     obj.objDual   = objDual;
     obj.infeas    = infeas;
-    if all(Ws(:)==0)
+    if all(Y(:)==0)
         obj.status = STATUS_ALLZERO;
     else
         obj.status = status;
@@ -342,9 +484,9 @@ function obj = Adlas1(obj, verbosity)
     obj.Aprods  = obj.Aprods + ceil(obj.iter / obj.gradIter);
 end
 
-function x = proxL1L2(Ws,lambda)
-    tmp = Ws;
-    r = size(Ws,2);
+function x = proxL1L2(Y,lambda)
+    tmp = Y;
+    r = size(Y,2);
     xtmp = tmp./(repmat(sqrt(sum(tmp.^2,2))+realmin,1,r));
     x = xtmp.*repmat(max(sqrt(sum(tmp.^2,2))-lambda,0),1,r);
 end
