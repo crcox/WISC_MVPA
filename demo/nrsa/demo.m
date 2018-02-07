@@ -21,7 +21,7 @@ X = randn(nItems, nVoxels);
 % Let S represent the target similarity structure. This might correspond to
 % conditions or items, but the number of rows and columns in S must match the
 % number of rows in X. This might involve averaging rows of X together.
-Y = struct('visual',randn(100,3),'semantic',randn(100,8));
+Y = struct('visual',randn(100,3),'semantic',randn(100,3));
 VISUAL = corr(Y.visual');
 SEMANTIC = corr(Y.semantic');
 
@@ -156,26 +156,26 @@ iRot = 0;
 r = @(theta) [cos(theta), -sin(theta); sin(theta), cos(theta)];
 for iSubj = 1:2
     s = subjects(iSubj);
-    X = randn(nItems,nVoxels);
+    X = randn(nItems,nVoxels) * 0.5;
     % Rotate visual structure
     iRot = iRot + 1;
     theta = Rotations(iRot);
-    Yv = Y.visual;
-    n = size(Yv,2);
-    R = eye(n);
-    R(1:2, 1:2) = r(theta);
-    Yv = Yv * R;
+    Yv = {...
+        rotateXYZ(Y.visual,30,30,30), ...
+        rotateXYZ(Y.visual,60,60,60), ...
+        rotateXYZ(Y.visual,90,90,90), ...
+        rotateXYZ(Y.visual,120,120,120) ...
+    };
     % Rotate semantic structure
-    iRot = iRot + 1;
-    theta = Rotations(iRot);
-    Ys = Y.semantic;
-    n = size(Ys,2);
-    R = eye(n);
-    R(1:2, 1:2) = r(theta);
-    Ys = Ys * R;
+    Ys = {...
+        rotateXYZ(Y.semantic,30,30,30), ...
+        rotateXYZ(Y.semantic,60,60,60), ...
+        rotateXYZ(Y.semantic,90,90,90), ...
+        rotateXYZ(Y.semantic,120,120,120) ...
+    };
     % Add structure into X
-    X(:,1:18) = X(:,1:18) + repmat(Yv,1,6);
-    X(:,19:66) = X(:,19:66) + repmat(Ys,1,6);
+    X(:,1:12) = X(:,1:12) + cell2mat(Yv);
+    X(:,13:24) = X(:,13:24) + cell2mat(Ys);
     % Save data
     filename = sprintf('s%03d.mat', s);
     filepath = fullfile(datadir,filename);
@@ -212,7 +212,7 @@ addpath('../../dependencies/jsonlab/');
 % it will probably make sense for them to be absolute. The following should
 % translate into a valid json file for the purpose of this demo.
 params = struct('regularization','GrOWL2','bias',0,'tau',0.2,...
-    'lambda1', 0.4200556, 'lambda', 0.5863, 'LambdaSeq', 'inf',...
+    'lambda1', 7.86, 'lambda', 7.65, 'LambdaSeq', 'inf',...
     'cvscheme', 1,'cvholdout', 1:10, 'finalholdout', 0,...
     'target_label', 'visual', 'target_type','similarity', ...
     'sim_source', 'chamfer', 'sim_metric', 'chamfer',...

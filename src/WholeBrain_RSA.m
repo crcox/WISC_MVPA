@@ -44,6 +44,7 @@ function WholeBrain_RSA(varargin)
     % Hyperband (an alternative to grid search for hyperparameter selection)
     addParameter(p , 'HYPERBAND', [] );
     addParameter(p , 'BRACKETS' , [] );
+    addParameter(p , 'IterationsPerHyperband', 1000, @isnumeric );
     % Output control
     addParameter(p , 'SmallFootprint', false  , @islogicallike );
     addParameter(p , 'SaveResultsAs'  , 'mat' , @isMatOrJSON   );
@@ -73,7 +74,11 @@ function WholeBrain_RSA(varargin)
     addParameter(p , 'wrapper'          , []                         );
 
     % Parse input parameters ...
-    if nargin > 0
+    if nargin == 1 && isstruct(varargin{1})
+        s = varargin{1};
+        x = [fieldnames(s), struct2cell(s)]';
+        parse(p, x{:});
+    elseif nargin > 0
         % From command line
         parse(p, varargin{:});
     else
@@ -372,9 +377,11 @@ function WholeBrain_RSA(varargin)
             'bias'             , BIAS             , ...
             'target_label'     , target_label     , ...
             'target_type'      , target_type      , ...
+            'sim_metric'       , sim_metric       , ...
+            'sim_source'       , sim_source       , ...
             'normalize_data'   , normalize_data   , ...
             'normalize_target' , normalize_target , ...
-            'normalize_wrt'     , normalize_wrt     , ...
+            'normalize_wrt'    , normalize_wrt    , ...
             'regularization'   , regularization   , ...
             'HYPERPARAMETERS'  , HYPERPARAMETERS);
         % TODO: There is probably a smart way to incorporate this
@@ -429,7 +436,7 @@ function WholeBrain_RSA(varargin)
         n = BRACKETS.n;
         r = BRACKETS.r;
         while 1
-            opts.max_iter = r(bracket_index) * 1000; % This 1000 is an important constant... might want to think about this/expose it as a parameter.
+            opts.max_iter = r(bracket_index) * p.Results.IterationsPerHyperband; % This 1000 is an important constant... might want to think about this/expose it as a parameter.
             ModelInstances = learn_similarity_encoding(ModelInstances, C, X, regularization,...
                 'cvind'          , cvind        , ...
                 'permutations'   , Permutations , ...
@@ -734,8 +741,8 @@ function [hyperparameters] = verify_setup_RSA(regularization, p)
             hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',SearchWithHyperband);
 
         case {'GROWL','GROWL2'}
-            assert(isfield(p,'lambda') && ~isempty(p.lambda) && ~isnan(p.lambda), 'grOWL requires lambda.');
-            assert(isfield(p,'lambda1') && ~isempty(p.lambda1) && ~isnan(p.lambda1), 'grOWL requires lambda1.');
+            assert(isfield(p,'lambda') && ~isempty(p.lambda) && any(~isnan(p.lambda)), 'grOWL requires lambda.');
+            assert(isfield(p,'lambda1') && ~isempty(p.lambda1) && any(~isnan(p.lambda1)), 'grOWL requires lambda1.');
             assert(isfield(p,'LambdaSeq') && ~isempty(p.LambdaSeq), 'A LambdaSeq type (linear or exponential) must be set when using grOWL*.');
             lam    = p.lambda;
             lam1   = p.lambda1;

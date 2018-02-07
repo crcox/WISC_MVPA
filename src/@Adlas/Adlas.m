@@ -122,7 +122,7 @@ classdef Adlas
             end
             nzvox = nnz(any(W,2));
             nvox = size(W,1);
-            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+            if iscell(W) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 W = W{1};
             end
         end
@@ -166,7 +166,7 @@ classdef Adlas
                 case {'train','training','trainset','trainingset'}
                     x = x(obj.trainingFilter,:);
             end
-            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+            if iscell(x) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 x = x{1};
             end
         end
@@ -225,7 +225,7 @@ classdef Adlas
             x = obj.getData(p.Results.subjects,'subset',p.Results.subset);
             Yz = cell(size(x));
             Yz = x * w;
-            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+            if iscell(Yz) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 Yz = Yz{1};
             end
         end
@@ -241,21 +241,20 @@ classdef Adlas
             parse(p, obj, varargin{:});
 
             Uz = obj.getWeights(p.Results.subjects,'dropBias',true,'forceCell',true); % subjects aren't used yet
-            nz_rows = cellfun(@(x) any(x,2), Uz, 'UniformOutput', 0);
-            nzvox = cellfun(@(x) nnz(x), nz_rows, 'UniformOutput', 0);
-            nvox = cellfun(@(x) numel(x), nz_rows, 'UniformOutput', 0);
-            Yz = obj.getPrediction('subset','all');
+            nz_rows = any(Uz,2);
+            nzvox = nnz(nz_rows);
+            nvox = numel(nz_rows);
+            Cz = obj.getPrediction('subset','all');
             CONTEXT = p.Results.modelcontext;
             META = p.Results.metadata(p.Results.subjects);
-            ix = find(any(Uz, 2));
             COORDS = META.coords;
             COORDS_FIELDS = fieldnames(META.coords);
             for j = 1:numel(COORDS_FIELDS)
                 cfield = COORDS_FIELDS{j};
                 if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(META.coords.(cfield))
-                    COORDS.(cfield) = META.coords.(cfield)(ix,:);
+                    COORDS.(cfield) = META.coords.(cfield)(nz_rows,:);
                 elseif any(strcmp(cfield, {'ind'})) && ~isempty(META.coords.(cfield))
-                    COORDS.(cfield) = META.coords.(cfield)(ix);
+                    COORDS.(cfield) = META.coords.(cfield)(nz_rows);
                 end
             end
 
