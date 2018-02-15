@@ -193,16 +193,9 @@ function WholeBrain_RSA(varargin)
     metadata = StagingContainer.(metadata_varname); clear StagingContainer;
     subject_label = {metadata.subject};
     [metadata, subjix] = subsetMetadata(metadata, datafiles, FMT_subjid);
-%     N = length(metadata);
 
-    %% Load data
-    X = cell(max(subjix),1);
-    for i = 1:numel(datafiles);
-        X(subjix(i)) = loadData_new(datafiles{i}, data_varname);
-    end
-%     if iscell(X) && numel(X) == 1
-%         X = X{1};
-%     end
+    %% Load data   
+    X = loadData_new(datafiles, data_varname, FMT_subjid);
 
     % N.B. Both X and metadata are ordered the same as the 'datafile' cell
     % array. This means the i-th structure in the metadata array corresponds to
@@ -373,7 +366,7 @@ function WholeBrain_RSA(varargin)
             'subject'          , SubjectsParameter, ...
             'RandomSeed'       , RandomSeed       , ...
             'cvholdout'        , cvholdout        , ...
-            'finalholdout'     , finalholdout     , ...
+            'finalholdout'     , finalholdoutInd  , ...
             'bias'             , BIAS             , ...
             'target_label'     , target_label     , ...
             'target_type'      , target_type      , ...

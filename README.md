@@ -1,5 +1,48 @@
 # Sparse Overlapping Sets (SOS) Lasso
 
+## Unfiled note to self!
+The `subject_id_fmt` field, and ultimately `sscanf` that uses it, can be
+used to extract a wide variety of substrings. Notably, if it is
+extracting only a number, it will return the value as a numeric data
+type, but in other cases it is perfectly happy to return a string.
+
+Consider the following examples (where the second argument is the value
+of `subject_id_fmt`. In the first, we use `sscanf` to extract the digits
+`101` from the filename and return them as the number `101`. In the
+second, rather than matching digits, we match an unbroken string of
+characters that are each in the range 0-9, and return a string. Finally,
+by including 'BM' within the set of characters to match, we can extract
+the full subject code 'BM101', and trim the (in this case) unwanted
+information. (Note, the goal is to isolate the portion of the filename
+that corresponds to the `subject` field within the `metadata` structure.
+This is how metadata and data are related to one another at present).
+
+```
+sscanf('BM101_avg.mat','BM%d_avg.mat')
+ans =
+    101
+```
+
+```
+sscanf('BM101_avg.mat','BM%[0-9]_avg.mat')
+ans =
+'101'
+```
+
+```
+sscanf('BM101_avg.mat','%[BM0-9]_avg.mat')
+ans =
+'BM101'
+```
+
+Note that this last option is not very precise. It would match any
+permutation of the numbers 0-9 and the letters B and M. If precision is
+important, something like this would match exactly BM[numbers].
+
+```
+sscanf('BM101_avg.mat','%[B]%[M]%[0-9]_avg.mat')
+```
+
 ## Overview and background
 
 ### Standard regression
