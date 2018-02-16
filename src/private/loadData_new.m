@@ -1,4 +1,4 @@
-function X = loadData_new(datafiles, data_var, FMT_subjid)
+function X = loadData_new(datafiles, data_var, metafile, metadata_varname, FMT_subjid, filter_labels)
 % LOADDATA Load example-by-feature matrices for multiple subjects.
 %
 % A simple function that allows the matrices to easily be loaded into a
@@ -9,6 +9,11 @@ function X = loadData_new(datafiles, data_var, FMT_subjid)
 %             that variable will have the same name across datafiles.
 %
 % Chris Cox 24/08/2017
+    StagingContainer = load(metafile, metadata_varname);
+    metadata = StagingContainer.(metadata_varname); clear StagingContainer;
+    subject_label = {metadata.subject};
+    [metadata, subjix] = subsetMetadata(metadata, datafiles, FMT_subjid);
+
     datafiles  = ascell(datafiles);
     X = struct('filename',datafiles,'subject',[],data_var,[]);
     N = length(datafiles);

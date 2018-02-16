@@ -1,4 +1,4 @@
-function WholeBrain_RSA(varargin)
+function WholeBrain_MVPA(varargin)
     p = inputParser;
     p.KeepUnmatched = false;
     % ----------------------Set parameters-----------------------------------------------
@@ -195,7 +195,7 @@ function WholeBrain_RSA(varargin)
     [metadata, subjix] = subsetMetadata(metadata, datafiles, FMT_subjid);
 
     %% Load data   
-    X = loadData_new(datafiles, data_varname, FMT_subjid);
+    X = loadData_new(datafiles, data_varname, metafile, metadata_varname, FMT_subjid, filter_labels);
 
     % N.B. Both X and metadata are ordered the same as the 'datafile' cell
     % array. This means the i-th structure in the metadata array corresponds to
