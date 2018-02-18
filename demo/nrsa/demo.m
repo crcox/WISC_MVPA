@@ -43,6 +43,12 @@ TARGETS(2).sim_source = 'featurenorms';
 TARGETS(2).sim_metric = 'cosine';
 TARGETS(2).target = SEMANTIC;
 
+TARGETS(3).label = 'category';
+TARGETS(3).type = 'category'; % {'category','similarity'}
+TARGETS(3).sim_source = '';
+TARGETS(3).sim_metric = '';
+TARGETS(3).target = [true(50,1); false(50,1)];
+
 % Cross-validation
 % ----------------
 % The methods in WholeBrain_RSA will not generate CV indexes for you. This is
@@ -212,7 +218,7 @@ addpath('../../dependencies/jsonlab/');
 % it will probably make sense for them to be absolute. The following should
 % translate into a valid json file for the purpose of this demo.
 params = struct('regularization','GrOWL2','bias',0,'tau',0.2,...
-    'lambda1', 7.86, 'lambda', 7.65, 'LambdaSeq', 'inf',...
+    'lambda1', [7.86,4], 'lambda', [7.65,4], 'LambdaSeq', 'inf',...
     'cvscheme', 1,'cvholdout', 1:10, 'finalholdout', 0,...
     'target_label', 'visual', 'target_type','similarity', ...
     'sim_source', 'chamfer', 'sim_metric', 'chamfer',...
@@ -222,7 +228,15 @@ params = struct('regularization','GrOWL2','bias',0,'tau',0.2,...
     'metadata_varname', 'metadata', 'orientation', 'tlrc',...
     'filters', {{'ROI01','GoodRows'}}, 'SmallFootprint', false,...
     'debug', false, 'SaveResultsAs','mat', 'subject_id_fmt', 's%03d.mat');
-
+params_hb = params;
+params_hb.BRACKETS.n = [81,27,9,3,1];
+params_hb.BRACKETS.r = [1,3,9,27,81];
+params_hb.BRACKETS.s = 4;
+params_hb.HYPERBAND.aggressiveness = 3;
+params_hb.HYPERBAND.budget = 100;
+params_hb.HYPERBAND.hyperparameters= {'lambda','lambda1'};
+params_hb.lambda = rand(1,81)*10;
+params_hb.lambda1 = rand(1,81)*10;
 savejson('',params,'FileName','params.json','ForceRootName',false);
 
 %% Run WholeBrain_RSA
@@ -238,7 +252,7 @@ savejson('',params,'FileName','params.json','ForceRootName',false);
 % results.mat (or results.json) file in the directory where WholeBrain_RSA was
 % executed.
 addpath('../../src/')
-WholeBrain_RSA()
+WholeBrain_MVPA()
 
 
 %% Run WholeBrain_RSA: Searchlight

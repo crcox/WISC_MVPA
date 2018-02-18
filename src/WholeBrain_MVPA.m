@@ -188,49 +188,16 @@ function WholeBrain_MVPA(varargin)
 %    datafile = fullfile('D:/MRI/SoundPicture/data/MAT/avg/bysession',uncell(datafile));
 %    metafile = fullfile('D:/MRI/SoundPicture/data/MAT/avg/bysession',uncell(metafile));
 %
-    %% Load metadata
-    StagingContainer = load(metafile, metadata_varname);
-    metadata = StagingContainer.(metadata_varname); clear StagingContainer;
-    subject_label = {metadata.subject};
-    [metadata, subjix] = subsetMetadata(metadata, datafiles, FMT_subjid);
 
-    %% Load data   
-    X = loadData_new(datafiles, data_varname, metafile, metadata_varname, FMT_subjid, filter_labels);
+%     %% Load metadata
+%     StagingContainer = load(metafile, metadata_varname);
+%     metadata = StagingContainer.(metadata_varname); clear StagingContainer;
+%     subject_label = {metadata.subject};
+%     [metadata, subjix] = subsetMetadata(metadata, datafiles, FMT_subjid);
 
-    % N.B. Both X and metadata are ordered the same as the 'datafile' cell
-    % array. This means the i-th structure in the metadata array corresponds to
-    % the i-th cell in the X array. It also means that the order the files were
-    % listed dictates the order of these arrays---they are not sorted into
-    % ascending numeric or alphabetic order.
-
-
-    %% Compose and apply filters for each of N subjects
-    %%  --- and ---
-    %% Load CV indexes, identifying the final holdout set.
-    % N.B. the final holdout set is excluded from the rowfilter.
-    rowfilter = cell(max(subjix),1);
-    colfilter = cell(max(subjix),1);
-    cvind     = cell(max(subjix),1);
-    cvindAll  = cell(max(subjix),1);
-    for i = subjix
-        M = selectbyfield(metadata,'subject', subject_label{i});
-        if isempty(filter_labels)
-            rowfilter{i} = true(1,M.nrow);
-            colfilter{i} = true(1,M.ncol);
-        else
-            [rowfilter{i},colfilter{i}] = composeFilters_new(M.filters, filter_labels);
-        end
-        cvindAll{i} = M.cvind(:,cvscheme);
-        finalholdout = cvindAll{i} == finalholdoutInd;
-        % Add the final holdout set to the rowfilter
-        rowfilter{i} = forceRowVec(rowfilter{i}) & forceRowVec(~finalholdout);
-        % Remove the final holdout set from the cvind, to match.
-        cvind{i} = cvindAll{i}(rowfilter{i});
-        % Apply the row and column filters
-        X{i} = X{i}(rowfilter{i},colfilter{i});
-    end
-
-    %% Select targets
+    %% Load data
+    
+    % Select targets
     fprintf('\n');
     fprintf('Loading similarity structure\n');
     fprintf('----------------------------\n');
@@ -239,6 +206,53 @@ function WholeBrain_MVPA(varargin)
     fprintf('%12s: %s\n', 'sim_source', sim_source);
     fprintf('%12s: %s\n', 'sim_metric', sim_metric);
     fprintf('\n');
+    
+    X = loadData_new(...
+        datafiles, data_varname, ...
+        metafile, metadata_varname, ...
+        FMT_subjid, ...
+        filter_labels, ...
+        target_label, ...
+        target_type, ...
+        sim_source, ...
+        sim_metric, ...
+        cvscheme, ...
+        finalholdoutInd);
+
+    % N.B. Both X and metadata are ordered the same as the 'datafile' cell
+    % array. This means the i-th structure in the metadata array corresponds to
+    % the i-th cell in the X array. It also means that the order the files were
+    % listed dictates the order of these arrays---they are not sorted into
+    % ascending numeric or alphabetic order.
+
+
+%     %% Compose and apply filters for each of N subjects
+%     %%  --- and ---
+%     %% Load CV indexes, identifying the final holdout set.
+%     % N.B. the final holdout set is excluded from the rowfilter.
+%     rowfilter = cell(max(subjix),1);
+%     colfilter = cell(max(subjix),1);
+%     cvind     = cell(max(subjix),1);
+%     cvindAll  = cell(max(subjix),1);
+%     for i = subjix
+%         M = selectbyfield(metadata,'subject', subject_label{i});
+%         if isempty(filter_labels)
+%             rowfilter{i} = true(1,M.nrow);
+%             colfilter{i} = true(1,M.ncol);
+%         else
+%             [rowfilter{i},colfilter{i}] = composeFilters_new(M.filters, filter_labels);
+%         end
+%         cvindAll{i} = M.cvind(:,cvscheme);
+%         finalholdout = cvindAll{i} == finalholdoutInd;
+%         % Add the final holdout set to the rowfilter
+%         rowfilter{i} = forceRowVec(rowfilter{i}) & forceRowVec(~finalholdout);
+%         % Remove the final holdout set from the cvind, to match.
+%         cvind{i} = cvindAll{i}(rowfilter{i});
+%         % Apply the row and column filters
+%         X{i} = X{i}(rowfilter{i},colfilter{i});
+%     end
+
+
 
     tmpS = selectTargets(metadata, target_type, target_label, sim_source, sim_metric, rowfilter(subjix));
     S = cell(max(subjix),1);
@@ -247,20 +261,20 @@ function WholeBrain_MVPA(varargin)
     end
     clear tmpS;
 
-    % Apply the column filter to the coordinates in the metadata structure
-    for i = 1:numel(metadata)
-        COORDS = selectbyfield(metadata(i).coords, 'orientation', orientation);
-        COORDS_FIELDS = fieldnames(COORDS);
-        for j = 1:numel(COORDS_FIELDS)
-            cfield = COORDS_FIELDS{j};
-            if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(COORDS.(cfield))
-                COORDS.(cfield) = COORDS.(cfield)(colfilter{i},:);
-            elseif any(strcmp(cfield, {'ind'})) && ~isempty(COORDS.(cfield))
-                COORDS.(cfield) = COORDS.(cfield)(colfilter{i});
-            end
-        end
-        metadata(i).coords = COORDS;
-    end
+%     % Apply the column filter to the coordinates in the metadata structure
+%     for i = 1:numel(metadata)
+%         COORDS = selectbyfield(metadata(i).coords, 'orientation', orientation);
+%         COORDS_FIELDS = fieldnames(COORDS);
+%         for j = 1:numel(COORDS_FIELDS)
+%             cfield = COORDS_FIELDS{j};
+%             if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(COORDS.(cfield))
+%                 COORDS.(cfield) = COORDS.(cfield)(colfilter{i},:);
+%             elseif any(strcmp(cfield, {'ind'})) && ~isempty(COORDS.(cfield))
+%                 COORDS.(cfield) = COORDS.(cfield)(colfilter{i});
+%             end
+%         end
+%         metadata(i).coords = COORDS;
+%     end
     fprintf('Data Dimensions\n');
     fprintf('%16s%16s%16s\n','subject','initial','filtered');
     fprintf('%s\n',repmat('-',1,16*3));

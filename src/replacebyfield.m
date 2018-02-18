@@ -3,8 +3,8 @@ function S = replacebyfield(S, s, varargin)
 % USAGE
 % S = struct('label', {'A','A','B','B'}, 'dim', {1,2,1,2});
 % s = struct('label', 'C', 'dim', 3);
-% S = selectbyfield(S, s, 'label', 'A');
-% S = selectbyfield(S, s, 'label', 'A', 'dim', 1);
+% Sx = replacebyfield(S, s, 'label', 'A'); % Will through an error.
+% Sx = replacebyfield(S, s, 'label', 'A', 'dim', 1);
     args = reshape(varargin, 2, []);
     z = true(1, numel(S));
     for i = 1:size(args,2)
@@ -16,5 +16,9 @@ function S = replacebyfield(S, s, varargin)
             z = z & strcmp(value, {S.(field)});
         end
     end
-    S(z) = s;
+    if nnz(z) > 1
+        error('replacebyfield:NotUnique', 'The combination of values to match did not yield a unique substructure to update.')
+    else
+        S(z) = s;
+    end
 end
