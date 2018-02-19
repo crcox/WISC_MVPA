@@ -196,17 +196,6 @@ function WholeBrain_MVPA(varargin)
 %     [metadata, subjix] = subsetMetadata(metadata, datafiles, FMT_subjid);
 
     %% Load data
-    
-    % Select targets
-    fprintf('\n');
-    fprintf('Loading similarity structure\n');
-    fprintf('----------------------------\n');
-    fprintf('%12s: %s\n', 'target_label', target_label);
-    fprintf('%12s: %s\n', 'type', target_type);
-    fprintf('%12s: %s\n', 'sim_source', sim_source);
-    fprintf('%12s: %s\n', 'sim_metric', sim_metric);
-    fprintf('\n');
-    
     X = loadData_new(...
         datafiles, data_varname, ...
         metafile, metadata_varname, ...
@@ -219,93 +208,32 @@ function WholeBrain_MVPA(varargin)
         cvscheme, ...
         finalholdoutInd);
 
-    % N.B. Both X and metadata are ordered the same as the 'datafile' cell
-    % array. This means the i-th structure in the metadata array corresponds to
-    % the i-th cell in the X array. It also means that the order the files were
-    % listed dictates the order of these arrays---they are not sorted into
-    % ascending numeric or alphabetic order.
-
-
-%     %% Compose and apply filters for each of N subjects
-%     %%  --- and ---
-%     %% Load CV indexes, identifying the final holdout set.
-%     % N.B. the final holdout set is excluded from the rowfilter.
-%     rowfilter = cell(max(subjix),1);
-%     colfilter = cell(max(subjix),1);
-%     cvind     = cell(max(subjix),1);
-%     cvindAll  = cell(max(subjix),1);
-%     for i = subjix
-%         M = selectbyfield(metadata,'subject', subject_label{i});
-%         if isempty(filter_labels)
-%             rowfilter{i} = true(1,M.nrow);
-%             colfilter{i} = true(1,M.ncol);
-%         else
-%             [rowfilter{i},colfilter{i}] = composeFilters_new(M.filters, filter_labels);
-%         end
-%         cvindAll{i} = M.cvind(:,cvscheme);
-%         finalholdout = cvindAll{i} == finalholdoutInd;
-%         % Add the final holdout set to the rowfilter
-%         rowfilter{i} = forceRowVec(rowfilter{i}) & forceRowVec(~finalholdout);
-%         % Remove the final holdout set from the cvind, to match.
-%         cvind{i} = cvindAll{i}(rowfilter{i});
-%         % Apply the row and column filters
-%         X{i} = X{i}(rowfilter{i},colfilter{i});
-%     end
-
-
-
-    tmpS = selectTargets(metadata, target_type, target_label, sim_source, sim_metric, rowfilter(subjix));
-    S = cell(max(subjix),1);
-    for i = 1:numel(tmpS);
-        S(subjix(i)) = tmpS(i);
+    % For all targets with type 'similarity', generate a low-rank embedding
+    % and update the 'target' field of the targets structure (replacing the
+    % item-by-item symetric similarity matrix.
+    for i = 1:numel(X)
+        X(i) = X(i).generateEmbeddings(tau, 'ExtendEmbedding', true);
     end
-    clear tmpS;
-
-%     % Apply the column filter to the coordinates in the metadata structure
-%     for i = 1:numel(metadata)
-%         COORDS = selectbyfield(metadata(i).coords, 'orientation', orientation);
-%         COORDS_FIELDS = fieldnames(COORDS);
-%         for j = 1:numel(COORDS_FIELDS)
-%             cfield = COORDS_FIELDS{j};
-%             if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(COORDS.(cfield))
-%                 COORDS.(cfield) = COORDS.(cfield)(colfilter{i},:);
-%             elseif any(strcmp(cfield, {'ind'})) && ~isempty(COORDS.(cfield))
-%                 COORDS.(cfield) = COORDS.(cfield)(colfilter{i});
-%             end
-%         end
-%         metadata(i).coords = COORDS;
-%     end
+    
+    % Report target infomation
+    fprintf('\n');
+    fprintf('Target Structure Summary\n');
+    fprintf('------------------------\n');
+    fprintf('%12s: %s\n', 'target_label', target_label);
+    fprintf('%12s: %s\n', 'type', target_type);
+    fprintf('%12s: %s\n', 'sim_source', sim_source);
+    fprintf('%12s: %s\n', 'sim_metric', sim_metric);
+    fprintf('\n');
+    
     fprintf('Data Dimensions\n');
+    fprintf('---------------\n');
     fprintf('%16s%16s%16s\n','subject','initial','filtered');
     fprintf('%s\n',repmat('-',1,16*3));
-    for i = subjix
-        fprintf('%16d (%6d,%6d) (%6d,%6d)\n',i,numel(rowfilter{i}),numel(colfilter{i}),size(X{i},1),size(X{i},2));
+    for i = 1:numel(X)
+        fprintf('%16s (%6d,%6d) (%6d,%6d)\n',num2str(X(i).subject),size(X(i).getData('unfiltered',true)),size(X(i).getData('unfiltered',false)));
     end
     fprintf('\n');
-
     fprintf('Data loaded and processed.\n');
-
-    C = cell(max(subjix),1);
-    for i = subjix
-        switch target_type
-            case 'similarity'
-                [C{i}, r] = sqrt_truncate_r(S{i}, tau);
-                fprintf('S decomposed into %d dimensions (tau=%.2f)\n', r, tau)
-            case {'embedding','category'}
-                C{i} = S{i};
-%                 r = size(C{i},2);
-        end
-        if size(C{i},1) < size(X{i},1)
-            remainder = rem(size(X{i},1), size(C{i},1));
-            if remainder > 0
-                error('C has fewer rows than X, and number in X is not evenly divisible by number in C.');
-            else
-                repeatntimes = size(X{i},1) ./ size(C{i},1);
-                warning('C has fewer rows than X, and number in X is evenly divisible by number in C. Repeating C %d times to match.', repeatntimes);
-                C{i} = repmat(C{i}, repeatntimes, 1);
-            end
-        end
-    end
 
     % Note on randomization for permutation
     % -------------------------------------
@@ -324,32 +252,24 @@ function WholeBrain_MVPA(varargin)
     % PERMUTATION_INDEXES.mat
     fprintf('PermutationTest: %d\n', PermutationTest);
     if PermutationTest
-        [a,b] = ndgrid(subjix,RandomSeed);
-        Permutations = struct('subject', num2cell(a),'RandomSeed', num2cell(b),'index',[]);
+%         [a,b] = ndgrid(subjix,RandomSeed);
+%         Permutations = struct('subject', num2cell(a),'RandomSeed', num2cell(b),'index',[]);
         switch PermutationMethod
-%                 case 'simple'
-%                     if RestrictPermutationByCV
-%                         C = permute_target(C, PermutationMethod, cvind);
-%                     else
-%                         C = permute_target(C, PermutationMethod);
-%                     end
             case 'manual'
                 StagingArea = load(PermutationIndex, 'PERMUTATION_INDEX');
                 PERMUTATION_INDEX = StagingArea.PERMUTATION_INDEX;
-                for i = subjix
-                    for j = RandomSeed
-                        P = selectbyfield(Permutations,'subject',i,'RandomSeed',j);
-                        %  This is kind of a hack to handle the fact eliminating
-                        %  outlying rows and rows belonging to the final holdout
-                        %  set will create gaps in the index.
-                        [~, ix] = sort(PERMUTATION_INDEX{i}(rowfilter{i}, j));
-                        [~, permutation_index] = sort(ix);
-                        if size(permutation_index, 1) < size(C{i}, 1)
-                            permutation_index = extend_permutation_index(permutation_index, size(C{i}, 1));
-                        end
-                        P.index = permutation_index;
-                        Permutations = replacebyfield(Permutations, P, 'subject', i, 'RandomSeed', j);
-                    end
+                for i = 1:numel(X)
+                    P = selectbyfield(PERMUTATION_INDEX, 'subject', X.subject);
+                    X.permutations = struct( ...
+                        'RandomSeed',RandomSeed, ...
+                        'index',P.permutation_index(:,RandomSeed));
+%                     [~, ix] = sort(PERMUTATION_INDEX{i}(rowfilter{i}, j));
+%                     [~, permutation_index] = sort(ix);
+%                     if size(permutation_index, 1) < size(C{i}, 1)
+%                         permutation_index = extend_permutation_index(permutation_index, size(C{i}, 1));
+%                     end
+%                     P.index = permutation_index;
+%                     Permutations = replacebyfield(Permutations, P, 'subject', i, 'RandomSeed', j);
                 end
             otherwise
                 error('crcox:NotImplemented', 'Permutations need to be specified manually.');
