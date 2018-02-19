@@ -132,6 +132,27 @@ classdef Subject
             end
         end
         
+        function x = getCVScheme(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj', @(x) isa(x, 'Subject'));
+            addParameter(p, 'unfiltered', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
+            addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
+            addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
+            parse(p, obj, varargin{:});
+            
+            if p.Results.unfiltered
+                x = obj.cvscheme;
+            else
+                if ~isempty(p.Results.include);
+                    rf = obj.getRowFilter('include',p.Results.include);
+                elseif ~isempty(p.Results.exclude);
+                    rf = obj.getRowFilter('exclude',p.Results.exclude);
+                else
+                    rf = obj.getRowFilter();
+                end
+                x = obj.cvscheme(rf);
+            end
+        end        
         function x = getData(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
@@ -157,7 +178,6 @@ classdef Subject
         function c = getTargets(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
-            addOptional(p, 'index', 0, @(x) isnumeric(x) && isscalar(x));
             addParameter(p, 'unfiltered', false, @(x) islogical(x) || any(isnumeric(x) == [1,0]));
             addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
@@ -175,11 +195,8 @@ classdef Subject
                     rf = obj.getRowFilter();
                 end
             end
-            if p.Results.index > 0
-                x = obj.targets(p.Results.index);
-            else
-                x = obj.targets;
-            end
+
+            x = obj.targets;
             for i = 1:numel(x)
                 if iscell(x(i).type)
                     for j = 1:numel(x(i).type)
@@ -224,7 +241,35 @@ classdef Subject
             end
         end
         
-        function c = getPermutedTargets(obj,varargin)
+        function pix = getPermutationIndex(obj, RandomSeed)
+            z = obj.permutations.RandomSeed == RandomSeed;
+            pix = obj.permutations.index(:,z);
+        end
+        
+        function tp = getPermutedTargets(obj,varargin)
+            p = inputParser();
+            addRequired(p, 'obj', @(x) isa(x, 'Subject'));
+            addParameter(p, 'unfiltered', false, @(x) islogical(x) || any(isnumeric(x) == [1,0]));
+            addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
+            addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
+            addParameter(p, 'simplify', false, @(x) islogical(x) || any(isnumeric(x) == [2,1,0]));
+            addParameter(p, 'RandomSeed', 0, @(x) isnumeric(x) || isscalar(x));
+            parse(p, obj, varargin{:});
+            
+            t = obj.getTargets(...
+                'unfiltered', true, ...
+                'include', p.Results.include, ...
+                'exclude', p.Results.exclude, ...
+                'simplify', p.Results.simplify);
+            pix = obj.getPermutationIndex(p.Results.RandomSeed);
+            if p.Results.unfiltered
+                tp = t(pix);
+            else
+                rf = obj.getRowFilter();
+                rfp = rf(pix);
+                tp = t(pix);
+                tp = tp(rfp);
+            end
         end
         
         function obj = generateEmbeddings(obj, tau, varargin)

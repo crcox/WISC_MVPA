@@ -36,7 +36,7 @@ function WholeBrain_MVPA(varargin)
     addParameter(p , 'normalize_target', 'none'        , @ischar ); % NEW VARIABLE!
     addParameter(p , 'normalize_wrt'    , 'all_examples', @ischar ); % NEW VARIABLE!
     % Permutation
-    addParameter(p , 'RandomSeed'             , []                    );
+    addParameter(p , 'RandomSeed'             , 0                     );
     addParameter(p , 'PermutationTest'        , false, @islogicallike );
     addParameter(p , 'PermutationMethod'      , 'manual', @ischar     );
     addParameter(p , 'PermutationIndex'       , ''   , @ischar        );
@@ -252,35 +252,25 @@ function WholeBrain_MVPA(varargin)
     % PERMUTATION_INDEXES.mat
     fprintf('PermutationTest: %d\n', PermutationTest);
     if PermutationTest
-%         [a,b] = ndgrid(subjix,RandomSeed);
-%         Permutations = struct('subject', num2cell(a),'RandomSeed', num2cell(b),'index',[]);
         switch PermutationMethod
             case 'manual'
                 StagingArea = load(PermutationIndex, 'PERMUTATION_INDEX');
                 PERMUTATION_INDEX = StagingArea.PERMUTATION_INDEX;
                 for i = 1:numel(X)
                     P = selectbyfield(PERMUTATION_INDEX, 'subject', X.subject);
-                    X.permutations = struct( ...
+                    X(i).permutations = struct( ...
                         'RandomSeed',RandomSeed, ...
                         'index',P.permutation_index(:,RandomSeed));
-%                     [~, ix] = sort(PERMUTATION_INDEX{i}(rowfilter{i}, j));
-%                     [~, permutation_index] = sort(ix);
-%                     if size(permutation_index, 1) < size(C{i}, 1)
-%                         permutation_index = extend_permutation_index(permutation_index, size(C{i}, 1));
-%                     end
-%                     P.index = permutation_index;
-%                     Permutations = replacebyfield(Permutations, P, 'subject', i, 'RandomSeed', j);
                 end
             otherwise
                 error('crcox:NotImplemented', 'Permutations need to be specified manually.');
         end
     else
         RandomSeed = 0;
-        Permutations = struct('subject', num2cell(subjix), 'RandomSeed', 0, 'index',[]);
-        for i = subjix
-            P = selectbyfield(Permutations,'subject',i,'RandomSeed',0);
-            P.index = (1:size(C{i}, 1))';
-            Permutations = replacebyfield(Permutations, P, 'subject', i, 'RandomSeed', 0);
+        for i = 1:numel(X)
+            X(i).permutations = struct( ...
+                'RandomSeed',RandomSeed, ...
+                'index',(1:size(X(i).getData('unfiltered',true), 1))');
         end
     end
 
@@ -288,9 +278,9 @@ function WholeBrain_MVPA(varargin)
     % This is being handled within the 
     switch upper(regularization)
         case {'GROWL','GROWL2','L1L2','LASSO'}
-            SubjectsParameter = subjix;
+            SubjectsParameter = [X.subject];
         case 'SOSLASSO'
-            SubjectsParameter = {{subjix}};
+            SubjectsParameter = {{X.subject}};
     end
 
     if exist('checkpoint.mat','file')
@@ -340,9 +330,8 @@ function WholeBrain_MVPA(varargin)
     end
 
     xyz = cell(numel(metadata),1);
-    for ii = 1:numel(metadata)
-        z = strcmp({metadata(ii).coords.orientation}, orientation);
-        xyz{ii} = metadata(ii).coords(z).xyz;
+    for i = 1:numel(X)
+        xyz{i} = X(i).getCoords(orientation,'xyz','simplify',true);
     end
     switch upper(regularization)
         case 'SOSLASSO'
@@ -363,29 +352,21 @@ function WholeBrain_MVPA(varargin)
         n = BRACKETS.n;
         r = BRACKETS.r;
         while 1
-            opts.max_iter = r(bracket_index) * p.Results.IterationsPerHyperband; % This 1000 is an important constant... might want to think about this/expose it as a parameter.
-            ModelInstances = learn_similarity_encoding(ModelInstances, C, X, regularization,...
-                'cvind'          , cvind        , ...
-                'permutations'   , Permutations , ...
-                'AdlasOpts'      , opts);
+            opts.max_iter = r(bracket_index) * p.Results.IterationsPerHyperband;
+            ModelInstances = learn_encoding(ModelInstances, C, X, regularization, 'AdlasOpts', opts);
             % Delete low ranked configurations:
             ModelInstances = hyperband_pick_top_n(ModelInstances, n(bracket_index));
             bracket_index = bracket_index + 1;
             if bracket_index < numel(n)
                 save('checkpoint.mat', 'ModelInstances', 'bracket_index');
             else
-                if exist('checkpoint.mat', 'file')
-                    delete('checkpoint.mat');
-                end
+                if exist('checkpoint.mat', 'file'), delete('checkpoint.mat'); end
                 break
             end
         end
     else
         % Grid search
-        ModelInstances = learn_similarity_encoding(ModelInstances, C, X, regularization,...
-            'cvind'          , cvind        , ...
-            'permutations'   , Permutations , ...
-            'AdlasOpts'      , opts);
+        ModelInstances = learn_encoding(ModelInstances, C, X, regularization, 'AdlasOpts', opts);
     end
 
     cur = 0;
