@@ -135,8 +135,8 @@ function WholeBrain_MVPA(varargin)
     clear StagingContainer;
     % Load permutation object
     if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod,'manual');
-    	StagingContainer = load(p.Results.PermutationIndex, perm_varname);
-        permutations = StagingContainer.(perm_varname);
+    	StagingContainer = load(p.Results.PermutationIndex, p.Results.perm_varname);
+        permutations = StagingContainer.(p.Results.perm_varname);
         clear StagingContainer;
     end
     % Loop over datafiles
