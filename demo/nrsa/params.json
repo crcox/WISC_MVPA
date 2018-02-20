@@ -12,7 +12,7 @@
 	"target_type": "similarity",
 	"sim_source": "chamfer",
 	"sim_metric": "chamfer",
-	"data": "./shared/s100.mat",
+	"data": ["./shared/s100.mat","./shared/s101.mat"],
 	"data_var": "X",
 	"normalize_data": "zscore",
 	"normalize_wrt": "training_set",
