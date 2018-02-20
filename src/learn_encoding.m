@@ -1,58 +1,48 @@
-function ModelInstances = learn_encoding(ModelInstances, Y, X, regularization, varargin)
+function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regularization, varargin)
     p = inputParser();
     addRequired(p  , 'ModelInstances');
-    addRequired(p  , 'Y');
-    addRequired(p  , 'X');
+    addRequired(p  , 'SubjectArray');
     addRequired(p  , 'regularization');
-    addParameter(p , 'AdlasOpts'               , struct() );
-    addParameter(p , 'Verbose'                 , true     );
-    parse(p, ModelInstances, Y, X, regularization, varargin{:});
-
-    options        = p.Results.AdlasOpts;
-    
-    Xorig = X;
-    Yorig = Y;
+    addParameter(p , 'AdlasOpts' , struct() );
+    addParameter(p , 'Verbose'   , true     );
+    parse(p, ModelInstances, SubjectArray, regularization, varargin{:});
 
     for i = 1:numel(ModelInstances)
-        subix = ModelInstances(i).subject;
-        cvix = ModelInstances(i).cvholdout;
-        regularization = ModelInstances(i).regularization;
-        normalize_data = ModelInstances(i).normalize_data;
-        normalize_target = ModelInstances(i).normalize_target;
-        normalize_wrt = ModelInstances(i).normalize_wrt;
-        BIAS = ModelInstances(i).bias;
+        S = selectbyfield(SubjectArray,'subject',ModelInstances(i).subject);
+        X = cell(numel(S), 1);
+        Y = cell(numel(S), 1);
+        train_set = cell(numel(X),1);
+        for j = 1:numel(S)
+            X{j} = S.getData();
+            Y{j} = S.getPermutedTargets(ModelInstances(i).RandomSeed,'simplify',true);
+            train_set{j}  = S.getTrainingSet(ModelInstances(i).cvholdout);
+            switch ModelInstances(i).normalize_wrt
+                case 'all_examples'
+                    X{j} = normalize_columns(X{j}, ModelInstances(i).normalize_data);
+                    Y{j} = normalize_columns(Y{j}, ModelInstances(i).normalize_target);
 
-        if iscell(X)
-            train_set = cell(numel(X),1);
-            for j = 1:numel(X)
-                P = selectbyfield(permutations,'subject', subix(j), 'RandomSeed', ModelInstances(i).RandomSeed);
-                X{j} = Xorig{j};
-                Y{j} = Yorig{j}(P.index,:);
-                train_set{j}  = cvind{j} ~= cvix; % CHECK THIS
-                switch normalize_wrt
-                    case 'all_examples'
-                        X{j} = normalize_columns(X{j}, normalize_data);
-                        Y{j} = normalize_columns(Y{j}, normalize_target);
-
-                    case 'training_set'
-                        X{j} = normalize_columns(X{j}, normalize_data, train_set{j});
-                        Y{j} = normalize_columns(Y{j}, normalize_target, train_set{j});
-                end
-                if BIAS
-                    X{j} = [X{j}, ones(size(X,1),1)]; %#ok<AGROW> It's not actually growing, see line 86.
-                end
+                case 'training_set'
+                    X{j} = normalize_columns(X{j}, ModelInstances(i).normalize_data, train_set{j});
+                    Y{j} = normalize_columns(Y{j}, ModelInstances(i).normalize_target, train_set{j});
+            end
+            if ModelInstances(i).bias
+                X{j} = [X{j}, ones(size(X,1),1)];
             end
         end
 
-        switch upper(regularization)
+        bias = ModelInstances(i).bias;
+        options = p.Results.AdlasOpts;
+        switch upper(ModelInstances(i).regularization)
             case 'L1L2'
                 options.lambda = ModelInstances(i).lambda;
                 options.lambda1 = ModelInstances(i).lambda1;
                 lamseq = options.lambda;
                 
             case {'GROWL','GROWL2'}
-                % There is no real distinction between GROWL and GROWL2 anymore, but for continuity I'll make GROWL2 map to this anyway.
-                [~,d] = size(X{subix});
+            % There is no real distinction between GROWL and GROWL2
+            % anymore, but for continuity I'll make GROWL2 map to this
+            % anyway.
+                d = size(X{1}, 2);
                 options.lambda = ModelInstances(i).lambda;
                 options.lambda1 = ModelInstances(i).lambda1;
                 LambdaSeq = ModelInstances(i).lambdaSeq;
@@ -71,7 +61,7 @@ function ModelInstances = learn_encoding(ModelInstances, Y, X, regularization, v
                 G = ModelInstances(i).G;
 
             otherwise
-                error('%s is not an implemented regularization. check spelling', regularization);
+                error('%s is not an implemented regularization. check spelling', ModelInstances(i).regularization);
         end
 
         % TRAINING CONDITIONS
@@ -102,35 +92,23 @@ function ModelInstances = learn_encoding(ModelInstances, Y, X, regularization, v
         %   because they have converged on a solution already, anyway),
         %   this error should be avoided.
         if isempty(ModelInstances(i).Model)
-            switch upper(regularization)
+            switch upper(ModelInstances(i).regularization)
                 case {'LASSO','SOSLASSO'}
-                    ModelInstances(i).Model = SOSLasso(X,Y,lamSOS,lamL1,G,train_set,BIAS,options);
+                    ModelInstances(i).Model = SOSLasso(X,Y,lamSOS,lamL1,G,train_set, bias,options);
                 case {'L1L2','GROWL','GROWL2'}
                     % LambdaSeq must be a column vector
-                    ModelInstances(i).Model = Adlas(X{subix}, Y{subix}, lamseq(:), train_set{subix}, BIAS, options);
+                    ModelInstances(i).Model = Adlas(X{1}, Y{1}, lamseq(:), train_set{1}, bias, options);
             end
             ModelInstances(i).Model = ModelInstances(i).Model.train(options);
         elseif ModelInstances(i).Model.status == 2
             ModelInstances(i).Model = ModelInstances(i).Model.train(options);
         else
-        % Do nothing
+            % Do nothing
         end
         ModelInstances(i).Model = ModelInstances(i).Model.test();
-        if i == 1, disp(ModelInstances(i).Model, 'header'); end
-        disp(ModelInstances(i).Model, 'bysubject', ModelInstances(i).cvholdout, ModelInstances(i).subject);
-%         err1 = ModelInstances(i).Model.testError;
-%         err2 = ModelInstances(i).Model.trainingError;
-%         Unz = cellfun(@(x) nnz(any(x,2)), ModelInstances(i).Model.getWeights());
-%         
-%         nv = size(ModelInstances(i).Model.X, 1);
-%         if isempty(lamL1)
-%             lamL1 = nan;
-%         end
-% 
-%         if VERBOSE
-%             fprintf('%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
-%                 cvix,lamSOS,lamL1,mean(err1),mean(err2),mean(Unz),mean(nv),ModelInstances(i).Model.iter,'soslasso');
-%         end
+        if i == 1, printresults(ModelInstances(i).Model, 'header'); end
+        printresults(ModelInstances(i).Model, 'bysubject', ModelInstances(i).cvholdout, ModelInstances(i).subject);
+
     end
 end
 

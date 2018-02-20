@@ -15,6 +15,14 @@ classdef Subject
         permutations
     end
     
+    properties (Hidden=true)
+        BoxCar
+        WindowStart
+        WindowSize
+        nTotalExamples
+        nTotalFeatures
+    end
+    
     methods
         % This function should be more stringent. For example, check that
         % required fields are set and check that they are set to sane
@@ -32,6 +40,172 @@ classdef Subject
                 disp(fn{i})
                 obj.(fn{i}) = s.(fn{i});
             end
+        end
+        
+        function obj = setFilename(obj, filename)
+            obj.filename = filename;
+            if hasWindowInfo(filename)
+                s = extractWindowInfo(filename);
+                obj.BoxCar = s.BoxCar;
+                obj.WindowStart = s.WindowStart;
+                obj.WindowSize = s.WindowSize;
+            end
+            
+            % Functions private to this method
+            function s = extractWindowInfo(x)
+                a = strfind(x,'BoxCar');
+                y = sscanf(x(a:end), 'BoxCar/%d/WindowStart/%d/WindowSize/%d');
+                s = struct('BoxCar',y(1),'WindowStart',y(2),'WindowSize',y(3));
+            end
+
+            function b = hasWindowInfo(x)
+                y = {'BoxCar','WindowSize','WindowStart'};
+                b = all(ismember(y,strsplit(x, '/'))) || all(ismember(y,strsplit(x, '\')));
+            end
+        end
+        
+        function b = hasWindowInfo(obj)
+            b = ~isempty(obj.Boxcar);
+        end
+        
+        function obj = setLabel(obj, label)
+            obj.label = label;
+        end
+        
+        function obj = setDataFromFilenameAndLabel(obj)
+            % Currently assumes that data is .mat format
+            tmp = load(obj.filename, obj.label);
+            obj = obj.setData(tmp.(obj.label));
+        end
+        
+        function obj = setData(obj, x)
+            obj.data = x;
+            [obj.nTotalExamples,obj.nTotalFeatures] = size(x);
+        end
+        
+        function obj = setTargets(obj, targets)
+            obj.targets = targets;
+        end
+        
+        function obj = setRowFilters(obj, filters)
+            obj = obj.setFilters(filters, 'rowfilters');
+        end
+        
+        function obj = setColFilters(obj, filters)
+            obj = obj.setFilters(filters, 'colfilters');
+        end
+        
+        function obj = setFilters(obj,filters,field)
+            for i = 1:numel(filters);
+                % Force row vector
+                filters(i).filter = filters(i).filter(:)';
+            end
+            obj.(field) = filters;
+        end
+        
+        function obj = setFinalHoldoutFilter(obj, finalholdoutindex)
+            if strcmpi('notes', fieldnames(obj.rowfilters))
+                FHO = struct( ...
+                    'label', 'finalholdout', ...
+                    'orientation', 1, ...
+                    'filter', obj.cvscheme(:)' ~= finalholdoutindex, ...
+                    'note', 'autogen');
+            else
+                FHO = struct( ...
+                    'label', 'finalholdout', ...
+                    'dimension', 1, ...
+                    'filter', obj.cvscheme(:)' ~= finalholdoutindex);
+            end
+            if any(strcmpi('finalholdout',{obj.rowfilters.label}))
+                obj.rowfilters = replacebyfield(obj.rowfilters,FHO,'label','finalholdout','dimension',1);
+            else
+                obj.rowfilters(end+1) = FHO;
+            end
+        end
+        
+        function obj = setSubjectIDFromFilename(obj, pattern)
+            [~,fname,~] = fileparts(obj.filename);
+            id = sscanf(fname, pattern);
+            if isempty(id)
+                error('Failed to extract subject id from data filename %s. Exiting...', obj.filename);
+            end
+            obj.subject = id;
+        end
+        
+        function obj = setSubjectIDFromString(obj, string, pattern)
+            [~,fname,~] = fileparts(string);
+            id = sscanf(fname, pattern);
+            if isempty(id)
+                error('Failed to extract subject id from data string %s. Exiting...', string);
+            end
+            obj.subject = id;
+        end
+        
+        function obj = setCVScheme(obj, cvscheme)
+            obj.cvscheme = cvscheme;
+        end
+ 
+        function obj = setPermutations(obj, method, index, varargin)
+        % Note on randomization for permutation
+        % -------------------------------------
+        % A required argument when specifying permutations is a list of
+        % "RandomSeeds". These are applied near the beginning of the
+        % program (within WholeBrain_RSA), to seed the random number
+        % generator.
+        %
+        % If the PermutationMethod is 'manual', then the RandomSeed has a
+        % different (additional) function. It will be used to index into
+        % the columns of a n x p matrix, generated in advance, that
+        % contains the indexes to generate p unique permutations.
+        %
+        % In this case, the matrix should stored in a variable named
+        % PERMUTATION_INDEXES, contained within a file named
+        % PERMUTATION_INDEXES.mat
+            p = inputParser();
+            addRequired(p, 'obj', @(x) isa(x, 'Subject'));
+            addRequired(p, 'method', @ischar);
+            addRequired(p, 'index', @isnumeric);
+            addOptional(p, 'permpool', [], @isnumeric);
+            addParameter(p, 'extend', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
+            parse(p, obj, method, index, varargin{:});
+            
+            switch method
+                case 'manual'
+                    P = struct( ...
+                        'method', p.Results.method, ...
+                        'RandomSeed',p.Results.index, ...
+                        'index',p.Results.permpool(:,p.Results.index));
+                case 'none'
+                    P = struct( ...
+                        'method', p.Results.method, ...
+                        'RandomSeed',p.Results.index, ...
+                        'index',1:obj.nTotalExamples);
+                otherwise
+                    error('Subject:setPermutations:InvalidMethod', 'Permutations need to be specified manually.');
+            end
+            
+            
+            P.index = extend_permutation_index(P.index, obj.nTotalExamples);
+            obj.permutations = P;
+            
+            function permutation_index = extend_permutation_index(permutation_index, target_length)
+                remainder = rem(target_length, size(permutation_index, 1));
+                if remainder > 0
+                    error('permutation_index has fewer rows than nTotalExamples , and nTotalExamples is not evenly divisible by number in permutation_index.');
+                else
+                    repeatntimes = target_length / size(permutation_index,1);
+                    warning('permutation_index has fewer rows than nTotalExamples, and nTotalExamples is evenly divisible by number in permutation_index. Repeating permutation_index %d times to match.', repeatntimes);
+                    CC = cell(repeatntimes, 1);
+                    for k = 1:repeatntimes
+                        CC{k} = permutation_index + (size(permutation_index, 1) * (k-1));
+                    end
+                    permutation_index = cell2mat(CC);
+                end
+            end
+        end
+        
+        function obj = setCoords(obj, coords)
+            obj.coords = coords;
         end
         
         function rf = getRowFilter(obj,varargin)
@@ -131,7 +305,7 @@ classdef Subject
                 c = x;
             end
         end
-        
+
         function x = getCVScheme(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
@@ -152,7 +326,41 @@ classdef Subject
                 end
                 x = obj.cvscheme(rf);
             end
-        end        
+        end
+        
+        function t = getTestSet(obj, cvind, varargin)
+            p = inputParser();
+            addRequired(p, 'obj', @(x) isa(x, 'Subject'));
+            addRequired(p, 'cvind', @(x) isnumeric(x) && isscalar(x));
+            addParameter(p, 'unfiltered', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
+            addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
+            addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
+            parse(p, obj, cvind, varargin{:});
+            
+            x = obj.getCVScheme( ...
+                'unfiltered', p.Results.unfiltered, ...
+                'include', p.Results.include, ...
+                'exclude', p.Results.exclude);
+            
+            t = x == p.Results.cvind;
+        end
+        
+        function t = getTrainingSet(obj,cvind,varargin)
+            p = inputParser();
+            addRequired(p, 'obj', @(x) isa(x, 'Subject'));
+            addRequired(p, 'cvind', @(x) isnumeric(x) && isscalar(x));
+            addParameter(p, 'unfiltered', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
+            addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
+            addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
+            parse(p, obj, cvind, varargin{:});
+            
+            t = ~obj.getTestSet( ...
+                p.Results.cvind, ...
+                'unfiltered', p.Results.unfiltered, ...
+                'include', p.Results.include, ...
+                'exclude', p.Results.exclude);
+        end
+
         function x = getData(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
@@ -246,15 +454,15 @@ classdef Subject
             pix = obj.permutations.index(:,z);
         end
         
-        function tp = getPermutedTargets(obj,varargin)
+        function tp = getPermutedTargets(obj,RandomSeed,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
+            addRequired(p, 'RandomSeed', @(x) isnumeric(x) || isscalar(x));
             addParameter(p, 'unfiltered', false, @(x) islogical(x) || any(isnumeric(x) == [1,0]));
             addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'simplify', false, @(x) islogical(x) || any(isnumeric(x) == [2,1,0]));
-            addParameter(p, 'RandomSeed', 0, @(x) isnumeric(x) || isscalar(x));
-            parse(p, obj, varargin{:});
+            parse(p, obj, RandomSeed, varargin{:});
             
             t = obj.getTargets(...
                 'unfiltered', true, ...
@@ -267,39 +475,39 @@ classdef Subject
             else
                 rf = obj.getRowFilter();
                 rfp = rf(pix);
-                tp = t(pix);
-                tp = tp(rfp);
+                tp = t(pix,:);
+                tp = tp(rfp,:);
             end
         end
         
         function obj = generateEmbeddings(obj, tau, varargin)
+        % For all targets with type 'similarity', generate a low-rank
+        % embedding and update the 'target' field of the targets structure
+        % (replacing the item-by-item symetric similarity matrix.
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
             addRequired(p, 'tau', @(x) isnumeric(x) && isscalar(x));
             addParameter(p, 'ExtendEmbedding', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
             parse(p, obj, tau, varargin{:});
-            for i = 1:numel(obj.targets)
-                if strcmpi(obj.targets(i).type, 'similarity');
-                    S = obj.getTargets(i,'unfiltered',true,'simplify',true);
-                    [C, r] = sqrt_truncate_r(S, tau);
-                    fprintf('S decomposed into %d dimensions (tau=%.2f)\n', r, tau);
-                    
-                    nexamples = size(obj.getData('unfiltered', true), 1);
-                    if size(C,1) < nexamples
-                        remainder = rem(nexamples, size(C,1));
-                        if remainder > 0
-                            error('C has fewer rows than X, and number in X is not evenly divisible by number in C.');
-                        else
-                            repeatntimes = size(nexamples,1) ./ size(C,1);
-                            warning('C has fewer rows than X, and number in X is evenly divisible by number in C. Repeating C %d times to match.', repeatntimes);
-                            C = repmat(C, repeatntimes, 1);
-                        end
+            
+            if strcmpi(obj.targets.type, 'similarity');
+                S = obj.getTargets('unfiltered',true,'simplify',true);
+                [C, r] = sqrt_truncate_r(S, tau);
+                fprintf('S decomposed into %d dimensions (tau=%.2f)\n', r, tau);
+
+                if size(C,1) < obj.nTotalExamples
+                    remainder = rem(obj.nTotalExamples, size(C,1));
+                    if remainder > 0
+                        error('C has fewer rows than X, and number in X is not evenly divisible by number in C.');
+                    else
+                        repeatntimes = obj.nTotalExamples ./ size(C,1);
+                        warning('C has fewer rows than X, and number in X is evenly divisible by number in C. Repeating C %d times to match.', repeatntimes);
+                        C = repmat(C, repeatntimes, 1);
                     end
-                    obj.targets(i).target = {C,S};
-                    obj.targets(i).type = {'embedding','similarity'};
                 end
+                obj.targets.target = {C,S};
+                obj.targets.type = {'embedding','similarity'};
             end
         end
     end
 end
-

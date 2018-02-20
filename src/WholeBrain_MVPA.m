@@ -1,7 +1,7 @@
 function WholeBrain_MVPA(varargin)
     p = inputParser;
     p.KeepUnmatched = false;
-    % ----------------------Set parameters-----------------------------------------------
+    % ----------------------Set parameters---------------------------------
     % Model definition
 	addParameter(p , 'regularization' , []        , @ischar        );
     addParameter(p , 'bias'             , false   , @islogicallike );
@@ -36,10 +36,11 @@ function WholeBrain_MVPA(varargin)
     addParameter(p , 'normalize_target', 'none'        , @ischar ); % NEW VARIABLE!
     addParameter(p , 'normalize_wrt'    , 'all_examples', @ischar ); % NEW VARIABLE!
     % Permutation
-    addParameter(p , 'RandomSeed'             , 0                     );
+    addParameter(p , 'RandomSeed'             , 0, @(x) isnumeric(x) && all(x>=0));
     addParameter(p , 'PermutationTest'        , false, @islogicallike );
-    addParameter(p , 'PermutationMethod'      , 'manual', @ischar     );
-    addParameter(p , 'PermutationIndex'       , ''   , @ischar        );
+    addParameter(p , 'PermutationMethod'      , 'manual' , @ischar    );
+    addParameter(p , 'PermutationIndex'       , ''       , @ischar    );
+    addParameter(p , 'perm_varname' , 'PERMUTATION_INDEX', @ischar    );
     addParameter(p , 'RestrictPermutationByCV', false, @islogicallike );
     % Hyperband (an alternative to grid search for hyperparameter selection)
     addParameter(p , 'HYPERBAND', [] );
@@ -94,85 +95,28 @@ function WholeBrain_MVPA(varargin)
         parse(p, jcell{:});
     end
 
-    % Check that the correct parameters are passed, given the desired regularization
-    regularization = p.Results.regularization;
-    switch upper(regularization)
+    % --- setup hyperparameters ---
+    switch upper(p.Results.regularization)
         % The verify_setup_* functions can probably be merged...
         case {'L1L2','GROWL','GROWL2'};
-%             assert_required_parameters_RSA(p.Results);
-            HYPERPARAMETERS = verify_setup_RSA(regularization, p.Results);
+            HYPERPARAMETERS = verify_setup_RSA(p.Results.regularization, p.Results);
         case {'LASSO','SOSLASSO'};
-%             assert_required_parameters_MVPA(p.Results);
-            HYPERPARAMETERS = verify_setup_MVPA(regularization, p.Results);
+            HYPERPARAMETERS = verify_setup_MVPA(p.Results.regularization, p.Results);
     end
-
-%     DEBUG                   = p.Results.debug;
-    PermutationTest         = p.Results.PermutationTest;
-    PermutationMethod       = p.Results.PermutationMethod;
-    PermutationIndex        = p.Results.PermutationIndex;
-%     RestrictPermutationByCV = p.Results.RestrictPermutationByCV;
-    SmallFootprint          = p.Results.SmallFootprint;
-    RandomSeed              = p.Results.RandomSeed;
-    regularization          = p.Results.regularization;
-    normalize_wrt            = p.Results.normalize_wrt;
-    normalize_data          = p.Results.normalize_data;
-    normalize_target        = p.Results.normalize_target;
-    BIAS                    = p.Results.bias;
-    target_label            = p.Results.target_label;
-    target_type             = p.Results.target_type;
-    sim_source              = p.Results.sim_source;
-    sim_metric              = p.Results.sim_metric;
-    filter_labels           = p.Results.filters;
-    if iscell(p.Results.data)
-        datafiles = p.Results.data;
-    else
-        datafiles = {p.Results.data};
+    % --- searchlight specific ---
+    if p.Results.searchlight && ~strcmpi(p.Results.slSim_Measure,'nrsa')
+        assert(~isempty(p.Results.slPermutationType));
+        assert(~isempty(p.Results.slPermutations));
     end
-    data_varname            = p.Results.data_varname;
-    cvscheme                = p.Results.cvscheme;
-    cvholdout               = p.Results.cvholdout;
-    finalholdoutInd         = p.Results.finalholdout;
-    orientation             = p.Results.orientation;
-    metafile                = p.Results.metadata;
-    metadata_varname        = p.Results.metadata_varname;
-    tau                     = p.Results.tau;
-% --- These are handled in verify_setup* function ---
-% --- and stored in HYPERPARAMETERS               ---
-%     alpha                   = p.Results.alpha;
-%     lambda                  = p.Results.lambda;
-%     lamSOS                  = p.Results.alpha;
-%     lamL1                   = p.Results.lambda;
-%     lambda1                 = p.Results.lambda1;
-%     LambdaSeq               = p.Results.LambdaSeq;
-    opts                    = p.Results.AdlasOpts;
-    SaveResultsAs           = p.Results.SaveResultsAs;
-    FMT_subjid              = p.Results.subject_id_fmt;
-    % --- searchlight specific --- %
-    SEARCHLIGHT        = p.Results.searchlight;
-    slSim_Measure      = p.Results.slSim_Measure;
-    slPermutationType  = p.Results.slPermutationType;
-    slPermutationCount = p.Results.slPermutations;
-%     slShape            = p.Results.slShape;
-%     slRadius           = p.Results.slRadius;
     % --- HYPERBAND ---
-    HYPERBAND = p.Results.HYPERBAND;
-    BRACKETS = p.Results.BRACKETS;
-    SearchWithHyperband = ~isempty(HYPERBAND);
-
-    if min(RandomSeed) < 1
-        RandomSeed = RandomSeed + min(RandomSeed) + 1;
+    SearchWithHyperband = ~isempty(p.Results.HYPERBAND);
+    % --- Initialize the random number generator, as needed ---
+    if ~isempty(p.Results.RandomSeed) && isscalar(p.Results.RandomSeed) && ~strcmpi(p.Results.PermutationMethod,'manual')
+        rng(p.Results.RandomSeed);
     end
-    if ~isempty(RandomSeed) && isscalar(RandomSeed)
-        rng(RandomSeed);
-    end
-
-    if SEARCHLIGHT && ~strcmpi(slSim_Measure,'nrsa')
-        assert(~isempty(slPermutationType));
-        assert(~isempty(slPermutationCount));
-    end
-
-    % If values originated in a YAML file, and scientific notation is used, the
-    % value may have been parsed as a string. Check and correct.
+    % If values originated in a YAML file, and scientific notation is used,
+    % the value may have been parsed as a string. Check and correct.
+    opts = p.Results.AdlasOpts;
     if isfield(opts, 'tolInfeas')
         if ischar(opts.tolInfeas)
             opts.tolInfeas = sscanf(opts.tolInfeas, '%e');
@@ -183,104 +127,94 @@ function WholeBrain_MVPA(varargin)
             opts.tolRelGap = sscanf(opts.tolRelGap, '%e');
         end
     end
-% THIS IS TROUBLING
-%    % If cell array with one element, unpack element from cell.
-%    datafile = fullfile('D:/MRI/SoundPicture/data/MAT/avg/bysession',uncell(datafile));
-%    metafile = fullfile('D:/MRI/SoundPicture/data/MAT/avg/bysession',uncell(metafile));
-%
-
-%     %% Load metadata
-%     StagingContainer = load(metafile, metadata_varname);
-%     metadata = StagingContainer.(metadata_varname); clear StagingContainer;
-%     subject_label = {metadata.subject};
-%     [metadata, subjix] = subsetMetadata(metadata, datafiles, FMT_subjid);
 
     %% Load data
-    X = loadData_new(...
-        datafiles, data_varname, ...
-        metafile, metadata_varname, ...
-        FMT_subjid, ...
-        filter_labels, ...
-        target_label, ...
-        target_type, ...
-        sim_source, ...
-        sim_metric, ...
-        cvscheme, ...
-        finalholdoutInd);
-
-    % For all targets with type 'similarity', generate a low-rank embedding
-    % and update the 'target' field of the targets structure (replacing the
-    % item-by-item symetric similarity matrix.
-    for i = 1:numel(X)
-        X(i) = X(i).generateEmbeddings(tau, 'ExtendEmbedding', true);
+    % Load metadata object 
+    StagingContainer = load(p.Results.metadata, p.Results.metadata_varname);
+    metadata = StagingContainer.(p.Results.metadata_varname);
+    clear StagingContainer;
+    % Load permutation object
+    if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod,'manual');
+    	StagingContainer = load(p.Results.PermutationIndex, perm_varname);
+        permutations = StagingContainer.(perm_varname);
+        clear StagingContainer;
     end
-    
+    % Loop over datafiles
+    datafiles  = ascell(p.Results.data);
+    N = length(datafiles);
+    SubjectArray = repmat(Subject, 1, N);
+    for i = 1:N
+        x = datafiles{i};
+        fprintf('Loading %s from  %s...\n', p.Results.data_varname, x);
+        % Log and process data filename and data label
+        SubjectArray(i) = SubjectArray(i).setFilename(datafiles{i});
+        SubjectArray(i) = SubjectArray(i).setLabel(p.Results.data_varname);
+        SubjectArray(i) = SubjectArray(i).setDataFromFilenameAndLabel();
+        SubjectArray(i) = SubjectArray(i).setSubjectIDFromFilename(p.Results.subject_id_fmt);
+        % Select metadata matching current subject ID
+        M = selectbyfield(metadata, 'subject', SubjectArray(i).subject);
+        if numel(M) > 1
+            error('WholeBrain_MVPA:SubjectSelect','Subject ID %s does not uniquely match a metadata entry.', num2cell(SubjectArray.subject));
+        end
+        % Pull content from metadata object
+        CV = M.cvind(:,p.Results.cvscheme);
+        RF = selectbyfield(M.filters, 'label', p.Results.filters, 'dimension', 1);
+        CF = selectbyfield(M.filters, 'label', p.Results.filters, 'dimension', 2);
+        T = selectbyfield(M.targets, ...
+            'label', p.Results.target_label, ...
+            'type', p.Results.target_type, ...
+            'sim_source', p.Results.sim_source, ...
+            'sim_metric', p.Results.sim_metric);
+        % Set metadata for subject
+        SubjectArray(i) = SubjectArray(i).setCVScheme(CV);
+        SubjectArray(i) = SubjectArray(i).setRowFilters(RF);
+        SubjectArray(i) = SubjectArray(i).setColFilters(CF);
+        SubjectArray(i) = SubjectArray(i).setFinalHoldoutFilter(p.Results.finalholdout);
+        SubjectArray(i) = SubjectArray(i).setCoords(M.coords);
+        SubjectArray(i) = SubjectArray(i).setTargets(T);
+        if ~isempty(p.Results.tau) && p.Results.tau ~= 0
+            % If tau is set, generate embeddings from target similarity matrices.
+            SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true);
+        end
+        % Set permutation data. If a permutation test is not being run,
+        % RandomSeed == 0 and a dummy permutation index will be encoded
+        % that is simply 1:Subject.nTotalExamples.
+        if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod, 'manual')
+            P = selectbyfield(permutations, 'subject', SubjectArray.subject);
+            SubjectArray(i) = SubjectArray(i).setPermutations(p.Results.PermutationMethod, p.Results.RandomSeed, P.permutation_index);
+        else
+            SubjectArray(i) = SubjectArray(i).setPermutations('none', p.Results.RandomSeed);
+        end
+    end
+
     % Report target infomation
     fprintf('\n');
     fprintf('Target Structure Summary\n');
     fprintf('------------------------\n');
-    fprintf('%12s: %s\n', 'target_label', target_label);
-    fprintf('%12s: %s\n', 'type', target_type);
-    fprintf('%12s: %s\n', 'sim_source', sim_source);
-    fprintf('%12s: %s\n', 'sim_metric', sim_metric);
+    fprintf('%12s: %s\n', 'target_label', p.Results.target_label);
+    fprintf('%12s: %s\n', 'type', p.Results.target_type);
+    fprintf('%12s: %s\n', 'sim_source', p.Results.sim_source);
+    fprintf('%12s: %s\n', 'sim_metric', p.Results.sim_metric);
     fprintf('\n');
     
+    % Report Data information
     fprintf('Data Dimensions\n');
     fprintf('---------------\n');
     fprintf('%16s%16s%16s\n','subject','initial','filtered');
     fprintf('%s\n',repmat('-',1,16*3));
-    for i = 1:numel(X)
-        fprintf('%16s (%6d,%6d) (%6d,%6d)\n',num2str(X(i).subject),size(X(i).getData('unfiltered',true)),size(X(i).getData('unfiltered',false)));
+    for i = 1:numel(SubjectArray)
+        fprintf('%16s (%6d,%6d) (%6d,%6d)\n',num2str(SubjectArray(i).subject),size(SubjectArray(i).getData('unfiltered',true)),size(SubjectArray(i).getData('unfiltered',false)));
     end
     fprintf('\n');
     fprintf('Data loaded and processed.\n');
 
-    % Note on randomization for permutation
-    % -------------------------------------
-    % A required argument when specifying permutations is a list of
-    % "RandomSeeds". These are applied near the beginning of the
-    % program (within WholeBrain_RSA), to seed the random number
-    % generator.
-    %
-    % If the PermutationMethod is 'manual', then the RandomSeed has a
-    % different (additional) function. It will be used to index into
-    % the columns of a n x p matrix, generated in advance, that
-    % contains the indexes to generate p unique permutations.
-    %
-    % In this case, the matrix should stored in a variable named
-    % PERMUTATION_INDEXES, contained within a file named
-    % PERMUTATION_INDEXES.mat
-    fprintf('PermutationTest: %d\n', PermutationTest);
-    if PermutationTest
-        switch PermutationMethod
-            case 'manual'
-                StagingArea = load(PermutationIndex, 'PERMUTATION_INDEX');
-                PERMUTATION_INDEX = StagingArea.PERMUTATION_INDEX;
-                for i = 1:numel(X)
-                    P = selectbyfield(PERMUTATION_INDEX, 'subject', X.subject);
-                    X(i).permutations = struct( ...
-                        'RandomSeed',RandomSeed, ...
-                        'index',P.permutation_index(:,RandomSeed));
-                end
-            otherwise
-                error('crcox:NotImplemented', 'Permutations need to be specified manually.');
-        end
-    else
-        RandomSeed = 0;
-        for i = 1:numel(X)
-            X(i).permutations = struct( ...
-                'RandomSeed',RandomSeed, ...
-                'index',(1:size(X(i).getData('unfiltered',true), 1))');
-        end
-    end
-
     %% --- Setting regularization parameters and running models ---
     % This is being handled within the 
-    switch upper(regularization)
+    switch upper(p.Results.regularization)
         case {'GROWL','GROWL2','L1L2','LASSO'}
-            SubjectsParameter = [X.subject];
+            SubjectsParameter = [SubjectArray.subject];
         case 'SOSLASSO'
-            SubjectsParameter = {{X.subject}};
+            SubjectsParameter = {{SubjectArray.subject}};
     end
 
     if exist('checkpoint.mat','file')
@@ -288,52 +222,47 @@ function WholeBrain_MVPA(varargin)
     else
         ModelInstances = ModelContainer( ...
             'subject'          , SubjectsParameter, ...
-            'RandomSeed'       , RandomSeed       , ...
-            'cvholdout'        , cvholdout        , ...
-            'finalholdout'     , finalholdoutInd  , ...
-            'bias'             , BIAS             , ...
-            'target_label'     , target_label     , ...
-            'target_type'      , target_type      , ...
-            'sim_metric'       , sim_metric       , ...
-            'sim_source'       , sim_source       , ...
-            'normalize_data'   , normalize_data   , ...
-            'normalize_target' , normalize_target , ...
-            'normalize_wrt'    , normalize_wrt    , ...
-            'regularization'   , regularization   , ...
+            'RandomSeed'       , p.Results.RandomSeed       , ...
+            'cvholdout'        , p.Results.cvholdout        , ...
+            'finalholdout'     , p.Results.finalholdout     , ...
+            'bias'             , p.Results.bias             , ...
+            'target_label'     , p.Results.target_label     , ...
+            'target_type'      , p.Results.target_type      , ...
+            'sim_metric'       , p.Results.sim_metric       , ...
+            'sim_source'       , p.Results.sim_source       , ...
+            'normalize_data'   , p.Results.normalize_data   , ...
+            'normalize_target' , p.Results.normalize_target , ...
+            'normalize_wrt'    , p.Results.normalize_wrt    , ...
+            'regularization'   , p.Results.regularization   , ...
             'HYPERPARAMETERS'  , HYPERPARAMETERS);
         % TODO: There is probably a smart way to incorporate this
         % functionality (basically, child fields that are associated with a
         % parent field) within the ModelContainer expansion function.
-        for i = 1:numel(ModelInstances)
-            if iscell(datafiles) && numel(datafiles) > 1;
-                ModelInstances(i).data = datafiles(ModelInstances(i).subject);
-            else
-                ModelInstances(i).data = ascell(datafiles);
-            end
-            if iscell(data_varname) && numel(data_varname) > 1;
-                ModelInstances(i).data_varname = data_varname(ModelInstances(i).subject);
-            else
-                ModelInstances(i).data_varname = ascell(data_varname);
-            end
-            if iscell(metafile) && numel(metafile) > 1;
-                ModelInstances(i).metadata = metafile(ModelInstances(i).subject);
-            else
-                ModelInstances(i).metadata = ascell(metafile);
-            end
-            if iscell(metadata_varname) && numel(metadata_varname) > 1;
-                ModelInstances(i).metadata_varname = metadata_varname(ModelInstances(i).subject);
-            else
-                ModelInstances(i).metadata_varname = ascell(metadata_varname);
+        if strcmpi(p.Results.regularization, 'SOSLASSO')
+            % The assumption is that, when running SOSLASSO, all subjects
+            % are associated with each model instance.
+            [ModelInstances.data] = deal({SubjectArray.filename});
+        else
+            for i = 1:numel(SubjectArray)
+                if isnumeric(SubjectArray(i).subject)
+                    z = [ModelInstances.subject] == SubjectArray(i).subject;
+                else
+                    z = strcmp(SubjectArray(i).subject, {ModelInstances.subject});
+                end
+                [ModelInstances(z).data] = deal(SubjectArray(i).filename);
             end
         end
+        [ModelInstances.data_varname] = deal(p.Results.data_varname);
+        [ModelInstances.metadata] = deal(p.Results.metadata);
+        [ModelInstances.metadata_varname] = deal(p.Results.metadata_varname);
         bracket_index = 1;
     end
 
     xyz = cell(numel(metadata),1);
-    for i = 1:numel(X)
-        xyz{i} = X(i).getCoords(orientation,'xyz','simplify',true);
+    for i = 1:numel(SubjectArray)
+        xyz{i} = SubjectArray(i).getCoords(p.Results.orientation,'xyz','simplify',true);
     end
-    switch upper(regularization)
+    switch upper(p.Results.regularization)
         case 'SOSLASSO'
             for ii = 1:numel(ModelInstances)
                 diameter = ModelInstances(ii).diameter;
@@ -349,11 +278,11 @@ function WholeBrain_MVPA(varargin)
     end
 
     if SearchWithHyperband
-        n = BRACKETS.n;
-        r = BRACKETS.r;
+        n = p.Results.BRACKETS.n;
+        r = p.Results.BRACKETS.r;
         while 1
             opts.max_iter = r(bracket_index) * p.Results.IterationsPerHyperband;
-            ModelInstances = learn_encoding(ModelInstances, C, X, regularization, 'AdlasOpts', opts);
+            ModelInstances = learn_encoding(ModelInstances, SubjectArray, p.Results.regularization, 'AdlasOpts', opts);
             % Delete low ranked configurations:
             ModelInstances = hyperband_pick_top_n(ModelInstances, n(bracket_index));
             bracket_index = bracket_index + 1;
@@ -366,7 +295,7 @@ function WholeBrain_MVPA(varargin)
         end
     else
         % Grid search
-        ModelInstances = learn_encoding(ModelInstances, C, X, regularization, 'AdlasOpts', opts);
+        ModelInstances = learn_encoding(ModelInstances, SubjectArray, p.Results.regularization, 'AdlasOpts', opts);
     end
 
     cur = 0;
@@ -376,101 +305,18 @@ function WholeBrain_MVPA(varargin)
         CONTEXT = rmfield(ModelInstances(i), 'Model');
         if i == 1
             % Preallocate on first pass
-            [results,nResultsPerModel] = MODEL.getResults(CONTEXT,metadata,'Initialize',n);
+            [results,nResultsPerModel] = MODEL.getResults(CONTEXT,SubjectArray,'Initialize',n);
         end
         a = cur + 1;
         b = cur + nResultsPerModel;
-        results(a:b) = MODEL.getResults(CONTEXT,metadata);
+        results(a:b) = MODEL.getResults(CONTEXT,SubjectArray);
         cur = a;
     end
-    %% --- Package results ---
-%     results = repmat(struct( ...
-%         'Uz'               , [] , ...
-%         'Cz'               , [] , ...
-%         'Sz'               , [] , ...
-%         'target_label'     , [] , ...
-%         'target_type'      , [] , ...
-%         'sim_source'       , [] , ...
-%         'sim_metric'       , [] , ...
-%         'data'             , [] , ...
-%         'data_varname'     , [] , ...
-%         'metadata'         , [] , ...
-%         'metadata_varname' , [] , ...
-%         'subject'          , [] , ...
-%         'cvholdout'        , [] , ...
-%         'finalholdout'     , [] , ...
-%         'regularization'   , [] , ...
-%         'lambda'           , [] , ...
-%         'lambda1'          , [] , ...
-%         'LambdaSeq'        , [] , ...
-%         'tau'              , [] , ...
-%         'bias'             , [] , ...
-%         'normalize_wrt'     , [] , ...
-%         'normalize_data'   , [] , ...
-%         'normalize_target' , [] , ...
-%         'nz_rows'          , [] , ...
-%         'nzv'              , [] , ...
-%         'nvox'             , [] , ...
-%         'coords'           , [] , ...
-%         'err1'             , [] , ...
-%         'err2'             , [] , ...
-%         'iter'             , [] ), numel(ModelInstances), 1);
-%     for iResult = 1:numel(ModelInstances)
-%         A = ModelInstances(iResult);
-%         if A.bias
-%             Uz = A.Model.X(1:end-1,:);
-%         else
-%             Uz = A.Model.X;
-%         end
-%         if ~SmallFootprint
-%             results(iResult).coords = COORDS;
-%             ix = find(any(Uz, 2));
-%             for j = 1:numel(COORDS_FIELDS)
-%                 cfield = COORDS_FIELDS{j};
-%                 if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(COORDS.(cfield))
-%                     results(iResult).coords.(cfield) = COORDS.(cfield)(ix,:);
-%                 elseif any(strcmp(cfield, {'ind'})) && ~isempty(COORDS.(cfield))
-%                     results(iResult).coords.(cfield) = COORDS.(cfield)(ix);
-%                 end
-%             end
-%             results(iResult).Uz = Uz;
-%             results(iResult).Cz = A.Model.A * A.Model.X;
-%         end
-%         results(iResult).subject = A.subject;
-%         results(iResult).bias = A.bias;
-%         results(iResult).nz_rows = any(Uz,2);
-%         results(iResult).nzv = nnz(results(iResult).nz_rows);
-%         results(iResult).nvox = numel(results(iResult).nz_rows);
-%         results(iResult).cvholdout = A.cvholdout;
-%         results(iResult).finalholdout = finalholdoutInd;
-%         results(iResult).lambda = A.lambda;
-%         results(iResult).lambda1 = A.lambda1;
-%         results(iResult).LambdaSeq = A.LambdaSeq;
-%         results(iResult).regularization = A.regularization;
-%         results(iResult).tau = tau;
-%         results(iResult).normalize_data = A.normalize_data;
-%         results(iResult).normalize_target = normalize_target;
-%         results(iResult).normalize_wrt = A.normalize_wrt;
-%         results(iResult).data = p.Results.data;
-%         results(iResult).data_var = p.Results.data_varname;
-%         results(iResult).metadata = p.Results.metadata;
-%         results(iResult).metadata_var = p.Results.metadata_varname;
-%         results(iResult).target_label = p.Results.target_label;
-%         results(iResult).target_type = p.Results.target_type;
-%         results(iResult).sim_source = p.Results.sim_source;
-%         results(iResult).sim_metric = p.Results.sim_metric;
-%         results(iResult).err1 = A.Model.testError;
-%         results(iResult).err2 = A.Model.trainingError;
-%         results(iResult).iter = A.Model.iter;
-%         results(iResult).RandomSeed = A.RandomSeed;
-% %         results(iResult).RandomSeed = p.Results.PermutationIndex;
-%     end
-
-    fprintf('Saving stuff...\n');
-
+    
     %% Save results
+    fprintf('Saving stuff...\n');
     rinfo = whos('results');
-    switch SaveResultsAs
+    switch p.Results.SaveResultsAs
         case 'mat'
             if rinfo.bytes > 2e+9 % 2 GB
                 save('results.mat','results','-v7.3');
@@ -491,61 +337,6 @@ function WholeBrain_MVPA(varargin)
     end
 
     fprintf('Done!\n');
-
-%     function condition_handling_searchlight()
-%         X = uncell(X);
-%         S = uncell(S);
-%         cvind = uncell(cvind);
-%         cvset = unique(cvind);
-%         colfilter = uncell(colfilter);
-% 
-%         % create a 3D binary mask
-%         [mask,dxyz] = coordsTo3dMask(metadata.coords.xyz);
-% 
-%         % Translate slradius (in mm) to sl voxels
-%         % N.B. Because voxels need not be symmetric cubes, but Seachmight will
-%         % generate symmetric spheres from a single radius parameter, we need to
-%         % select one value of the three that will be produced in this step. I am
-%         % arbitrarily choosing the max, to err on the side of being inclusive.
-%         slradius_ijk = max(round(slRadius ./ dxyz));
-% 
-%         % create the "meta" neighbourhood structure
-%         meta = createMetaFromMask(mask, 'radius', slradius_ijk);
-%         labels = metadata.itemindex(rowfilter);
-%         labelsRun = metadata.runindex(rowfilter);
-% 
-%         results.similarity_measure = slSim_Measure;
-%         if strcmpi('nrsa',slSim_Measure)
-%             error('Searchlight Network RSA is not implemented properly yet. Exiting...');
-% 
-%         else
-%             fprintf('PermutationTest: %d\n', PermutationTest);
-%             if PermutationTest
-%                 for ic = unique(cvind)'
-%                     fprintf('Permuting CV %d...\n', ic);
-%                     s = S(cvind==ic, cvind==ic);
-%                     n = size(s,1);
-%                     permix = randperm(n);
-%                     S(cvind==ic, cvind==ic) = S(permix, permix);
-%                 end
-%             end
-% 
-%             [structureScoreMap] = computeSimilarityStructureMap(...
-%                 slSim_Measure,...
-%                 X,labels,...
-%                 X,labels,...
-%                 'meta',meta,'similarityStructure',S,...
-%                 'permutationTest',slPermutationType, slPermutationCount,...
-%                 'groupLabels',labelsRun,labelsRun);
-% 
-%             results.structureScoreMap = structureScoreMap;
-%             results.RandomSeed = RandomSeed;
-%         end
-% 
-%         for i_nested = 1:numel(results)
-%             results(i_nested).coords = COORDS;
-%         end
-%     end
 end
 
 function [hyperparameters] = verify_setup_MVPA(regularization, p)
@@ -660,33 +451,8 @@ function [hyperparameters] = verify_setup_RSA(regularization, p)
     end
 end
 
-% function assertRequiredParameters_RSA(params)
-%     required = {'target_label','sim_metric','sim_source','data', ...
-%         'metadata','cvscheme','cvholdout','finalholdout','orientation'};
-%     N = length(required);
-%     for i = 1:N
-%         req = required{i};
-%         assert(isfield(params,req), '%s must exist in params structure! Exiting.',req);
-%         assert(~isempty(params.(req)), '%s must be set. Exiting.',req);
-%     end
-% end
-
-function permutation_index = extend_permutation_index(permutation_index, target_length)
-    remainder = rem(target_length, size(permutation_index, 1));
-    if remainder > 0
-        error('permutation_index has fewer rows than C, and number in C is not evenly divisible by number in permutation_index.');
-    else
-        repeatntimes = target_length / size(permutation_index,1);
-        warning('permutation_index has fewer rows than C, and number in C is evenly divisible by number in permutation_index. Repeating permutation_index %d times to match.', repeatntimes);
-        CC = cell(repeatntimes, 1);
-        for k = 1:repeatntimes
-            CC{k} = permutation_index + (size(permutation_index, 1) * (k-1));
-        end
-        permutation_index = cell2mat(CC);
-    end
-end
 function b = islogicallike(x)
-    b = any(x == [1,0]);
+    b = islogical(x) || any(x == [1,0]);
 end
 
 function b = isintegerlike(x)
@@ -696,133 +462,164 @@ end
 function b = isMatOrJSON(x)
     b = any(strcmpi(x, {'mat','json'}));
 end
-% function b = isscalarOrEmpty(x)
-%     b = isscalar(x) || isempty(x);
-% end
 
-% OTHER REGULARIZATION METHODS
-% ============================
-% case 'L1L2_GLMNET'
-%     if isempty(gcp('nocreate')) && PARALLEL
-%         ppp = parpool('local');
-%     end
-%     [results,info] = learn_similarity_encoding(S, X, regularization, target_type,...
-%         'tau'            , tau            , ...
-%         'lambda1'        , lambda1        , ...
-%         'cvind'          , cvind          , ...
-%         'cvholdout'      , cvholdout      , ...
-%         'normalize'      , normalize      , ...
-%         'bias'           , BIAS           , ...
-%         'DEBUG'          , DEBUG          , ...
-%         'SmallFootprint' , SmallFootprint , ...
-%         'AdlasOpts'      , opts); %#ok<ASGLU>
-%     if ~isempty(gcp('nocreate')) && PARALLEL && (exist('ppp', 'var') == 1)
-%         delete(ppp);
-%     end
-
-% OLD RESULTS SETUP AND ANALYSIS LAUNCHING
-% ========================================
-%             % Define results structure
-%             results.Uz = [];
-%             results.Cz = [];
-%             results.Sz = [];
-%             results.nz_rows =  [];
-%             results.target_label = target_label;
-%             results.subject =  [];
-%             results.cvholdout = [];
-%             results.finalholdout = [];
-%             results.lambda = [];
-%             results.lambda1 = [];
-%             results.LambdaSeq = [];
-%             results.regularization = [];
-%             results.bias = [];
-%             results.normalize = [];
-%             results.nzv = [];
-%             %      results.p1      =  [];
-%             %      results.p2      =  [];
-%             %      results.cor1    =  [];
-%             %      results.cor2    =  [];
-%             %      results.p1t     =  [];
-%             %      results.p2t     =  [];
-%             %      results.cor1t   =  [];
-%             %      results.cor2t   =  [];
-%             results.coords  = [];
-%             results.structureScoreMap = zeros(1, size(meta.voxelsToNeighbours,1));
-%             results.structurePvalueMap = zeros(1, size(meta.voxelsToNeighbours,1));
-%             results.err1    =  zeros(1, size(meta.voxelsToNeighbours,1));
-%             results.err2    =  zeros(1, size(meta.voxelsToNeighbours,1));
-%             results.iter    =  [];
+%     function condition_handling_searchlight()
+%         X = uncell(X);
+%         S = uncell(S);
+%         cvind = uncell(cvind);
+%         cvset = unique(cvind);
+%         colfilter = uncell(colfilter);
 % 
-%             % Preallocate
-%             if isempty(lambda); nlam = 1; else nlam = numel(lamba); end
-%             if isempty(lambda1); nlam1 = 1; else nlam1 = numel(lambda1); end
-%             results(numel(cvset)*nlam*nlam1).Uz = [];
+%         % create a 3D binary mask
+%         [mask,dxyz] = coordsTo3dMask(metadata.coords.xyz);
 % 
-%             for iVolume = 1:size(meta.voxelsToNeighbours,1)
-%                 sl = meta.voxelsToNeighbours(iVolume,1:meta.numberOfNeighbours(iVolume));
-%                 switch upper(regularization)
-% %                     case 'L1L2'
-% %                         [lambda1, err_L1L2] = fminbnd(@(x) optimizeGroupLasso(S,X(:,sl),tau,cvind,cvholdout,normalize,PermutationTest,x), 0, 32);
-% %                         if finalholdout > 0
-% %                             [tmpr,info] = learn_similarity_encoding(Sall, Xall(:,sl), regularization, target_type,...
-% %                                 'tau'            , tau            , ...
-% %                                 'lambda1'        , lambda1        , ...
-% %                                 'cvind'          , cvindAll       , ...
-% %                                 'cvholdout'      , finalholdoutInd, ...
-% %                                 'normalize'      , normalize      , ...
-% %                                 'bias'           , BIAS           , ...
-% %                                 'DEBUG'          , DEBUG          , ...
-% %                                 'PermutationTest', PermutationTest, ...
-% %                                 'PermutationMethod', PermutationMethod, ...
-% %                                 'RestrictPermutationByCV', RestrictPermutationByCV, ...
-% %                                 'SmallFootprint' , SmallFootprint , ...
-% %                                 'AdlasOpts'      , opts); %#ok<ASGLU>
-% %                         else
-% %                             [tmpr,info] = learn_similarity_encoding(S, X(:,sl), regularization, target_type,...
-% %                                 'tau'            , tau            , ...
-% %                                 'lambda1'        , lambda1        , ...
-% %                                 'cvind'          , cvind          , ...
-% %                                 'cvholdout'      , cvholdout      , ...
-% %                                 'normalize'      , normalize      , ...
-% %                                 'bias'           , BIAS           , ...
-% %                                 'DEBUG'          , DEBUG          , ...
-% %                                 'PermutationTest', PermutationTest, ...
-% %                                 'PermutationMethod', PermutationMethod, ...
-% %                                 'RestrictPermutationByCV', RestrictPermutationByCV, ...
-% %                                 'SmallFootprint' , SmallFootprint , ...
-% %                                 'AdlasOpts'      , opts); %#ok<ASGLU>
-% %                         end
+%         % Translate slradius (in mm) to sl voxels
+%         % N.B. Because voxels need not be symmetric cubes, but Seachmight will
+%         % generate symmetric spheres from a single radius parameter, we need to
+%         % select one value of the three that will be produced in this step. I am
+%         % arbitrarily choosing the max, to err on the side of being inclusive.
+%         slradius_ijk = max(round(slRadius ./ dxyz));
 % 
-%                     case 'GROWL'
-%                         [tmpr,info] = learn_similarity_encoding(C, X(:,sl), regularization, target_type,...
-%                             'tau'            , tau            , ...
-%                             'lambda'         , lambda         , ...
-%                             'LambdaSeq'      , LambdaSeq      , ...
-%                             'cvind'          , cvind          , ...
-%                             'cvholdout'      , cvholdout      , ...
-%                             'normalize'      , normalize      , ...
-%                             'bias'           , BIAS           , ...
-%                             'DEBUG'          , DEBUG          , ...
-%                             'SmallFootprint' , SmallFootprint , ...
-%                             'AdlasOpts'      , opts); %#ok<ASGLU>
+%         % create the "meta" neighbourhood structure
+%         meta = createMetaFromMask(mask, 'radius', slradius_ijk);
+%         labels = metadata.itemindex(rowfilter);
+%         labelsRun = metadata.runindex(rowfilter);
 % 
-%                     case 'GROWL2'
-%                         [tmpr,info] = learn_similarity_encoding(C, X(:,sl), regularization, target_type,...
-%                             'tau'            , tau            , ...
-%                             'lambda'         , lambda         , ...
-%                             'lambda1'        , lambda1        , ...
-%                             'LambdaSeq'      , LambdaSeq      , ...
-%                             'cvind'          , cvind          , ...
-%                             'cvholdout'      , cvholdout      , ...
-%                             'normalize'      , normalize      , ...
-%                             'bias'           , BIAS           , ...
-%                             'DEBUG'          , DEBUG          , ...
-%                             'SmallFootprint' , SmallFootprint , ...
-%                             'AdlasOpts'      , opts); %#ok<ASGLU>
-%                 end
-%                 for iResult = 1:numel(tmpr)
-%                     results(iResult).err1(iVolume) = tmpr(iResult).err1;
-%                     results(iResult).err2(iVolume) = tmpr(iResult).err2;
-%                     results(iResult).structureScoreMap(iVolume) = tmpr(iResult).structureScoreMap;
+%         results.similarity_measure = slSim_Measure;
+%         if strcmpi('nrsa',slSim_Measure)
+%             error('Searchlight Network RSA is not implemented properly yet. Exiting...');
+% 
+%         else
+%             fprintf('PermutationTest: %d\n', PermutationTest);
+%             if PermutationTest
+%                 for ic = unique(cvind)'
+%                     fprintf('Permuting CV %d...\n', ic);
+%                     s = S(cvind==ic, cvind==ic);
+%                     n = size(s,1);
+%                     permix = randperm(n);
+%                     S(cvind==ic, cvind==ic) = S(permix, permix);
 %                 end
 %             end
+% 
+%             [structureScoreMap] = computeSimilarityStructureMap(...
+%                 slSim_Measure,...
+%                 X,labels,...
+%                 X,labels,...
+%                 'meta',meta,'similarityStructure',S,...
+%                 'permutationTest',slPermutationType, slPermutationCount,...
+%                 'groupLabels',labelsRun,labelsRun);
+% 
+%             results.structureScoreMap = structureScoreMap;
+%             results.RandomSeed = RandomSeed;
+%         end
+% 
+%         for i_nested = 1:numel(results)
+%             results(i_nested).coords = COORDS;
+%         end
+%     end
+
+    %% --- Package results ---
+%     results = repmat(struct( ...
+%         'Uz'               , [] , ...
+%         'Cz'               , [] , ...
+%         'Sz'               , [] , ...
+%         'target_label'     , [] , ...
+%         'target_type'      , [] , ...
+%         'sim_source'       , [] , ...
+%         'sim_metric'       , [] , ...
+%         'data'             , [] , ...
+%         'data_varname'     , [] , ...
+%         'metadata'         , [] , ...
+%         'metadata_varname' , [] , ...
+%         'subject'          , [] , ...
+%         'cvholdout'        , [] , ...
+%         'finalholdout'     , [] , ...
+%         'regularization'   , [] , ...
+%         'lambda'           , [] , ...
+%         'lambda1'          , [] , ...
+%         'LambdaSeq'        , [] , ...
+%         'tau'              , [] , ...
+%         'bias'             , [] , ...
+%         'normalize_wrt'     , [] , ...
+%         'normalize_data'   , [] , ...
+%         'normalize_target' , [] , ...
+%         'nz_rows'          , [] , ...
+%         'nzv'              , [] , ...
+%         'nvox'             , [] , ...
+%         'coords'           , [] , ...
+%         'err1'             , [] , ...
+%         'err2'             , [] , ...
+%         'iter'             , [] ), numel(ModelInstances), 1);
+%     for iResult = 1:numel(ModelInstances)
+%         A = ModelInstances(iResult);
+%         if A.bias
+%             Uz = A.Model.X(1:end-1,:);
+%         else
+%             Uz = A.Model.X;
+%         end
+%         if ~SmallFootprint
+%             results(iResult).coords = COORDS;
+%             ix = find(any(Uz, 2));
+%             for j = 1:numel(COORDS_FIELDS)
+%                 cfield = COORDS_FIELDS{j};
+%                 if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(COORDS.(cfield))
+%                     results(iResult).coords.(cfield) = COORDS.(cfield)(ix,:);
+%                 elseif any(strcmp(cfield, {'ind'})) && ~isempty(COORDS.(cfield))
+%                     results(iResult).coords.(cfield) = COORDS.(cfield)(ix);
+%                 end
+%             end
+%             results(iResult).Uz = Uz;
+%             results(iResult).Cz = A.Model.A * A.Model.X;
+%         end
+%         results(iResult).subject = A.subject;
+%         results(iResult).bias = A.bias;
+%         results(iResult).nz_rows = any(Uz,2);
+%         results(iResult).nzv = nnz(results(iResult).nz_rows);
+%         results(iResult).nvox = numel(results(iResult).nz_rows);
+%         results(iResult).cvholdout = A.cvholdout;
+%         results(iResult).finalholdout = finalholdoutInd;
+%         results(iResult).lambda = A.lambda;
+%         results(iResult).lambda1 = A.lambda1;
+%         results(iResult).LambdaSeq = A.LambdaSeq;
+%         results(iResult).regularization = A.regularization;
+%         results(iResult).tau = tau;
+%         results(iResult).normalize_data = A.normalize_data;
+%         results(iResult).normalize_target = normalize_target;
+%         results(iResult).normalize_wrt = A.normalize_wrt;
+%         results(iResult).data = p.Results.data;
+%         results(iResult).data_var = p.Results.data_varname;
+%         results(iResult).metadata = p.Results.metadata;
+%         results(iResult).metadata_var = p.Results.metadata_varname;
+%         results(iResult).target_label = p.Results.target_label;
+%         results(iResult).target_type = p.Results.target_type;
+%         results(iResult).sim_source = p.Results.sim_source;
+%         results(iResult).sim_metric = p.Results.sim_metric;
+%         results(iResult).err1 = A.Model.testError;
+%         results(iResult).err2 = A.Model.trainingError;
+%         results(iResult).iter = A.Model.iter;
+%         results(iResult).RandomSeed = A.RandomSeed;
+% %         results(iResult).RandomSeed = p.Results.PermutationIndex;
+%     end
+
+%         for i = 1:numel(ModelInstances)
+%             if iscell(datafiles) && numel(datafiles) > 1;
+%                 ModelInstances(i).data = datafiles(ModelInstances(i).subject);
+%             else
+%                 ModelInstances(i).data = ascell(datafiles);
+%             end
+%             if iscell(p.Results.data_varname) && numel(p.Results.data_varname) > 1;
+%                 ModelInstances(i).data_varname = p.Results.data_varname(ModelInstances(i).subject);
+%             else
+%                 ModelInstances(i).data_varname = ascell(p.Results.data_varname);
+%             end
+%             if iscell(p.Results.metadata) && numel(p.Results.metadata) > 1;
+%                 ModelInstances(i).metadata = p.Results.metadata(ModelInstances(i).subject);
+%             else
+%                 ModelInstances(i).metadata = ascell(p.Results.metadata);
+%             end
+%             if iscell(p.Results.metadata_varname) && numel(p.Results.metadata_varname) > 1;
+%                 ModelInstances(i).metadata_varname = p.Results.metadata_varname(ModelInstances(i).subject);
+%             else
+%                 ModelInstances(i).metadata_varname = ascell(p.Results.metadata_varname);
+%             end
+%         end
