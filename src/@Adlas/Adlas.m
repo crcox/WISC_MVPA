@@ -138,7 +138,7 @@ classdef Adlas
             y = obj.B;
             switch lower(p.Results.subset)
                 case 'all'
-                    y = y;
+%                     y = y;
                 case {'test','testing','testset','testingset'}
                     y = y(~obj.trainingFilter,:);
                 case {'train','training','trainset','trainingset'}
@@ -157,7 +157,7 @@ classdef Adlas
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            x = obj.A(p.Results.subjects);
+            x = obj.A; %(p.Results.subjects);
             switch lower(p.Results.subset)
                 case 'all'
 %                     x = x;
@@ -179,14 +179,12 @@ classdef Adlas
             addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            x = obj.A;
-            y = obj.B;
             if p.Results.transposeX
-                x = obj.X(obj.trainingFilter,:)';
+                x = obj.A(obj.trainingFilter,:)';
             else
-                x = obj.X(obj.trainingFilter,:);
+                x = obj.A(obj.trainingFilter,:);
             end
-            y = obj.Y(obj.trainingFilter,:);
+            y = obj.B(obj.trainingFilter,:);
             if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 x = x{1};
                 y = y{1};
@@ -202,11 +200,11 @@ classdef Adlas
             parse(p, obj, varargin{:});
 
             if p.Results.transposeX
-                X = obj.X(~obj.trainingFilter,:)';
+                X = obj.A(~obj.trainingFilter,:)';
             else
-                X = obj.X(~obj.trainingFilter,:);
+                X = obj.A(~obj.trainingFilter,:);
             end
-            Y = obj.Y(~obj.trainingFilter,:);
+            Y = obj.B(~obj.trainingFilter,:);
             if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 X = X{1};
                 Y = Y{1};
@@ -222,8 +220,8 @@ classdef Adlas
             parse(p, obj, varargin{:});
 
             w = obj.getWeights(p.Results.subjects); % subjects aren't used yet.
-            x = obj.getData(p.Results.subjects,'subset',p.Results.subset);
-            Yz = cell(size(x));
+            x = obj.getData(p.Results.subjects,'subset',p.Results.subset); % subjects aren't used yet.
+%             Yz = cell(size(x)); % subjects aren't used yet.
             Yz = x * w;
             if iscell(Yz) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 Yz = Yz{1};
@@ -234,41 +232,43 @@ classdef Adlas
             p = inputParser();
             addRequired(p, 'obj');
             addOptional(p, 'modelcontext', struct(), @isstruct);
-            addOptional(p, 'metadata', struct(), @isstruct);
+            addOptional(p, 'SubjectArray', struct(), @(x) isa(x,'Subject'));
             addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
             addParameter(p, 'Initialize', 0, @isnumeric);
             addParameter(p, 'SmallFootprint', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
+            META = selectbyfield(p.Results.SubjectArray, 'subject', p.Results.modelcontext.subject);
             Uz = obj.getWeights(p.Results.subjects,'dropBias',true,'forceCell',true); % subjects aren't used yet
             nz_rows = any(Uz,2);
             nzvox = nnz(nz_rows);
             nvox = numel(nz_rows);
             Cz = obj.getPrediction('subset','all');
             CONTEXT = p.Results.modelcontext;
-            META = p.Results.metadata(p.Results.subjects);
-            COORDS = META.coords;
+            COORDS = META.getCoords();
             COORDS_FIELDS = fieldnames(META.coords);
-            for j = 1:numel(COORDS_FIELDS)
-                cfield = COORDS_FIELDS{j};
-                if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(META.coords.(cfield))
-                    COORDS.(cfield) = META.coords.(cfield)(nz_rows,:);
-                elseif any(strcmp(cfield, {'ind'})) && ~isempty(META.coords.(cfield))
-                    COORDS.(cfield) = META.coords.(cfield)(nz_rows);
+            for i = 1:numel(COORDS)
+                for j = 1:numel(COORDS_FIELDS)
+                    cfield = COORDS_FIELDS{j};
+                    if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(COORDS(i).(cfield))
+                        COORDS(i).(cfield) = COORDS(i).(cfield)(nz_rows,:);
+                    elseif any(strcmp(cfield, {'ind'})) && ~isempty(COORDS(i).(cfield))
+                        COORDS(i).(cfield) = COORDS(i).(cfield)(nz_rows);
+                    end
                 end
             end
 
             r = struct( ...
-                'Uz'               , Uz , ...
+                'Uz'               , Uz(nz_rows,:) , ...
                 'Cz'               , Cz , ...
                 'target_label'     , CONTEXT.target_label , ...
                 'target_type'      , CONTEXT.target_type  , ...
                 'sim_source'       , CONTEXT.sim_source, ...
                 'sim_metric'       , CONTEXT.sim_metric, ...
-                'data'             , CONTEXT.data(:) , ...
-                'data_varname'     , CONTEXT.data_varname(:) , ...
-                'metadata'         , CONTEXT.metadata(:) , ...
-                'metadata_varname' , CONTEXT.metadata_varname(:) , ...
+                'data'             , CONTEXT.data , ...
+                'data_varname'     , CONTEXT.data_varname , ...
+                'metadata'         , CONTEXT.metadata , ...
+                'metadata_varname' , CONTEXT.metadata_varname , ...
                 'subject'          , {META.subject}' , ...
                 'cvholdout'        , CONTEXT.cvholdout , ...
                 'finalholdout'     , CONTEXT.finalholdout , ...
@@ -294,7 +294,7 @@ classdef Adlas
             end
         end
 
-        function disp(obj,varargin)
+        function printresults(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj');
             addOptional(p, 'outputcontrol', 'bycv', @ischar);
@@ -313,6 +313,7 @@ classdef Adlas
                         subj,cvix,obj.lambda,obj.lambda1,obj.testError,obj.trainingError,nzvox,nvox,obj.iter,obj.message);
 
                 case 'bycv'
+                    [~, nzvox, nvox] = obj.getWeights(p.Results.subjects,'forceCell',true,'dropBias',true);
                     fprintf('%8d%8d%8.2f%8.2f%8.2f%8.2f%8d%8d%8d%16s\n', ...
                         0,cvix,obj.lambda,obj.lambda1,mean(obj.testError),mean(obj.trainingError),mean(nzvox),mean(nvox),obj.iter,obj.message);
             end
