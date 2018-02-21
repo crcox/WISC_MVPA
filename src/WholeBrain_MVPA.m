@@ -43,7 +43,7 @@ function WholeBrain_MVPA(varargin)
     addParameter(p , 'perm_varname' , 'PERMUTATION_INDEX', @ischar    );
     addParameter(p , 'RestrictPermutationByCV', false, @islogicallike );
     % Hyperband (an alternative to grid search for hyperparameter selection)
-    addParameter(p , 'HYPERBAND', [] );
+    addParameter(p , 'SearchWithHyperband', false );
     addParameter(p , 'BRACKETS' , [] );
     addParameter(p , 'IterationsPerHyperband', 1000, @isnumeric );
     % Output control
@@ -69,10 +69,11 @@ function WholeBrain_MVPA(varargin)
     addParameter(p , 'PARALLEL'         , false   ,   @islogicallike );
     % Parameters in this section are unused in the analysis, may exist in
     % the parameter file because other progams use them.
-    addParameter(p , 'COPY'             , []                         );
-    addParameter(p , 'URLS'             , []                         );
-    addParameter(p , 'executable'       , []                         );
-    addParameter(p , 'wrapper'          , []                         );
+    addParameter(p , 'HYPERBAND'  , [] );
+    addParameter(p , 'COPY'       , [] );
+    addParameter(p , 'URLS'       , [] );
+    addParameter(p , 'executable' , [] );
+    addParameter(p , 'wrapper'    , [] );
 
     % Parse input parameters ...
     if nargin == 1 && isstruct(varargin{1})
@@ -99,17 +100,15 @@ function WholeBrain_MVPA(varargin)
     switch upper(p.Results.regularization)
         % The verify_setup_* functions can probably be merged...
         case {'L1L2','GROWL','GROWL2'};
-            HYPERPARAMETERS = verify_setup_RSA(p.Results.regularization, p.Results);
+            HYPERPARAMETERS = verify_setup_RSA(p.Results);
         case {'LASSO','SOSLASSO'};
-            HYPERPARAMETERS = verify_setup_MVPA(p.Results.regularization, p.Results);
+            HYPERPARAMETERS = verify_setup_MVPA(p.Results);
     end
     % --- searchlight specific ---
     if p.Results.searchlight && ~strcmpi(p.Results.slSim_Measure,'nrsa')
         assert(~isempty(p.Results.slPermutationType));
         assert(~isempty(p.Results.slPermutations));
     end
-    % --- HYPERBAND ---
-    SearchWithHyperband = ~isempty(p.Results.HYPERBAND);
     % --- Initialize the random number generator, as needed ---
     if ~isempty(p.Results.RandomSeed) && isscalar(p.Results.RandomSeed) && ~strcmpi(p.Results.PermutationMethod,'manual')
         rng(p.Results.RandomSeed);
@@ -277,7 +276,7 @@ function WholeBrain_MVPA(varargin)
             end
     end
 
-    if SearchWithHyperband
+    if p.Results.SearchWithHyperband
         n = p.Results.BRACKETS.n;
         r = p.Results.BRACKETS.r;
         while 1
@@ -339,11 +338,10 @@ function WholeBrain_MVPA(varargin)
     fprintf('Done!\n');
 end
 
-function [hyperparameters] = verify_setup_MVPA(regularization, p)
-    % Each regularization requires different lambda configurations. This private
-    % function ensures that everything has been properly specified.
-    SearchWithHyperband = ~isempty(p.HYPERBAND);
-    switch upper(regularization)
+function [hyperparameters] = verify_setup_MVPA(p)
+    % Each regularization requires different lambda configurations. This
+    % private function ensures that everything has been properly specified.
+    switch upper(p.regularization)
         case 'LASSO_GLMNET'
             if isfield(p,'lambda') && isempty(p.lambda)
                 warning('Lamba was not specified. GLMnet will attempt to determine lambda1 through cross validation.');
@@ -357,7 +355,7 @@ function [hyperparameters] = verify_setup_MVPA(regularization, p)
             else
                 alpha = p.alpha;
             end
-            hyperparameters = struct('alpha',alpha,'lambda',lambda,'hyperband',SearchWithHyperband);
+            hyperparameters = struct('alpha',alpha,'lambda',lambda,'hyperband',p.SearchWithHyperband);
 
         case 'LASSO'
             assert(any(isfield(p,{'lambda','lamL1'})), 'Either lambda or lamL1 (synonymns for LASSO regularization) must be defined.');
@@ -382,7 +380,7 @@ function [hyperparameters] = verify_setup_MVPA(regularization, p)
                     lamSOS = p.lamSOS;
                 end
             end
-            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'hyperband',SearchWithHyperband);
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'hyperband',p.SearchWithHyperband);
 
         case 'SOSLASSO'
             assert(all(isfield(p,{'diameter','shape','overlap'})) && ~isempty(p.diameter) && ~isempty(p.shape) && ~isempty(p.overlap), 'diameter, shape, and overlap must all be defined for SOSLASSO regularization.');
@@ -401,16 +399,15 @@ function [hyperparameters] = verify_setup_MVPA(regularization, p)
                 lamSOS = p.lamSOS;
                 lamL1 = p.lamL1;
             end
-            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',p.diameter,'shape',p.shape,'overlap',p.overlap,'hyperband',SearchWithHyperband);
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',p.diameter,'shape',p.shape,'overlap',p.overlap,'hyperband',p.SearchWithHyperband);
 
     end
 end
 
-function [hyperparameters] = verify_setup_RSA(regularization, p)
+function [hyperparameters] = verify_setup_RSA(p)
     % Each regularization requires different lambda configurations. This private
     % function ensures that everything has been properly specified.
-    SearchWithHyperband = ~isempty(p.HYPERBAND);
-    switch upper(regularization)
+    switch upper(p.regularization)
         case 'NONE'
             if ~isempty(lambda) || ~isempty(lambda1)
                 warning('Regularization was set to none, but lambda values were provided. They will be ignored.')
@@ -424,7 +421,7 @@ function [hyperparameters] = verify_setup_RSA(regularization, p)
                 warning('Lamba was not specified. GLMnet will attempt to determine lambda1 through cross validation.');
                 lam = nan(1);
             end
-            hyperparameters = struct('alpha',1,'lambda',lam,'hyperband',SearchWithHyperband);
+            hyperparameters = struct('alpha',1,'lambda',lam,'hyperband',p.SearchWithHyperband);
 
         case 'L1L2'
             if isfield(p,'lambda1') && ~isempty(p.lambda1)
@@ -437,7 +434,7 @@ function [hyperparameters] = verify_setup_RSA(regularization, p)
             lam    = p.lambda;
             lam1   = [];
             lamSeq = 'none';
-            hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',SearchWithHyperband);
+            hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',p.SearchWithHyperband);
 
         case {'GROWL','GROWL2'}
             assert(isfield(p,'lambda') && ~isempty(p.lambda) && any(~isnan(p.lambda)), 'grOWL requires lambda.');
@@ -446,7 +443,7 @@ function [hyperparameters] = verify_setup_RSA(regularization, p)
             lam    = p.lambda;
             lam1   = p.lambda1;
             lamSeq = p.LambdaSeq;
-            hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',SearchWithHyperband);
+            hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',p.SearchWithHyperband);
 
     end
 end
