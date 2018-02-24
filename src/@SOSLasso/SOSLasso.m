@@ -50,12 +50,12 @@ classdef SOSLasso
             [Gc, ix]  = commonGrouping(G);
             obj.group_arr = group2mat(Gc);
             obj.groups    = group2lab(Gc);
-            obj.num_tasks = obj.num_tasks;
+            obj.num_tasks = numel(obj.X);
             obj.dimension = length(obj.groups);
 
             if isempty(trainingFilter)
-                obj.trainingFilter = true(size(X,1), 1);
-            elseif numel(trainingFilter) ~= size(X,1);
+                obj.trainingFilter = true(size(obj.X{1},1), 1);
+            elseif numel(trainingFilter) ~= size(obj.X,1);
                 error('The trainingFilter must have as many elements as there are targets (i.e., examples in the dataset).');
             else
                 obj.trainingFilter = trainingFilter;
@@ -295,7 +295,7 @@ classdef SOSLasso
             p = inputParser();
             addRequired(p, 'obj');
             addOptional(p, 'modelcontext', struct(), @isstruct);
-            addOptional(p, 'metadata', struct(), @isstruct);
+            addOptional(p, 'metadata', struct(), @(x) isa(x,'Subject'));
             addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
             addParameter(p, 'Initialize', 0, @isnumeric);
             addParameter(p, 'SmallFootprint', false, @(x) islogical(x) || x==1 || x==0);
@@ -372,7 +372,7 @@ classdef SOSLasso
             end
         end
 
-        function disp(obj,varargin)
+        function printresults(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj');
             addOptional(p, 'outputcontrol', 'bycv', @ischar);
@@ -403,7 +403,7 @@ end
 
 function obj = SOSLasso_logistic(obj)
     grad_flag = 0;
-    [X,Y] = obj.getTrainingData('TransposeX', true);
+    [X,Y] = obj.getTrainingData('TransposeX', true,'forceCell',true);
 
 %     dimension = length(obj.groups);
 %     num_tasks = obj.num_tasks;

@@ -257,7 +257,7 @@ function WholeBrain_MVPA(varargin)
         bracket_index = 1;
     end
 
-    xyz = cell(numel(metadata),1);
+    xyz = cell(numel(SubjectArray),1);
     for i = 1:numel(SubjectArray)
         xyz{i} = SubjectArray(i).getCoords(p.Results.orientation,'xyz','simplify',true);
     end
