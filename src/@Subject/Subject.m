@@ -54,7 +54,11 @@ classdef Subject
             % Functions private to this method
             function s = extractWindowInfo(x)
                 a = strfind(x,'BoxCar');
-                y = sscanf(x(a:end), 'BoxCar/%d/WindowStart/%d/WindowSize/%d');
+                try
+                    y = sscanf(x(a:end), 'BoxCar/%d/WindowStart/%d/WindowSize/%d');
+                catch
+                    y = sscanf(x(a:end), 'BoxCar\\%d\\WindowStart\\%d\\WindowSize\\%d');
+                end
                 s = struct('BoxCar',y(1),'WindowStart',y(2),'WindowSize',y(3));
             end
 
@@ -396,9 +400,7 @@ classdef Subject
             addParameter(p, 'simplify', false, @(x) islogical(x) || any(isnumeric(x) == [2,1,0]));
             parse(p, obj, varargin{:});
             
-            if p.Results.unfiltered
-                rf = true(1, size(obj.data,1));
-            else
+            if ~p.Results.unfiltered
                 if ~isempty(p.Results.include);
                     rf = obj.getRowFilter('include',p.Results.include);
                 elseif ~isempty(p.Results.exclude);
@@ -412,14 +414,18 @@ classdef Subject
             for i = 1:numel(x)
                 if iscell(x(i).type)
                     for j = 1:numel(x(i).type)
-                        if strcmpi(x(i).type{j},'similarity')
+                        if p.Results.unfiltered
+                            x(i).target{j} = x(i).target{j};
+                        elseif strcmpi(x(i).type{j},'similarity')
                             x(i).target{j} = x(i).target{j}(rf,rf);
                         else
                             x(i).target{j} = x(i).target{j}(rf,:);
                         end
                     end
                 else
-                    if strcmpi(x(i).type,'similarity')
+                    if p.Results.unfiltered
+                        x(i).target = x(i).target;
+                    elseif strcmpi(x(i).type,'similarity')
                         x(i).target = x(i).target(rf,rf);
                     else
                         x(i).target = x(i).target(rf,:);
