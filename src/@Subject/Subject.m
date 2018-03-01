@@ -104,28 +104,24 @@ classdef Subject
         end
         
         function obj = setFinalHoldoutFilter(obj, finalholdoutindex)
-            if any(strcmpi('notes', fieldnames(obj.rowfilters)))
-                FHO = struct( ...
-                    'label', 'finalholdout', ...
-                    'dimension', 1, ...
-                    'filter', obj.cvscheme(:)' ~= finalholdoutindex, ...
-                    'notes', 'autogen');
-            elseif  any(strcmpi('note', fieldnames(obj.rowfilters)))
-                FHO = struct( ...
-                    'label', 'finalholdout', ...
-                    'dimension', 1, ...
-                    'filter', obj.cvscheme(:)' ~= finalholdoutindex, ...
-                    'note', 'autogen');
-            else
-                FHO = struct( ...
-                    'label', 'finalholdout', ...
-                    'dimension', 1, ...
-                    'filter', obj.cvscheme(:)' ~= finalholdoutindex);
-            end
+            FHO = structWithFields(fieldnames(obj.rowfilters));
+            FHO.label = 'finalholdout';
+            FHO.dimension = 1;
+            FHO.filter = obj.cvscheme(:)' ~= finalholdoutindex;
             if any(strcmpi('finalholdout',{obj.rowfilters.label}))
                 obj.rowfilters = replacebyfield(obj.rowfilters,FHO,'label','finalholdout','dimension',1);
             else
                 obj.rowfilters(end+1) = FHO;
+            end
+            function s = structWithFields(x)
+                if isstruct(x)
+                    fields = fieldnames(x);
+                elseif iscellstr(x)
+                    fields = x;
+                end
+                n = numel(fields);
+                c = [fields(:)';repmat({[]},1,n)];
+                s = struct(c{:});
             end
         end
         
@@ -200,12 +196,14 @@ classdef Subject
                     error('permutation_index has fewer rows than nTotalExamples , and nTotalExamples is not evenly divisible by number in permutation_index.');
                 else
                     repeatntimes = target_length / size(permutation_index,1);
-                    warning('permutation_index has fewer rows than nTotalExamples, and nTotalExamples is evenly divisible by number in permutation_index. Repeating permutation_index %d times to match.', repeatntimes);
-                    CC = cell(repeatntimes, 1);
-                    for k = 1:repeatntimes
-                        CC{k} = permutation_index + (size(permutation_index, 1) * (k-1));
+                    if repeatntimes > 1
+                        warning('permutation_index has fewer rows than nTotalExamples, and nTotalExamples is evenly divisible by number in permutation_index. Repeating permutation_index %d times to match.', repeatntimes);
+                        CC = cell(repeatntimes, 1);
+                        for k = 1:repeatntimes
+                            CC{k} = permutation_index + (size(permutation_index, 1) * (k-1));
+                        end
+                        permutation_index = cell2mat(CC);
                     end
-                    permutation_index = cell2mat(CC);
                 end
             end
         end
