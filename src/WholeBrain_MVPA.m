@@ -291,7 +291,7 @@ function WholeBrain_MVPA(varargin)
             ModelInstances = hyperband_pick_top_n(ModelInstances, n(bracket_index));
             bracket_index = bracket_index + 1;
             if bracket_index < numel(n)
-                save('checkpoint.mat', 'ModelInstances', 'bracket_index');
+                % save('checkpoint.mat', 'ModelInstances', 'bracket_index');
             else
                 if exist('checkpoint.mat', 'file'), delete('checkpoint.mat'); end
                 break
