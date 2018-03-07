@@ -494,29 +494,46 @@ classdef Subject
         % For all targets with type 'similarity', generate a low-rank
         % embedding and update the 'target' field of the targets structure
         % (replacing the item-by-item symetric similarity matrix.
+        % PreFilterWith indicates which row filters should be applied to
+        % the similarity matrix before computing the embedding.
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
             addRequired(p, 'tau', @(x) isnumeric(x) && isscalar(x));
             addParameter(p, 'ExtendEmbedding', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
+            addParameter(p, 'PreFilterWith', [], @(x) ischar(x) || iscellstr(x));
             parse(p, obj, tau, varargin{:});
             
             if strcmpi(obj.targets.type, 'similarity');
-                S = obj.getTargets('unfiltered',true,'simplify',true);
+                if isempty(p.Results.PreFilterWith)
+                    S = obj.getTargets('unfiltered',true,'simplify',true);
+                else
+                    S = obj.getTargets('include',p.Results.PreFilterWith,'simplify',true);
+                end
                 [C, r] = sqrt_truncate_r(S, tau);
                 fprintf('S decomposed into %d dimensions (tau=%.2f)\n', r, tau);
-
-                if size(C,1) < obj.nTotalExamples
-                    remainder = rem(obj.nTotalExamples, size(C,1));
+                
+                if ~isempty(p.Results.PreFilterWith)
+                    tmp = C;
+                    rf = obj.getRowFilter('include',p.Results.PreFilterWith);
+                    C = nan(numel(rf),r);
+                    C(rf,:) = tmp;
+                end
+                
+                C = expand(C, obj.nTotalExamples);
+                obj.targets.target = {C,S};
+                obj.targets.type = {'embedding','similarity'};
+            end
+            function C = expand(C,n)
+                if size(C,1) < n
+                    remainder = rem(n, size(C,1));
                     if remainder > 0
                         error('C has fewer rows than X, and number in X is not evenly divisible by number in C.');
                     else
-                        repeatntimes = obj.nTotalExamples ./ size(C,1);
+                        repeatntimes = n ./ size(C,1);
                         warning('C has fewer rows than X, and number in X is evenly divisible by number in C. Repeating C %d times to match.', repeatntimes);
                         C = repmat(C, repeatntimes, 1);
                     end
                 end
-                obj.targets.target = {C,S};
-                obj.targets.type = {'embedding','similarity'};
             end
         end
     end

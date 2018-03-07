@@ -54,6 +54,9 @@ function HTCondor_mat2csv(ResultDir, varargin)
     end
     z = ismember(SKIP,fieldnames(R));
     R = rmfield(R, SKIP(z));
+    
+    R = expandCorrWithC(R);
+    
     [fmt,fmt_h] = fieldfmt(fieldnames(R));
 
     fid = fopen(OUTPUT_FILE, 'w');
@@ -137,7 +140,12 @@ function [fmt,fmt_h] = fieldfmt(fieldnames)
         'WindowSize'   , '%d'   , ...
         'WindowStart'  , '%d'   , ...
         'nzvox'        , '%d'   , ...
-        'nzv'          , '%d');
+        'nzv'          , '%d'   , ...
+        'corrWithC1'   , '%.4f' , ...
+        'corrWithC2'   , '%.4f' , ...
+        'corrWithC3'   , '%.4f' , ...
+        'corrWithC4'   , '%.4f' , ...
+        'corrWithC5'   , '%.4f');
 
     fmt_c = cell(1,numel(fieldnames));
     for i = 1:numel(fieldnames)
@@ -146,3 +154,17 @@ function [fmt,fmt_h] = fieldfmt(fieldnames)
     fmt = [strjoin(fmt_c,',') '\n'];
     fmt_h = [strjoin(repmat({'%s'},1,numel(fieldnames)),',') '\n'];
 end
+
+function R = expandCorrWithC(R)
+    if any(strcmp('corrWithC',fieldnames(R)))
+        for j = 1:numel(R)
+            x = R(j).corrWithC;
+            for i = 1:numel(x);
+                f = sprintf('corrWithC%d', i);
+                R(j).(f) = x(i);
+            end
+        end
+    end
+    R = rmfield(R,'corrWithC');
+end
+

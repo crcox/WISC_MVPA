@@ -21,6 +21,7 @@ function WholeBrain_MVPA(varargin)
     addParameter(p , 'sim_source'       , [], @ischar );
     addParameter(p , 'sim_metric'       , [], @ischar );
     addParameter(p , 'tau'              , [], @isnumeric     );
+    addParameter(p , 'FiltersToApplyBeforeEmbedding' , [], @(x) ischar(x) || iscellstr(x) );
     % Data definition
     addParameter(p , 'filters'          , []                  );
     addParameter(p , 'data'             , []                  );
@@ -173,7 +174,11 @@ function WholeBrain_MVPA(varargin)
         SubjectArray(i) = SubjectArray(i).setTargets(T);
         if ~isempty(p.Results.tau) && p.Results.tau ~= 0
             % If tau is set, generate embeddings from target similarity matrices.
-            SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true);
+            if isempty(p.Results.FiltersToApplyBeforeEmbedding)
+                SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true);
+            else
+                SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true, 'PreFilter', p.Results.FiltersToApplyBeforeEmbedding);
+            end
         end
         % Set permutation data. If a permutation test is not being run,
         % RandomSeed == 0 and a dummy permutation index will be encoded
