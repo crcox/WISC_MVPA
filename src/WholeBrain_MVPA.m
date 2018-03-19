@@ -268,11 +268,36 @@ function WholeBrain_MVPA(varargin)
     end
     switch upper(p.Results.regularization)
         case 'SOSLASSO'
+            [diameter_u,~,ib] = unique(cat(1,ModelInstances.diameter),'rows');
+            [overlap_u,~,ic] = unique(cat(1,ModelInstances.overlap),'rows');
+            MIT = unique(table( ...
+                ib, ...
+                ic, ...
+                {ModelInstances.shape}', ...
+                'VariableNames', {'diameter','overlap','shape'}));
+            MIT.diameter = num2cell(MIT.diameter);
+            MIT.overlap = num2cell(MIT.overlap);
+            G = cell(size(MIT,1),1);
+            for ii = 1:size(MIT,1)
+                MIT.diameter{ii} = diameter_u(MIT.diameter{ii},:);
+                MIT.overlap{ii} = overlap_u(MIT.overlap{ii},:);
+                G{ii} = coordGrouping(xyz, ...
+                    MIT.diameter{ii}, ...
+                    MIT.overlap{ii}, ...
+                    MIT.shape{ii});
+            end
             for ii = 1:numel(ModelInstances)
                 diameter = ModelInstances(ii).diameter;
                 overlap = ModelInstances(ii).overlap;
                 shape = ModelInstances(ii).shape;
-                ModelInstances(ii).G = coordGrouping(xyz, diameter, overlap, shape);
+                if size(MIT,1) > 1
+                    z = all(bsxfun(@eq, cell2mat(MIT.diameter), diameter), 2) & ...
+                        all(bsxfun(@eq, cell2mat(MIT.overlap), overlap), 2) & ...
+                        strcmp(MIT.shape, shape);
+                else
+                    z = 1;
+                end 
+                ModelInstances(ii).G = G{z};
             end
 
         case 'LASSO'
