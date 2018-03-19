@@ -404,7 +404,12 @@ function [hyperparameters] = verify_setup_MVPA(p)
                 lamSOS = p.lamSOS;
                 lamL1 = p.lamL1;
             end
-            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',p.diameter,'shape',p.shape,'overlap',p.overlap,'hyperband',p.SearchWithHyperband);
+            if all(size(p.diameter) == [1,3])
+                diameter = {{p.diameter}};
+            else
+                diameter = p.diameter;
+            end
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',diameter,'shape',p.shape,'overlap',p.overlap,'hyperband',p.SearchWithHyperband);
 
     end
 end

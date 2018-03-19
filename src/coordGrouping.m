@@ -56,8 +56,8 @@ function G = coordGrouping(coords, diameter, overlap, shape)
         N = 1;
     end
 
-    assert(length(diameter) == 1 || length(diameter) == d);
-    assert(length(overlap) == 1 || length(overlap) == d);
+    assert(length(diameter) == 1 || all(length(diameter) == d));
+    assert(length(overlap) == 1 || all(length(overlap) == d));
     assert(all(overlap <= diameter));
 
     r = diameter ./ 2;
