@@ -9,9 +9,20 @@ function [ TopN_by_group, ix ] = hyperband_pick_top_n( ModelInstances, n, maximi
     else
         direction = 'ascend';
     end
-
-    testError = cellfun(@(x) x.Model.testError, num2cell(ModelInstances))';
-    t0 = struct2table(rmfield(ModelInstances,{'Model','cvholdout'})');
+    
+    
+    regularization = ModelInstances(1).regularization;
+    switch upper(regularization)
+        case 'SOSLASSO'
+            testError = cellfun(@(x) mean(x.Model.testError), num2cell(ModelInstances))';
+            t0 = struct2table(rmfield(ModelInstances,{'Model','cvholdout','sim_source','sim_metric','data','subject','G'})');
+        case 'LASSO'
+            testError = cellfun(@(x) x.Model.testError, num2cell(ModelInstances))';
+            t0 = struct2table(rmfield(ModelInstances,{'Model','cvholdout','sim_source','sim_metric'})');
+        otherwise
+            testError = cellfun(@(x) x.Model.testError, num2cell(ModelInstances))';
+            t0 = struct2table(rmfield(ModelInstances,{'Model','cvholdout'})');     
+    end
     [t1,~,g0] = unique(t0);
     g0_max = max(g0);
     t1.cvmap = cell(size(t1,1),1);
@@ -21,8 +32,24 @@ function [ TopN_by_group, ix ] = hyperband_pick_top_n( ModelInstances, n, maximi
     t1.testError = grpstats(testError, g0);
     t1.rank = zeros(size(t1,1),1);
     t2 = t1;
-    t2.lambda = [];
-    t2.lambda1 = [];
+    switch upper(regularization)
+        case {'SOSLASSO','LASSO'}
+            try
+                t2.lambda = [];
+            catch
+                t2.lamL1 = [];
+            end
+            try
+                t2.alpha = [];
+            catch
+                t2.lamSOS = [];
+            end
+            
+        otherwise
+            t2.lambda = [];
+            t2.lambda1 = [];
+    end
+
     t2.configID = [];
     t2.testError = [];
     t2.cvmap = [];
