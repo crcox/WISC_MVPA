@@ -1,16 +1,15 @@
 classdef SOSLasso
     properties
-        X % Data
-        Y % Targets
         W % Weights
         G % Groups
+        Yz % prediction
         lamSOS
         lamL1
         lamL2 = 0
         trainingFilter
         testError
         trainingError
-        maxiter = 100000
+        max_iter = 100000
         tol = 1e-8
         num_tasks
         dimension
@@ -27,20 +26,25 @@ classdef SOSLasso
         s % random seed
         group_arr
         groups
+        voxel_duplication_index
         gamma = 1
         gamma_inc = 2
+        truepos
+        falsepos
+        poscount
+        negcount
         message = '';
     end
 
     methods
-        function obj = SOSLasso(X,Y,lamSOS,lamL1,G,trainingFilter,ModelHasBiasUnit,opts)
+        function obj = SOSLasso(lamSOS,lamL1,G,trainingFilter,ModelHasBiasUnit,opts)
             if (nargin == 0)
                 obj.EMPTY = 1;
                 return
             end
             if (nargin < 4), opts = struct(); end
-            if iscell(X), obj.X = X(:); else obj.X = {X}; end
-            if iscell(Y), obj.Y = Y(:); else obj.Y = {Y}; end
+%             if iscell(X), obj.X = X(:); else obj.X = {X}; end
+%             if iscell(Y), obj.Y = Y(:); else obj.Y = {Y}; end
             obj.lamSOS = lamSOS;
             obj.lamL1 =lamL1;
             obj.G = G;
@@ -50,34 +54,15 @@ classdef SOSLasso
             [Gc, ix]  = commonGrouping(G);
             obj.group_arr = group2mat(Gc);
             obj.groups    = group2lab(Gc);
-            obj.num_tasks = numel(obj.X);
+            obj.voxel_duplication_index = ix;
+            obj.num_tasks = size(G,2);
             obj.dimension = length(obj.groups);
+            obj.trainingFilter = trainingFilter;
 
-            if isempty(trainingFilter)
-                obj.trainingFilter = true(size(obj.X{1},1), 1);
-            elseif numel(trainingFilter) ~= size(obj.X,1);
-                error('The trainingFilter must have as many elements as there are targets (i.e., examples in the dataset).');
-            else
-                obj.trainingFilter = trainingFilter;
-            end
-            % initialize (can provide your own initialization)
-            % if isempty(W0)
             W0 = zeros(obj.dimension, obj.num_tasks);
-            % else
-            %     for j = 1:length(X);
-            %         W0{j} = [W0{j}(:); 0];
-            %         W0{j} = W0{j}(ix(:,j));
-            %     end
-            %     W0 = cell2mat(W0);
-            % end
+
             obj.W = W0;
             obj.W_old = W0;
-
-            % Add dummy unit
-            for j = 1:length(X);
-                obj.X{j} = [X{j},zeros(size(X{j},1),1)];
-                obj.X{j} = obj.X{j}(:,ix(:,j));
-            end
 
             fn = fieldnames(opts);
             for i = 1:numel(fn)
@@ -90,23 +75,29 @@ classdef SOSLasso
         function obj = setRandomSeed(obj, seed)
             obj.s = RandStream('mt19937ar','Seed',seed);
         end
-        function obj = train(obj, opts)
+        function obj = train(obj,X,Y,opts)
             fn = fieldnames(opts);
             for i = 1:numel(fn)
                 obj.(fn{i}) = opts.(fn{i});
             end
-            obj = SOSLasso_logistic(obj);
+            [X,Y] = obj.processData(X,Y);
+            [Xtrain,Ytrain] = obj.getTrainingData(X,Y,'TransposeX', true,'forceCell',true);
+            obj = SOSLasso_logistic(obj,Xtrain,Ytrain);
+            obj = setPrediction(obj, X);
+            obj = setTFPos(obj,Y,'subset','train');
+            obj = setTFPos(obj,Y,'subset','test');
         end
 
-        function obj = test(obj)
+        function obj = test(obj,X,Y)
             obj.testError = zeros(1, obj.num_tasks);
             obj.trainingError = zeros(1, obj.num_tasks);
+            [X,Y] = obj.processData(X,Y);
             for i = 1:obj.num_tasks
                 w = obj.W(:,i);
-                [x,y] = obj.getTrainingData(i);
-                obj.testError(i) = classifier_error(y,x*w);
-                [x,y] = obj.getTestingData(i);
+                [x,y] = obj.getTrainingData(X,Y,i);
                 obj.trainingError(i) = classifier_error(y,x*w);
+                [x,y] = obj.getTestingData(X,Y,i);
+                obj.testError(i) = classifier_error(y,x*w);
             end
         end
 
@@ -152,7 +143,7 @@ classdef SOSLasso
             end
         end
 
-        function y = getTarget(obj,varargin)
+        function y = getTarget(obj,Y,varargin)
             p = inputParser();
             addRequired(p, 'obj');
             addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
@@ -160,7 +151,7 @@ classdef SOSLasso
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            y = obj.Y(p.Results.subjects);
+            y = Y(p.Results.subjects);
             switch lower(p.Results.subset)
                 case 'all'
                     for i = 1:numel(y), y{i} = y{i}; end
@@ -174,7 +165,17 @@ classdef SOSLasso
             end
         end
 
-        function x = getData(obj,varargin)
+        function [x,y] = processData(obj,X,Y,varargin)
+            if iscell(X), x = X(:); else x = {X}; end
+            if iscell(Y), y = Y(:); else y = {Y}; end
+            ix = obj.voxel_duplication_index;
+            for j = 1:length(X);
+                x{j} = [X{j},zeros(size(X{j},1),1)];
+                x{j} = x{j}(:,ix(:,j));
+            end
+        end
+        
+        function x = getSubset(obj,X,varargin)
             p = inputParser();
             addRequired(p, 'obj');
             addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
@@ -182,7 +183,7 @@ classdef SOSLasso
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            x = obj.X(p.Results.subjects);
+            x = X(p.Results.subjects);
             switch lower(p.Results.subset)
                 case 'all'
                     for i = 1:numel(x), x{i} = x{i}; end
@@ -196,7 +197,7 @@ classdef SOSLasso
             end
         end
 
-        function [X,Y] = getTrainingData(obj,varargin)
+        function [X,Y] = getTrainingData(obj,Xa,Ya,varargin)
             p = inputParser();
             addRequired(p, 'obj');
             addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
@@ -204,23 +205,25 @@ classdef SOSLasso
             addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            X = cell(size(obj.X));
-            Y = cell(size(obj.Y));
+            X = cell(size(Xa));
+            Y = cell(size(Ya));
             for i = p.Results.subjects
                 if p.Results.transposeX
-                    X{i} = obj.X{i}(obj.trainingFilter{i},:)';
+                    X{i} = Xa{i}(obj.trainingFilter{i},:)';
                 else
-                    X{i} = obj.X{i}(obj.trainingFilter{i},:);
+                    X{i} = Xa{i}(obj.trainingFilter{i},:);
                 end
-                Y{i} = obj.Y{i}(obj.trainingFilter{i});
+                Y{i} = Ya{i}(obj.trainingFilter{i});
             end
+            X = X(p.Results.subjects);
+            Y = Y(p.Results.subjects);
             if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 X = X{1};
                 Y = Y{1};
             end
         end
 
-        function [X,Y] = getTestingData(obj,varargin)
+        function [X,Y] = getTestingData(obj,Xa,Ya,varargin)
             p = inputParser();
             addRequired(p, 'obj');
             addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
@@ -228,19 +231,38 @@ classdef SOSLasso
             addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            X = cell(size(obj.X));
-            Y = cell(size(obj.Y));
+            X = cell(size(Xa));
+            Y = cell(size(Ya));
             for i = p.Results.subjects
                 if p.Results.transposeX
-                    X{i} = obj.X{i}(~obj.trainingFilter{i},:)';
+                    X{i} = Xa{i}(~obj.trainingFilter{i},:)';
                 else
-                    X{i} = obj.X{i}(~obj.trainingFilter{i},:);
+                    X{i} = Xa{i}(~obj.trainingFilter{i},:);
                 end
-                Y{i} = obj.Y{i}(~obj.trainingFilter{i});
+                Y{i} = Ya{i}(~obj.trainingFilter{i});
             end
+            X = X(p.Results.subjects);
+            Y = Y(p.Results.subjects);
             if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 X = X{1};
                 Y = Y{1};
+            end
+        end
+
+        function obj = setPrediction(obj, X)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addRequired(p, 'X');
+            parse(p, obj, X);
+
+            w = obj.getWeights('forceCell',true,'dropBias',false,'combine',false);
+            x = obj.getSubset(X,'subset','all','forceCell',true);
+            obj.Yz = cell(size(x));
+            for i = 1:numel(x)
+                obj.Yz{i} = x{i} * w{i};
+            end
+            if numel(x) == 1
+                obj.Yz = obj.Yz{1};
             end
         end
 
@@ -252,17 +274,51 @@ classdef SOSLasso
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            w = obj.getWeights(p.Results.subjects,'forceCell',true,'dropBias',false,'combine',false);
-            x = obj.getData(p.Results.subjects,'subset',p.Results.subset);
-            Yz = cell(size(x));
-            for i = 1:numel(x)
-                Yz{i} = x{i} * w{i};
-            end
+            Yz = obj.getSubset(obj.Yz,p.Results.subjects,'subset',p.Results.subset);
             if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 Yz = Yz{1};
             end
         end
 
+        function obj = setTFPos(obj,Y,varargin)
+            p = inputParser();
+            addRequired(p, 'obj');
+            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addParameter(p, 'subset', 'test', @ischar);
+            parse(p, obj, varargin{:});
+
+            x = obj.getSubset(Y,'subset',p.Results.subset);
+            P = obj.getPrediction('subset',p.Results.subset);
+
+            pcount = zeros(size(x));
+            ncount = zeros(size(x));
+            tpos = zeros(size(x));
+            fpos = zeros(size(x));
+            for i = 1:numel(x)
+                pp = P{i} > 0;
+%                 pn = P{i} <= 0;
+                xp = x{i} > 0;
+                xn = x{i} <= 0;
+
+                pcount(i) = nnz(xp);
+                ncount(i) = nnz(xn);
+
+                tpos(i) = nnz(xp & pp);
+                fpos(i) = nnz(xn & pp);
+            end
+            switch lower(p.Results.subset)
+                case 'all'
+                    f = 'all';
+                case {'test','testing','testset','testingset'}
+                    f = 'test';
+                case {'train','training','trainset','trainingset'}
+                    f = 'train';
+            end
+            obj.truepos.(f) = tpos;
+            obj.falsepos.(f) = fpos;
+            obj.poscount.(f) = pcount;
+            obj.negcount.(f) = ncount;
+        end
         function [truepos,falsepos,poscount,negcount] = getTFPos(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj');
@@ -270,25 +326,18 @@ classdef SOSLasso
             addParameter(p, 'subset', 'test', @ischar);
             parse(p, obj, varargin{:});
 
-            x = obj.getTarget('subset',p.Results.subset);
-            P = obj.getPrediction('subset',p.Results.subset);
-
-            poscount = zeros(size(x));
-            negcount = zeros(size(x));
-            truepos = zeros(size(x));
-            falsepos = zeros(size(x));
-            for i = 1:numel(x)
-                pp = P{i} > 0;
-%                 pn = P{i} <= 0;
-                xp = x{i} > 0;
-                xn = x{i} <= 0;
-
-                poscount(i) = nnz(xp);
-                negcount(i) = nnz(xn);
-
-                truepos(i) = nnz(xp & pp);
-                falsepos(i) = nnz(xn & pp);
+            switch lower(p.Results.subset)
+                case 'all'
+                    f = 'all';
+                case {'test','testing','testset','testingset'}
+                    f = 'test';
+                case {'train','training','trainset','trainingset'}
+                    f = 'train';
             end
+            truepos = obj.truepos.(f)(p.Results.subjects);
+            falsepos = obj.falsepos.(f)(p.Results.subjects);
+            poscount = obj.poscount.(f)(p.Results.subjects);
+            negcount = obj.negcount.(f)(p.Results.subjects);
         end
 
         function [r,n] = getResults(obj, varargin)
@@ -305,11 +354,10 @@ classdef SOSLasso
             nz_rows = cellfun(@(x) any(x,2), Wz, 'UniformOutput', 0);
             nzvox = cellfun(@(x) nnz(x), nz_rows, 'UniformOutput', 0);
             nvox = cellfun(@(x) numel(x), nz_rows, 'UniformOutput', 0);
-            Yz = obj.getPrediction('subset','all');
-            [truepos.testset,falsepos.testset,poscount.testset,negcount.testset] = ...
-                obj.getTFPos(p.Results.subjects,'subset','TestSet');
-            [truepos.trainingset,falsepos.trainingset,poscount.trainingset,negcount.trainingset] = ...
-                obj.getTFPos(p.Results.subjects,'subset','TrainingSet');
+            [tpos.testset,fpos.testset,pcount.testset,ncount.testset] = ...
+                obj.getTFPos(p.Results.subjects,'subset','test');
+            [tpos.trainingset,fpos.trainingset,pcount.trainingset,ncount.trainingset] = ...
+                obj.getTFPos(p.Results.subjects,'subset','train');
             [alpha,lambda] = obj.getAlphaLambda();
             CONTEXT = p.Results.modelcontext;
             META = p.Results.metadata(p.Results.subjects);
@@ -318,19 +366,22 @@ classdef SOSLasso
                 ix = find(any(Wz{i}, 2));
                 COORDS{i} = META(i).coords;
                 COORDS_FIELDS = fieldnames(META(i).coords);
+                
                 for j = 1:numel(COORDS_FIELDS)
                     cfield = COORDS_FIELDS{j};
-                    if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(META(i).coords.(cfield))
-                        COORDS{i}.(cfield) = META(i).coords.(cfield)(ix,:);
-                    elseif any(strcmp(cfield, {'ind'})) && ~isempty(META(i).coords.(cfield))
-                        COORDS{i}.(cfield) = META(i).coords.(cfield)(ix);
+                    for k = 1:numel(META(i).coords)
+                        if any(strcmp(cfield, {'ijk','xyz'})) && ~isempty(META(i).coords(k).(cfield))
+                            COORDS{i}(k).(cfield) = META(i).coords(k).(cfield)(ix,:);
+                        elseif any(strcmp(cfield, {'ind'})) && ~isempty(META(i).coords(k).(cfield))
+                            COORDS{i}(k).(cfield) = META(i).coords(k).(cfield)(ix);
+                        end
                     end
                 end
             end
 
             r = struct( ...
                 'Wz'               , Wz , ...
-                'Yz'               , Yz , ...
+                'Yz'               , obj.getPrediction('subset','all') , ...
                 'target_label'     , CONTEXT.target_label , ...
                 'target_type'      , CONTEXT.target_type  , ...
                 'data'             , CONTEXT.data(:) , ...
@@ -353,14 +404,14 @@ classdef SOSLasso
                 'nzvox'            , nzvox , ...
                 'nvox'             , nvox , ...
                 'coords'           , COORDS(:) , ...
-                'nt1'              , num2cell(poscount.testset) , ...
-                'nt2'              , num2cell(poscount.trainingset) , ...
-                'nd1'              , num2cell(negcount.testset) , ...
-                'nd2'              , num2cell(negcount.trainingset) , ...
-                'h1'               , num2cell(truepos.testset) , ...
-                'h2'               , num2cell(truepos.trainingset) , ...
-                'f1'               , num2cell(falsepos.testset) , ...
-                'f2'               , num2cell(falsepos.trainingset) , ...
+                'nt1'              , num2cell(pcount.testset) , ...
+                'nt2'              , num2cell(pcount.trainingset) , ...
+                'nd1'              , num2cell(ncount.testset) , ...
+                'nd2'              , num2cell(ncount.trainingset) , ...
+                'h1'               , num2cell(tpos.testset) , ...
+                'h2'               , num2cell(tpos.trainingset) , ...
+                'f1'               , num2cell(fpos.testset) , ...
+                'f2'               , num2cell(fpos.trainingset) , ...
                 'err1'             , num2cell(obj.testError(:)) , ...
                 'err2'             , num2cell(obj.trainingError(:)) , ...
                 'RandomSeed'       , CONTEXT.RandomSeed , ...
@@ -401,14 +452,14 @@ classdef SOSLasso
     end
 end
 
-function obj = SOSLasso_logistic(obj)
+function obj = SOSLasso_logistic(obj,X,Y)
     grad_flag = 0;
-    [X,Y] = obj.getTrainingData('TransposeX', true,'forceCell',true);
+    
 
 %     dimension = length(obj.groups);
 %     num_tasks = obj.num_tasks;
 
-    while obj.iter < obj.maxiter
+    while obj.iter < obj.max_iter
         zeta = (obj.t_old - 1) /obj.t;
         Ws = (1 + zeta) * obj.W - zeta * obj.W_old;
 
