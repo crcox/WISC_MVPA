@@ -13,9 +13,9 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
         Y = cell(numel(S), 1);
         train_set = cell(numel(X),1);
         for j = 1:numel(S)
-            X{j} = S.getData();
-            Y{j} = S.getPermutedTargets(ModelInstances(i).RandomSeed,'simplify',true);
-            train_set{j}  = S.getTrainingSet(ModelInstances(i).cvholdout);
+            X{j} = S(j).getData();
+            Y{j} = S(j).getPermutedTargets(ModelInstances(i).RandomSeed,'simplify',true);
+            train_set{j}  = S(j).getTrainingSet(ModelInstances(i).cvholdout);
             switch ModelInstances(i).normalize_wrt
                 case 'all_examples'
                     X{j} = normalize_columns(X{j}, ModelInstances(i).normalize_data);
@@ -94,18 +94,20 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
         if isempty(ModelInstances(i).Model)
             switch upper(ModelInstances(i).regularization)
                 case {'LASSO','SOSLASSO'}
-                    ModelInstances(i).Model = SOSLasso(X,Y,lamSOS,lamL1,G,train_set, bias,options);
+                    ModelInstances(i).Model = SOSLasso(lamSOS,lamL1,G,train_set, bias,options);
                 case {'L1L2','GROWL','GROWL2'}
                     % LambdaSeq must be a column vector
-                    ModelInstances(i).Model = Adlas(X{1}, Y{1}, lamseq(:), train_set{1}, bias, options);
+                    ModelInstances(i).Model = Adlas(lamseq(:), train_set{1}, bias, options);
+                    X = X{1};
+                    Y = Y{1}; 
             end
-            ModelInstances(i).Model = ModelInstances(i).Model.train(options);
+            ModelInstances(i).Model = ModelInstances(i).Model.train(X,Y,options);
         elseif ModelInstances(i).Model.status == 2
-            ModelInstances(i).Model = ModelInstances(i).Model.train(options);
+            ModelInstances(i).Model = ModelInstances(i).Model.train(X,Y,options);
         else
             % Do nothing
         end
-        ModelInstances(i).Model = ModelInstances(i).Model.test();
+        ModelInstances(i).Model = ModelInstances(i).Model.test(X,Y);
         if i == 1, printresults(ModelInstances(i).Model, 'header'); end
         printresults(ModelInstances(i).Model, 'bysubject', ModelInstances(i).cvholdout, ModelInstances(i).subject);
 
