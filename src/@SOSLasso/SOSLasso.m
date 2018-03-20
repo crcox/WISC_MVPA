@@ -15,6 +15,7 @@ classdef SOSLasso
         dimension
         iter = 0
         objective_loss = zeros(100000,1);
+        status 
     end
 
     properties ( Access = public, Hidden = true )
@@ -453,13 +454,20 @@ classdef SOSLasso
 end
 
 function obj = SOSLasso_logistic(obj,X,Y)
-    grad_flag = 0;
+    % Constants for exit status
+    STATUS_RUNNING    = 0;
+    STATUS_OPTIMAL    = 1;
+    STATUS_ITERATIONS = 2;
+    STATUS_ALLZERO    = 3;
+    STATUS_MSG = {'Optimal','Iteration limit reached','All weights set to zero'};
     
+    grad_flag = 0;
+    status  = STATUS_RUNNING;
 
 %     dimension = length(obj.groups);
 %     num_tasks = obj.num_tasks;
 
-    while obj.iter < obj.max_iter
+    while 1
         zeta = (obj.t_old - 1) /obj.t;
         Ws = (1 + zeta) * obj.W - zeta * obj.W_old;
 
@@ -486,10 +494,12 @@ function obj = SOSLasso_logistic(obj,X,Y)
 
             if (obj.iter>1) && (r_sum <=1e-20)
                 grad_flag=1; % this shows that, the gradient step makes little improvement
+                status = STATUS_OPTIMAL;
                 break;
             end
 
             if (Fzp <= Fzp_gamma)
+                status = STATUS_OPTIMAL;
                 break;
             else
                 obj.gamma = obj.gamma * obj.gamma_inc;
@@ -513,13 +523,23 @@ function obj = SOSLasso_logistic(obj,X,Y)
         % convergence check.
         if obj.iter>=2
             if (abs( obj.objective_loss(end) - obj.objective_loss(end-1) ) <= obj.tol*obj.objective_loss(end-1))
+                status = STATUS_OPTIMAL;
                 break;
             end
         end
-
         obj.t_old = obj.t;
         obj.t = 0.5 * (1 + (1+ 4 * obj.t^2)^0.5);
+        if obj.iter >= obj.max_iter
+            status = STATUS_ITERATIONS;
+            break
+        end
     end
+	if all(Wzp(:)==0)
+        obj.status = STATUS_ALLZERO;
+	else
+        obj.status = status;
+	end
+    obj.message = STATUS_MSG{obj.status};
 end
 
 %% --- private functions ---
