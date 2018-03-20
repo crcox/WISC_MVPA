@@ -20,6 +20,6 @@ function [Gc,ix] = commonGrouping(G)
 end
 
 function N = cellmax(C)
-    C(cellfun('isempty',C)) = {uint32(0)}; %handle empty cells
-    N = uint32(max(cellfun(@max, C),[],1));
+    C(cellfun('isempty',C)) = {nan}; %handle empty cells
+    N = uint32(max(cellfun(@max, C),[],1,'omitnan'));
 end
