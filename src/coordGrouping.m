@@ -98,7 +98,7 @@ function G = coordGrouping(coords, diameter, overlap, shape)
                     case 'cube'
                         cmax = coords(i,:) + r;
                         cmin = coords(i,:) - r;
-                        z = all(bsxfun(@lt,coords,cmax) & bsxfun(@gt,coords,cmin),2);
+                        z = all(bsxfun(@lt,coords,cmax) & bsxfun(@ge,coords,cmin),2);
                         g = uint32(find(z));
                         if N > 1
                             s = sid(z);
