@@ -218,7 +218,7 @@ function WholeBrain_MVPA(varargin)
         case {'GROWL','GROWL2','L1L2','LASSO'}
             SubjectsParameter = [SubjectArray.subject];
         case 'SOSLASSO'
-            SubjectsParameter = {{SubjectArray.subject}};
+            SubjectsParameter = 1;
     end
 
     if exist('checkpoint.mat','file')
@@ -298,6 +298,7 @@ function WholeBrain_MVPA(varargin)
                     z = 1;
                 end 
                 ModelInstances(ii).G = G{z};
+                ModelInstances(ii).subject = [SubjectArray.subject];
             end
 
         case 'LASSO'
@@ -434,7 +435,12 @@ function [hyperparameters] = verify_setup_MVPA(p)
             else
                 diameter = p.diameter;
             end
-            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',diameter,'shape',p.shape,'overlap',p.overlap,'hyperband',p.SearchWithHyperband);
+            if all(size(p.overlap) == [1,3])
+                overlap = {{p.overlap}};
+            else
+                overlap = p.overlap;
+            end
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',diameter,'shape',p.shape,'overlap',overlap,'hyperband',p.SearchWithHyperband);
 
     end
 end
