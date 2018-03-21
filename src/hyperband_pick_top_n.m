@@ -16,9 +16,9 @@ function [ TopN_by_group, ix ] = hyperband_pick_top_n( ModelInstances, n, maximi
         case 'SOSLASSO'
             testError = cellfun(@(x) mean(x.Model.testError), num2cell(ModelInstances))';
             t0 = struct2table(rmfield(ModelInstances,{'Model','cvholdout','sim_source','sim_metric','data','subject','G'})');
-        case 'LASSO'
+        case {'LASSO','RIDGE'}
             testError = cellfun(@(x) x.Model.testError, num2cell(ModelInstances))';
-            t0 = struct2table(rmfield(ModelInstances,{'Model','cvholdout','sim_source','sim_metric'})');
+            t0 = struct2table(rmfield(ModelInstances,{'Model','cvholdout','sim_source','sim_metric','G'})');
         otherwise
             testError = cellfun(@(x) x.Model.testError, num2cell(ModelInstances))';
             t0 = struct2table(rmfield(ModelInstances,{'Model','cvholdout'})');     
