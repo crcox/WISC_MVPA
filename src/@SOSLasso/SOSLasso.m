@@ -482,8 +482,9 @@ function obj = SOSLasso_logistic(obj,X,Y)
         while true
             if obj.lamSOS>0 % CRC redefined the "else" block
                 Wzp = soslasso_projection(Ws - grad/obj.gamma,obj.lamSOS/obj.gamma,obj.lamL1,obj.group_arr,obj.groups);
+            elseif obj.lamL1 > 0
+                Wzp = lasso_projection(Ws - grad/obj.gamma, obj.lamL1/obj.gamma);
             else
-%                 Wzp = lasso_projection(Ws - grad/obj.gamma, obj.lamL1/obj.gamma);
                 Wzp = Ws - grad/gamma;
             end
             Fzp = funVal_eval (Wzp, X, Y, obj.lamL2);
@@ -515,10 +516,13 @@ function obj = SOSLasso_logistic(obj,X,Y)
             break;
         end
 
-        if obj.lamSOS>0
+        if obj.lamSOS > 0
             obj.objective_loss(obj.iter) = Fzp + sos_eval(Wzp,obj.group_arr,obj.lamSOS,obj.lamL1);
+        elseif obj.lamL1 > 0
+            obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL1);
+        elseif obj.lamL2 > 0
+            obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL2);
         else
-%             obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL1);
             obj(iter) = Fzp;
         end
 
@@ -609,6 +613,10 @@ end
 
 function [regval] = L1_eval(W,lamL1)
     regval = lamL1*norm(W(:),1);
+end
+
+function [regval] = L2_eval(W,lamL2)
+    regval = lamL2*norm(W(:),2);
 end
 
 % function b = validateW0(w0)
