@@ -14,8 +14,8 @@ classdef SOSLasso
         num_tasks
         dimension
         iter = 0
-        objective_loss = zeros(100000,1);
-        status 
+        objective_loss = zeros(2,1);
+        status
     end
 
     properties ( Access = public, Hidden = true )
@@ -516,19 +516,20 @@ function obj = SOSLasso_logistic(obj,X,Y)
             break;
         end
 
+        obj.objective_loss(2) = obj.objective_loss(1);
         if obj.lamSOS > 0
-            obj.objective_loss(obj.iter) = Fzp + sos_eval(Wzp,obj.group_arr,obj.lamSOS,obj.lamL1);
+            obj.objective_loss(1) = Fzp + sos_eval(Wzp,obj.group_arr,obj.lamSOS,obj.lamL1);
         elseif obj.lamL1 > 0
-            obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL1);
+            obj.objective_loss(1) = Fzp + L1_eval(obj.W,obj.lamL1);
         elseif obj.lamL2 > 0
-            obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL2);
+            obj.objective_loss(1) = Fzp + L1_eval(obj.W,obj.lamL2);
         else
             obj(iter) = Fzp;
         end
 
         % convergence check.
         if obj.iter>=2
-            if (abs( obj.objective_loss(end) - obj.objective_loss(end-1) ) <= obj.tol*obj.objective_loss(end-1))
+            if (abs( obj.objective_loss(1) - obj.objective_loss(2) ) <= obj.tol*obj.objective_loss(2))
                 status = STATUS_OPTIMAL;
                 break;
             end
