@@ -84,7 +84,7 @@ classdef SOSLasso
             [X,Y] = obj.processData(X,Y);
             [Xtrain,Ytrain] = obj.getTrainingData(X,Y,'TransposeX', true,'forceCell',true);
             obj = SOSLasso_logistic(obj,Xtrain,Ytrain);
-            obj = setPrediction(obj, X);
+            obj = setPrediction(obj, X, 'forceCell', true);
             obj = setTFPos(obj,Y,'subset','train');
             obj = setTFPos(obj,Y,'subset','test');
         end
@@ -250,11 +250,12 @@ classdef SOSLasso
             end
         end
 
-        function obj = setPrediction(obj, X)
+        function obj = setPrediction(obj, X, varargin)
             p = inputParser();
             addRequired(p, 'obj');
             addRequired(p, 'X');
-            parse(p, obj, X);
+            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            parse(p, obj, X, varargin{:});
 
             w = obj.getWeights('forceCell',true,'dropBias',false,'combine',false);
             x = obj.getSubset(X,'subset','all','forceCell',true);
@@ -262,7 +263,7 @@ classdef SOSLasso
             for i = 1:numel(x)
                 obj.Yz{i} = x{i} * w{i};
             end
-            if numel(x) == 1
+            if numel(x) == 1 && ~p.Results.forceCell
                 obj.Yz = obj.Yz{1};
             end
         end
@@ -275,10 +276,7 @@ classdef SOSLasso
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            Yz = obj.getSubset(obj.Yz,p.Results.subjects,'subset',p.Results.subset);
-            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
-                Yz = Yz{1};
-            end
+            Yz = obj.getSubset(obj.Yz,p.Results.subjects,'subset',p.Results.subset,'forceCell',p.Results.forceCell);
         end
 
         function obj = setTFPos(obj,Y,varargin)
@@ -288,8 +286,8 @@ classdef SOSLasso
             addParameter(p, 'subset', 'test', @ischar);
             parse(p, obj, varargin{:});
 
-            x = obj.getSubset(Y,'subset',p.Results.subset);
-            P = obj.getPrediction('subset',p.Results.subset);
+            x = obj.getSubset(Y,'subset',p.Results.subset,'forceCell',true);
+            P = obj.getPrediction('subset',p.Results.subset,'forceCell',true);
 
             pcount = zeros(size(x));
             ncount = zeros(size(x));
