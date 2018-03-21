@@ -95,6 +95,8 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
             switch upper(ModelInstances(i).regularization)
                 case {'LASSO','SOSLASSO'}
                     ModelInstances(i).Model = SOSLasso(lamSOS,lamL1,G,train_set, bias,options);
+%                     if ~iscell(X), X = {X}; end
+%                     if ~iscell(Y), Y = {Y}; end
                 case {'L1L2','GROWL','GROWL2'}
                     % LambdaSeq must be a column vector
                     ModelInstances(i).Model = Adlas(lamseq(:), train_set{1}, bias, options);
