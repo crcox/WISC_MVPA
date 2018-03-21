@@ -302,8 +302,9 @@ function WholeBrain_MVPA(varargin)
             end
 
         case 'LASSO'
+            G = coordGrouping(xyz, 0, 0, 'unitary');
             for ii = 1:numel(ModelInstances)
-                ModelInstances(ii).G = coordGrouping(xyz, 0, 0, 'unitary');
+                ModelInstances(ii).G = G;
             end
     end
 
@@ -391,7 +392,7 @@ function [hyperparameters] = verify_setup_MVPA(p)
         case 'LASSO'
             assert(any(isfield(p,{'lambda','lamL1'})), 'Either lambda or lamL1 (synonymns for LASSO regularization) must be defined.');
             if isfield(p,'alpha') && ~isempty(p.alpha)
-                warning('Alpha is not relevant for performing Lasso with SOSLasso_logistic. Forcing lamSOS=1, which means that lamL1 will not be scaled up or down. The critical thing for lasso is that all voxels get their own group. This is enforced elsewhere...');
+                warning('Alpha is not relevant for performing Lasso with SOSLasso_logistic. Forcing lamSOS=0, which means that lamL1 will not be scaled up or down. The critical thing for lasso is that all voxels get their own group. This is enforced elsewhere...');
                 lamSOS = 0;
                 lamL1 = p.lambda;
             end
@@ -405,8 +406,26 @@ function [hyperparameters] = verify_setup_MVPA(p)
             end
             if isfield(p,'lamSOS') && ~isempty(p.lamSOS)
                 if p.lamSOS ~= 1
-                    warning('lamSOS is not, strictly speaking, relevant for performing Lasso with SOSLasso_logistic. It will act as a scalar modifier on lamL1, which because lamL1 is just a constant anyway, is pointless. Forcing lamSOS=1 to prevent scaling lamL1.');
-                    lamSOS = 1;
+                    warning('lamSOS is not relevant for performing Lasso with SOSLasso_logistic. Forcing lamSOS=0 to prevent SOS regularization.');
+                    lamSOS = 0;
+                else
+                    lamSOS = p.lamSOS;
+                end
+            end
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'hyperband',p.SearchWithHyperband);
+            
+        case 'RIDGE'
+            assert(any(isfield(p,'lamL2')), 'For RIDGE regularization, lamL2 must be defined.');
+            if isfield(p,'alpha') && ~isempty(p.alpha)
+                warning('Alpha is not relevant for performing Lasso with SOSLasso_logistic. Forcing lamSOS=0, which means that lamL1 will not be scaled up or down. The critical thing for lasso is that all voxels get their own group. This is enforced elsewhere...');
+                lamSOS = 0;
+                lamL1 = 0;
+                lamL2 = p.lambdaL2;
+            end
+            if isfield(p,'lamSOS') && ~isempty(p.lamSOS)
+                if p.lamSOS ~= 1
+                    warning('lamSOS is not relevant for performing RIDGE with SOSLasso_logistic. Forcing lamSOS=0 to prevent SOS regularization.');
+                    lamSOS = 0;
                 else
                     lamSOS = p.lamSOS;
                 end
