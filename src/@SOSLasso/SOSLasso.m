@@ -135,7 +135,7 @@ classdef SOSLasso
             end
             if obj.num_tasks == 1
                 W = Wall;
-            else    
+            else
                 W = Wall(p.Results.subjects);
             end
             if obj.ModelHasBiasUnit && p.Results.dropBias
@@ -179,7 +179,7 @@ classdef SOSLasso
                 x{j} = x{j}(:,ix(:,j));
             end
         end
-        
+
         function x = getSubset(obj,X,varargin)
             p = inputParser();
             addRequired(p, 'obj');
@@ -369,7 +369,7 @@ classdef SOSLasso
                 ix = find(any(Wz{i}, 2));
                 COORDS{i} = META(i).coords;
                 COORDS_FIELDS = fieldnames(META(i).coords);
-                
+
                 for j = 1:numel(COORDS_FIELDS)
                     cfield = COORDS_FIELDS{j};
                     for k = 1:numel(META(i).coords)
