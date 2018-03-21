@@ -36,7 +36,7 @@ function ac = ModelContainer(varargin)
             ncfg = structfun(@numel, HB);
             if all(ncfg == ncfg(1))
                 ncfg = ncfg(1);
-            elseif all(ncfg == ncfg(1) | ncfg == 1)
+            elseif all(ncfg == ncfg(1) | ncfg == 1) || all(ncfg == ncfg(end) | ncfg == 1)
                 HB_fields_1 = HB_fields(ncfg == 1);
                 ncfg = max(ncfg);
                 for i = 1:numel(HB_fields_1)
