@@ -461,8 +461,16 @@ function obj = SOSLasso_logistic(obj,X,Y)
     STATUS_OPTIMAL    = 1;
     STATUS_ITERATIONS = 2;
     STATUS_ALLZERO    = 3;
-    STATUS_MSG = {'Optimal','Iteration limit reached','All weights set to zero'};
-    
+    STATUS_ARMIJO     = 4;
+    STATUS_GRADIENT   = 5;
+    STATUS_MSG = {
+        'Optimal'
+        'Iteration limit reached'
+        'All weights set to zero'
+        'Done with Armijo-Goldstein line search'
+        'Gradient step makes little improvement'
+    };
+
     grad_flag = 0;
     status  = STATUS_RUNNING;
 
@@ -497,12 +505,12 @@ function obj = SOSLasso_logistic(obj,X,Y)
 
             if (obj.iter>1) && (r_sum <=1e-20)
                 grad_flag=1; % this shows that, the gradient step makes little improvement
-                status = STATUS_OPTIMAL;
+                status = STATUS_GRADIENT;
                 break;
             end
 
             if (Fzp <= Fzp_gamma)
-                status = STATUS_OPTIMAL;
+                status = STATUS_ARMIJO;
                 break;
             else
                 obj.gamma = obj.gamma * obj.gamma_inc;
