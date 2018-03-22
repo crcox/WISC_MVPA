@@ -10,6 +10,7 @@ function WholeBrain_MVPA(varargin)
     addParameter(p , 'lambda1'          , []      , @isnumeric     );
     addParameter(p , 'lamSOS'           , []      , @isnumeric     );
     addParameter(p , 'lamL1'            , []      , @isnumeric     );
+    addParameter(p , 'lamL2'            , []      , @isnumeric     );
     addParameter(p , 'LambdaSeq'        , []      , @ischar        );
     addParameter(p , 'AdlasOpts'        , struct(), @isstruct      );
     addParameter(p , 'diameter'         , []      , @isnumeric     );
@@ -102,7 +103,7 @@ function WholeBrain_MVPA(varargin)
         % The verify_setup_* functions can probably be merged...
         case {'L1L2','GROWL','GROWL2'};
             HYPERPARAMETERS = verify_setup_RSA(p.Results);
-        case {'LASSO','SOSLASSO'};
+        case {'RIDGE','LASSO','SOSLASSO'};
             HYPERPARAMETERS = verify_setup_MVPA(p.Results);
     end
     % --- searchlight specific ---
@@ -215,7 +216,7 @@ function WholeBrain_MVPA(varargin)
     %% --- Setting regularization parameters and running models ---
     % This is being handled within the 
     switch upper(p.Results.regularization)
-        case {'GROWL','GROWL2','L1L2','LASSO'}
+        case {'GROWL','GROWL2','L1L2','LASSO','RIDGE'}
             SubjectsParameter = [SubjectArray.subject];
         case 'SOSLASSO'
             SubjectsParameter = 1;
@@ -301,7 +302,7 @@ function WholeBrain_MVPA(varargin)
                 ModelInstances(ii).subject = [SubjectArray.subject];
             end
 
-        case 'LASSO'
+        case {'LASSO','RIDGE'}
             G = coordGrouping(xyz, 0, 0, 'unitary');
             for ii = 1:numel(ModelInstances)
                 ModelInstances(ii).G = G;
@@ -420,17 +421,18 @@ function [hyperparameters] = verify_setup_MVPA(p)
                 warning('Alpha is not relevant for performing Lasso with SOSLasso_logistic. Forcing lamSOS=0, which means that lamL1 will not be scaled up or down. The critical thing for lasso is that all voxels get their own group. This is enforced elsewhere...');
                 lamSOS = 0;
                 lamL1 = 0;
-                lamL2 = p.lambdaL2;
             end
             if isfield(p,'lamSOS') && ~isempty(p.lamSOS)
-                if p.lamSOS ~= 1
+                if p.lamSOS ~= 0
                     warning('lamSOS is not relevant for performing RIDGE with SOSLasso_logistic. Forcing lamSOS=0 to prevent SOS regularization.');
                     lamSOS = 0;
                 else
                     lamSOS = p.lamSOS;
                 end
             end
-            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'hyperband',p.SearchWithHyperband);
+            lamSOS = 0;
+            lamL1 = 0;
+            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'lamL2',p.lamL2,'hyperband',p.SearchWithHyperband);
 
         case 'SOSLASSO'
             assert(all(isfield(p,{'diameter','shape','overlap'})) && ~isempty(p.diameter) && ~isempty(p.shape) && ~isempty(p.overlap), 'diameter, shape, and overlap must all be defined for SOSLASSO regularization.');

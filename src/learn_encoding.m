@@ -59,6 +59,12 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
                 lamSOS = ModelInstances(i).lamSOS;
                 lamL1 = ModelInstances(i).lamL1;
                 G = ModelInstances(i).G;
+                
+            case 'RIDGE'
+                lamSOS = ModelInstances(i).lamSOS;
+                lamL1 = ModelInstances(i).lamL1;
+                options.lamL2 = ModelInstances(i).lamL2;
+                G = ModelInstances(i).G;
 
             otherwise
                 error('%s is not an implemented regularization. check spelling', ModelInstances(i).regularization);
@@ -93,7 +99,7 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
         %   this error should be avoided.
         if isempty(ModelInstances(i).Model)
             switch upper(ModelInstances(i).regularization)
-                case {'LASSO','SOSLASSO'}
+                case {'RIDGE','LASSO','SOSLASSO'}
                     ModelInstances(i).Model = SOSLasso(lamSOS,lamL1,G,train_set, bias,options);
 %                     if ~iscell(X), X = {X}; end
 %                     if ~iscell(Y), Y = {Y}; end

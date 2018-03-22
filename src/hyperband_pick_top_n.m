@@ -44,6 +44,8 @@ function [ TopN_by_group, ix ] = hyperband_pick_top_n( ModelInstances, n, maximi
             catch
                 t2.lamSOS = [];
             end
+        case {'RIDGE'}
+            t2.lamL2 = [];
             
         otherwise
             t2.lambda = [];

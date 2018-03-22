@@ -493,7 +493,7 @@ function obj = SOSLasso_logistic(obj,X,Y)
             elseif obj.lamL1 > 0
                 Wzp = lasso_projection(Ws - grad/obj.gamma, obj.lamL1/obj.gamma);
             else
-                Wzp = Ws - grad/gamma;
+                Wzp = Ws - grad/obj.gamma;
             end
             Fzp = funVal_eval (Wzp, X, Y, obj.lamL2);
 
