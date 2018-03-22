@@ -104,15 +104,17 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
                     Y = Y{1}; 
             end
             ModelInstances(i).Model = ModelInstances(i).Model.train(X,Y,options);
+            ModelInstances(i).Model = ModelInstances(i).Model.test(X,Y);
+            if i == 1, printresults(ModelInstances(i).Model, 'header'); end
+            printresults(ModelInstances(i).Model, 'bysubject', ModelInstances(i).cvholdout, ModelInstances(i).subject);
         elseif ModelInstances(i).Model.status == 2
             ModelInstances(i).Model = ModelInstances(i).Model.train(X,Y,options);
+            ModelInstances(i).Model = ModelInstances(i).Model.test(X,Y);
+            if i == 1, printresults(ModelInstances(i).Model, 'header'); end
+            printresults(ModelInstances(i).Model, 'bysubject', ModelInstances(i).cvholdout, ModelInstances(i).subject);
         else
             % Do nothing
         end
-        ModelInstances(i).Model = ModelInstances(i).Model.test(X,Y);
-        if i == 1, printresults(ModelInstances(i).Model, 'header'); end
-        printresults(ModelInstances(i).Model, 'bysubject', ModelInstances(i).cvholdout, ModelInstances(i).subject);
-
     end
 end
 
