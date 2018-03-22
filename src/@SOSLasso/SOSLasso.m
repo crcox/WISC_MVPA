@@ -14,8 +14,8 @@ classdef SOSLasso
         num_tasks
         dimension
         iter = 0
-        objective_loss = zeros(100000,1);
-        status 
+        objective_loss = zeros(2,1);
+        status
     end
 
     properties ( Access = public, Hidden = true )
@@ -135,7 +135,7 @@ classdef SOSLasso
             end
             if obj.num_tasks == 1
                 W = Wall;
-            else    
+            else
                 W = Wall(p.Results.subjects);
             end
             if obj.ModelHasBiasUnit && p.Results.dropBias
@@ -179,7 +179,7 @@ classdef SOSLasso
                 x{j} = x{j}(:,ix(:,j));
             end
         end
-        
+
         function x = getSubset(obj,X,varargin)
             p = inputParser();
             addRequired(p, 'obj');
@@ -369,7 +369,7 @@ classdef SOSLasso
                 ix = find(any(Wz{i}, 2));
                 COORDS{i} = META(i).coords;
                 COORDS_FIELDS = fieldnames(META(i).coords);
-                
+
                 for j = 1:numel(COORDS_FIELDS)
                     cfield = COORDS_FIELDS{j};
                     for k = 1:numel(META(i).coords)
@@ -461,8 +461,16 @@ function obj = SOSLasso_logistic(obj,X,Y)
     STATUS_OPTIMAL    = 1;
     STATUS_ITERATIONS = 2;
     STATUS_ALLZERO    = 3;
-    STATUS_MSG = {'Optimal','Iteration limit reached','All weights set to zero'};
-    
+    STATUS_ARMIJO     = 4;
+    STATUS_GRADIENT   = 5;
+    STATUS_MSG = {
+        'Optimal'
+        'Iteration limit reached'
+        'All weights set to zero'
+        'Done with Armijo-Goldstein line search'
+        'Gradient step makes little improvement'
+    };
+
     grad_flag = 0;
     status  = STATUS_RUNNING;
 
@@ -497,12 +505,12 @@ function obj = SOSLasso_logistic(obj,X,Y)
 
             if (obj.iter>1) && (r_sum <=1e-20)
                 grad_flag=1; % this shows that, the gradient step makes little improvement
-                status = STATUS_OPTIMAL;
+                status = STATUS_GRADIENT;
                 break;
             end
 
             if (Fzp <= Fzp_gamma)
-                status = STATUS_OPTIMAL;
+                status = STATUS_ARMIJO;
                 break;
             else
                 obj.gamma = obj.gamma * obj.gamma_inc;
@@ -516,19 +524,20 @@ function obj = SOSLasso_logistic(obj,X,Y)
             break;
         end
 
+        obj.objective_loss(2) = obj.objective_loss(1);
         if obj.lamSOS > 0
-            obj.objective_loss(obj.iter) = Fzp + sos_eval(Wzp,obj.group_arr,obj.lamSOS,obj.lamL1);
+            obj.objective_loss(1) = Fzp + sos_eval(Wzp,obj.group_arr,obj.lamSOS,obj.lamL1);
         elseif obj.lamL1 > 0
-            obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL1);
+            obj.objective_loss(1) = Fzp + L1_eval(obj.W,obj.lamL1);
         elseif obj.lamL2 > 0
-            obj.objective_loss(obj.iter) = Fzp + L1_eval(obj.W,obj.lamL2);
+            obj.objective_loss(1) = Fzp + L1_eval(obj.W,obj.lamL2);
         else
             obj(iter) = Fzp;
         end
 
         % convergence check.
         if obj.iter>=2
-            if (abs( obj.objective_loss(end) - obj.objective_loss(end-1) ) <= obj.tol*obj.objective_loss(end-1))
+            if (abs( obj.objective_loss(1) - obj.objective_loss(2) ) <= obj.tol*obj.objective_loss(2))
                 status = STATUS_OPTIMAL;
                 break;
             end
