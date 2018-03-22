@@ -23,8 +23,8 @@ download() {
 }
 cleanup() {
   # Remove the Matlab runtime distribution
-  if [ -f "r2014b.tar.gz" ]; then
-    rm -v "r2014b.tar.gz"
+  if [ -f "r2015b.tar.gz" ]; then
+    rm -v "r2015b.tar.gz"
   fi
   if [ -f "libXmu_libXt.el6.x86_64.tgz" ]; then
     rm -v "libXmu_libXt.el6.x86_64.tgz"
@@ -90,8 +90,8 @@ set -e
 set -x
 SQUID="http://proxy.chtc.wisc.edu/SQUID/crcox"
 ## Download the runtime environment from SQUID
-download "${SQUID}/r2014b.tar.gz" 5
-tar xzf "r2014b.tar.gz"
+download "${SQUID}/r2015b.tar.gz" 5
+tar xzf "r2015b.tar.gz"
 
 # This is an attempt to fix broken environments by shipping libraries that are
 # missing on some nodes.
@@ -113,7 +113,7 @@ exe_name=$0
 exe_dir=`dirname "$0"`
 echo "------------------------------------------"
 echo Setting up environment variables
-MCRROOT="v84"
+MCRROOT="v90"
 echo ---
 LD_LIBRARY_PATH=.:${MCRROOT}/runtime/glnxa64 ;
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCRROOT}/bin/glnxa64 ;
