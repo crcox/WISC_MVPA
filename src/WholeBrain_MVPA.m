@@ -310,7 +310,7 @@ function WholeBrain_MVPA(varargin)
     end
 
     if p.Results.SearchWithHyperband
-        n = p.Results.BRACKETS.n;
+        n = [p.Results.BRACKETS.n,1];
         r = p.Results.BRACKETS.r;
         while 1
             opts.max_iter = r(bracket_index) * p.Results.IterationsPerHyperband;
