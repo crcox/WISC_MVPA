@@ -315,8 +315,8 @@ function WholeBrain_MVPA(varargin)
             opts.max_iter = r(bracket_index) * p.Results.IterationsPerHyperband;
             ModelInstances = learn_encoding(ModelInstances, SubjectArray, p.Results.regularization, 'AdlasOpts', opts);
             % Delete low ranked configurations:
-            ModelInstances = hyperband_pick_top_n(ModelInstances, n(bracket_index));
             bracket_index = bracket_index + 1;
+            ModelInstances = hyperband_pick_top_n(ModelInstances, n(bracket_index));
             if bracket_index < numel(n)
                 % save('checkpoint.mat', 'ModelInstances', 'bracket_index');
             else
