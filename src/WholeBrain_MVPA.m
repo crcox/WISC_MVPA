@@ -341,7 +341,7 @@ function WholeBrain_MVPA(varargin)
         a = cur + 1;
         b = cur + nResultsPerModel;
         results(a:b) = MODEL.getResults(CONTEXT,SubjectArray);
-        cur = a;
+        cur = b;
     end
     
     %% Save results
