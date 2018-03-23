@@ -3,7 +3,7 @@ function WholeBrain_MVPA(varargin)
     p.KeepUnmatched = false;
     % ----------------------Set parameters---------------------------------
     % Model definition
-	addParameter(p , 'regularization' , []        , @ischar        );
+	addParameter(p , 'regularization'   , []      , @ischar        );
     addParameter(p , 'bias'             , false   , @islogicallike );
     addParameter(p , 'alpha'            , []      , @isnumeric     );
     addParameter(p , 'lambda'           , []      , @isnumeric     );
@@ -34,8 +34,8 @@ function WholeBrain_MVPA(varargin)
     addParameter(p , 'cvholdout'        , [] , @isnumeric     );
     addParameter(p , 'orientation'      , [] , @ischar        );
     % Normalization
-    addParameter(p , 'normalize_data'  , 'none'        , @ischar ); % NEW NAME!
-    addParameter(p , 'normalize_target', 'none'        , @ischar ); % NEW VARIABLE!
+    addParameter(p , 'normalize_data'  , 'none'         , @ischar ); % NEW NAME!
+    addParameter(p , 'normalize_target', 'none'         , @ischar ); % NEW VARIABLE!
     addParameter(p , 'normalize_wrt'    , 'all_examples', @ischar ); % NEW VARIABLE!
     % Permutation
     addParameter(p , 'RandomSeed'             , 0, @(x) isnumeric(x) && all(x>=0));
