@@ -61,7 +61,7 @@ function G = coordGrouping(coords, diameter, overlap, shape)
     assert(all(overlap <= diameter));
 
     r = diameter ./ 2;
-    x = diameter - overlap;
+    x = (diameter - overlap) ./ 2;
 
     radii = true(size(coords,1),1);
     G = cell(size(coords,1),N);
@@ -98,6 +98,8 @@ function G = coordGrouping(coords, diameter, overlap, shape)
                     case 'cube'
                         cmax = coords(i,:) + r;
                         cmin = coords(i,:) - r;
+%                         z = all(bsxfun(@le, abs(bsxfun(@minus,coords,coords(i,:))), r),2);
+                        
                         z = all(bsxfun(@lt,coords,cmax) & bsxfun(@ge,coords,cmin),2);
                         g = uint32(find(z));
                         if N > 1
@@ -110,7 +112,7 @@ function G = coordGrouping(coords, diameter, overlap, shape)
                         end
                         cmax = coords(i,:) + x;
                         cmin = coords(i,:) - x;
-                        z = all(bsxfun(@lt,coords,cmax) & bsxfun(@gt,coords,cmin),2);
+                        z = all(bsxfun(@lt,coords,cmax) & bsxfun(@ge,coords,cmin),2);
                         radii(z) = false;
                     case 'unitary'
                         warning('coordGrouping:ignoringArgs','The unitary shape implies diameter = overlap = 0. Nonzero values provided are being ignored.');
