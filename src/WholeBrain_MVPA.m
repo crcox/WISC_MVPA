@@ -185,7 +185,7 @@ function WholeBrain_MVPA(varargin)
         % RandomSeed == 0 and a dummy permutation index will be encoded
         % that is simply 1:Subject.nTotalExamples.
         if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod, 'manual')
-            P = selectbyfield(permutations, 'subject', SubjectArray.subject);
+            P = selectbyfield(permutations, 'subject', SubjectArray(i).subject);
             SubjectArray(i) = SubjectArray(i).setPermutations(p.Results.PermutationMethod, p.Results.RandomSeed, P.permutation_index);
         else
             SubjectArray(i) = SubjectArray(i).setPermutations('none', p.Results.RandomSeed);
