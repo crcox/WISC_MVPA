@@ -242,6 +242,7 @@ function [am,pm,hm,fm] = run_searchlight_models(S, classifier, normalize_data, r
     end
 
     coords = selectbyfield(S.coords,'orientation',orientation);
+    [~,xi] = sort(coords.ind);
     [mask,dxyz] = coordsTo3dMask(coords.xyz);
 
     % Translate slradius (in mm) to sl voxels
@@ -260,8 +261,12 @@ function [am,pm,hm,fm] = run_searchlight_models(S, classifier, normalize_data, r
     else
         TestToUseCfg = {'testToUse','accuracyOneSided_analytical'};
     end
-    [am,pm,hm,fm] = computeInformationMap(X,Y,cvscheme,classifier,'searchlight', ...
+    [am,pm,hm,fm] = computeInformationMap(X(:,coords.ind),Y,cvscheme,classifier,'searchlight', ...
         meta.voxelsToNeighbours,meta.numberOfNeighbours,TestToUseCfg{:});
+    am = am(xi);
+    pm = pm(xi);
+    if ~isempty(hm), hm = hm(xi); end
+    if ~isempty(fm), fm = fm(xi); end
 end
 
 function y = normalize_columns(x, method, wrt)
