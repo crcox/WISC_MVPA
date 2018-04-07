@@ -214,6 +214,9 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
             end
         end
     end
+    f = fieldnames(Results);
+    z = cellfun(@isempty, {Results.(f{1})});
+    Results(z) = [];
     if ~QUIET
         fprintf('\n')
     end
