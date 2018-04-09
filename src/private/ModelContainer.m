@@ -28,6 +28,7 @@ function ac = ModelContainer(varargin)
     else
         expand_struct = struct(varargin{:});
     end
+    hbn = [];
     if isfield(expand_struct, 'HYPERPARAMETERS')
         HP = expand_struct.HYPERPARAMETERS;
         if HP.hyperband
