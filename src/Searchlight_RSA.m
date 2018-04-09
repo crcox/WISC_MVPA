@@ -18,7 +18,6 @@ function results = Searchlight_RSA( varargin )
     SubjectArray = add_metadata_to_subjects( ...
         SubjectArray, ...
         metadata, ...
-        p.Results.data, ...
         p.Results.cvscheme, ...
         p.Results.finalholdout, ...
         p.Results.target_label, ...
@@ -114,8 +113,10 @@ function p = Searchlight_MVPA_Parameters()
     addParameter(p , 'target_type'      , 'category', @ischar );
     addParameter(p , 'sim_source'       , [], @ischar );
     addParameter(p , 'sim_metric'       , [], @ischar );
+    addParameter(p , 'tau'              , [], @isscalar );
     % Data definition
     addParameter(p , 'filters'          , []                  );
+    addParameter(p , 'FiltersToApplyBeforeEmbedding', []      );
     addParameter(p , 'data'             , []                  );
     addParameter(p , 'data_varname'     , []                  );
     addParameter(p , 'metadata'         , [] , @ischar        );
@@ -141,6 +142,7 @@ function p = Searchlight_MVPA_Parameters()
     addParameter(p , 'subject_id_fmt' , '%d'  , @ischar        );
     % Parameters in this section are unused in the analysis, may exist in
     % the parameter file because other progams use them.
+    addParameter(p , 'regularization'  , 'grouplasso' );
     addParameter(p , 'HYPERBAND'  , [] );
     addParameter(p , 'SearchWithHyperband', false );
     addParameter(p , 'BRACKETS' , [] );
@@ -176,13 +178,6 @@ function x = load_variable(filename,variable)
     x = StagingContainer.(variable);
 end
 
-function p = load_permutations(filename,variable,index)
-    p = load_variable(filename,variable);
-    for i = 1:numel(p)
-        p(i).permutation_index = p(i).permutation_index(:,index);
-    end
-end
-
 function SubjectArray = load_data_as_subjects(filenames, variable, subject_id_fmt)
     datafiles  = ascell(filenames);
     N = length(datafiles);
@@ -198,7 +193,7 @@ function SubjectArray = load_data_as_subjects(filenames, variable, subject_id_fm
     end
 end
 
-function SubjectArray = add_metadata_to_subjects(SubjectArray, data_filenames, metadata, cvscheme, finalholdout, target_label, target_type, sim_source, sim_metric, filters)
+function SubjectArray = add_metadata_to_subjects(SubjectArray, metadata, cvscheme, finalholdout, target_label, target_type, sim_source, sim_metric, filters)
     for i = 1:numel(SubjectArray)
         % Select metadata matching current subject ID
         M = selectbyfield(metadata, 'subject', SubjectArray(i).subject);
@@ -268,7 +263,7 @@ function r = update_results(r,SL)
     r.error_map2 = SL.error_map2;
 end
 
-function SL = run_searchlight_models(S, cvholdout, normalize_data, normalize_target, radius, orientation, RandomSeed, SortByCoordsIndex)
+function SL = run_searchlight_models(S, cvholdout, normalize_data, normalize_target, bias, radius, orientation, RandomSeed, SortByCoordsIndex)
     X = S.getData();
     Y = S.getPermutedTargets(RandomSeed,'simplify',true);
     normalize_wrt = 'all_examples';
@@ -289,9 +284,9 @@ function SL = run_searchlight_models(S, cvholdout, normalize_data, normalize_tar
         [~,xi] = sort(coords.ind);
     end
     train_set  = S.getTrainingSet(cvholdout);
-    xyz = S.getCoords(ModelInstances.orientation, 'xyz', 'simplify', true);
-    SL = Searchlight(radius,xyz,S.cvscheme,train_set{1},bias,struct());
-    SL.computeInformationMap(X{1},Y{1});
+    xyz = S.getCoords(orientation, 'xyz', 'simplify', true);
+    SL = Searchlight(radius,xyz,S.getCVScheme(),train_set,bias,struct());
+    SL.computeInformationMap(X,Y);
     
     if SortByCoordsIndex
         SL.error_map1 = SL.error_map1(xi);
