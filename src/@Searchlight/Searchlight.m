@@ -63,29 +63,33 @@ classdef Searchlight
             end
         end
 
-        function obj = computeInformationMap(obj,X,C,opts)
-            fn = fieldnames(opts);
-            for i = 1:numel(fn)
-                obj.(fn{i}) = opts.(fn{i});
-            end
-            [Xtrain,Ctrain] = obj.getTrainingData(X,C,'TransposeX',false,'forceCell',false);
-            [Xtest,Ctest] = obj.getTestingData(X,C,'TransposeX',false,'forceCell',false);
+        function obj = computeInformationMap(obj,X,C)
+            [Xtrain,Ctrain] = obj.getTrainingData(X,C,'TransposeX',false);
+            [Xtest,Ctest] = obj.getTestingData(X,C,'TransposeX',false);
+            [done,failed] = deal(0);
             for i = 1:numel(obj.SL)
+                nchar = fprintf('Progress: %d done, %d failed, out of %d', done, failed, numel(obj.SL));
                 obj.currentSearchlight = i;
                 g = obj.SL{i};
                 [glmnetOpts, FAILED] = obj.tune(Xtrain(:,g),Ctrain);
                 if FAILED
                     obj.failedSearchlights(i) = true;
+                    failed = failed + 1;
+                    eraser = repmat('\b',1,nchar);
+                    fprintf(eraser);
                     continue
                 end
                 glmnetModel = obj.train(Xtrain(:,g),Ctrain,glmnetOpts);
                 obj.error_map2(i) = obj.test(Xtrain(:,g),Ctrain,glmnetModel);
                 obj.error_map1(i) = obj.test(Xtest(:,g),Ctest,glmnetModel);
+                done = done + 1;
+                eraser = repmat('\b',1,nchar);
+                fprintf(eraser);
             end
         end
 
         function [opts_tuned, return_code] = tune(obj,Xt,Ct)
-            cvn = max(opts.glmnetCV);
+            cvn = max(obj.glmnetCV);
             try
                 opts_cv = glmnetSet( ...
                     struct( ...
