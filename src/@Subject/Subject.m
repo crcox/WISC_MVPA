@@ -481,7 +481,7 @@ classdef Subject
                 'simplify', p.Results.simplify);
             pix = obj.getPermutationIndex(p.Results.RandomSeed);
             if p.Results.unfiltered
-                tp = t(pix);
+                tp = t(pix,:);
             else
                 rf = obj.getRowFilter();
                 rfp = rf(pix);
