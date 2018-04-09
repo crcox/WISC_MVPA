@@ -12,6 +12,7 @@ classdef Searchlight
     end
 
     properties ( Access = public, Hidden = true )
+        s
         max_iter = 100000
         tol = 1e-8
         ModelHasBiasUnit = false
@@ -29,7 +30,7 @@ classdef Searchlight
             end
             if (nargin < 4), opts = struct(); end
             obj.radius = radius;
-            obj.SL = generate_searchlights(coords);
+            obj.SL = obj.generate_searchlights(coords, radius);
             obj.ModelHasBiasUnit = ModelHasBiasUnit;
 
             obj.nvox = size(coords, 1);
@@ -54,7 +55,7 @@ classdef Searchlight
             obj.s = RandStream('mt19937ar','Seed',seed);
         end
 
-        function SL = generate_searchlights(xyz,radius)
+        function SL = generate_searchlights(~,xyz,radius)
             D = squareform(pdist(xyz));
             SL = cell(size(D,1),1);
             for j = 1:size(D,1)
@@ -105,11 +106,11 @@ classdef Searchlight
             end
         end
 
-        function glmnetModel = train(Xt,Ct,opts)
+        function glmnetModel = train(~,Xt,Ct,opts)
             glmnetModel = glmnet(Xt, Ct, 'mgaussian', opts);
         end
 
-        function loss = test(X, C, glmnetModel)
+        function loss = test(~,X, C, glmnetModel)
             Cz = glmnetPredict(glmnetModel, X);
             loss = nrsa_loss(C,Cz);
         end
@@ -125,7 +126,7 @@ classdef Searchlight
             else
                 X = Xa(obj.trainingFilter,:);
             end
-            C = Ca(obj.trainingFilter);
+            C = Ca(obj.trainingFilter,:);
         end
 
         function [X,C] = getTestingData(obj,Xa,Ca,varargin)
@@ -139,7 +140,7 @@ classdef Searchlight
             else
                 X = Xa(~obj.trainingFilter,:);
             end
-            C = Ca(~obj.trainingFilter);
+            C = Ca(~obj.trainingFilter,:);
         end
         
         function printresults(obj,varargin)
