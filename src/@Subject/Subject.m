@@ -504,6 +504,7 @@ classdef Subject
             parse(p, obj, tau, varargin{:});
             
             if strcmpi(obj.targets.type, 'similarity');
+                T = obj.getTargets('unfiltered',true,'simplify',false);
                 if isempty(p.Results.PreFilterWith)
                     S = obj.getTargets('unfiltered',true,'simplify',true);
                 else
@@ -517,6 +518,13 @@ classdef Subject
                     rf = obj.getRowFilter('include',p.Results.PreFilterWith);
                     C = nan(numel(rf),r);
                     C(rf,:) = tmp;
+                end
+                
+                if isfield(T,'embedding_subset') && ~isempty(T.embedding_subset)
+                    if ~isempty(p.Results.PreFilterWith)
+                        warning('Embedding Subsets and Similarity Matrix Prefilters are probably incompatible features! This may be an error in the future.');
+                    end
+                    C = C(T.embedding_subset,:);
                 end
                 
                 C = expand(C, obj.nTotalExamples);
