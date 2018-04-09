@@ -27,21 +27,23 @@ function results = Searchlight_RSA( varargin )
         p.Results.sim_metric, ...
         p.Results.filters);
     
-    for i = 1:numel(SubjectArray)
-        if ~isempty(p.Results.tau) && p.Results.tau ~= 0
-            % If tau is set, generate embeddings from target similarity matrices.
-            if isempty(p.Results.FiltersToApplyBeforeEmbedding)
-                SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true);
-            else
-                SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true, 'PreFilter', p.Results.FiltersToApplyBeforeEmbedding);
-            end
-        end
-        if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod, 'manual')
-            P = selectbyfield(permutations, 'subject', SubjectArray(i).subject);
-            SubjectArray(i) = SubjectArray(i).setPermutations(p.Results.PermutationMethod, p.Results.RandomSeed, P.permutation_index);
-        else
-            SubjectArray(i) = SubjectArray(i).setPermutations('none', p.Results.RandomSeed);
-        end
+    SubjectArray = generate_embeddings( ...
+        SubjectArray, ...
+        p.Results.tau, ...
+        p.Results.FiltersToApplyBeforeEmbedding);
+    
+    switch p.Results.PermutationMethod
+        case 'manual'
+            SubjectArray = add_permutations( ...
+                SubjectArray, ...
+                p.Results.PermutationMethod, ...
+                p.Results.RandomSeed, ...
+                permutations);
+        otherwise
+            SubjectArray = add_permutations( ...
+                SubjectArray, ...
+                p.Results.PermutationMethod, ...
+                p.Results.RandomSeed);
     end
     
     report_target_information( ...
@@ -128,7 +130,11 @@ function p = Searchlight_MVPA_Parameters()
     addParameter(p , 'normalize_wrt'   , 'all_examples', @ischar ); % NEW VARIABLE!
     % Permutation
     addParameter(p , 'RandomSeed'   , 0, @(x) isnumeric(x) && isscalar(x));
-    addParameter(p , 'permutations' , 0, @(x) isnumeric(x) && isscalar(x));
+    addParameter(p , 'PermutationTest'        , false, @islogicallike );
+    addParameter(p , 'PermutationMethod'      , 'none' , @ischar    );
+    addParameter(p , 'PermutationIndex'       , ''       , @ischar    );
+    addParameter(p , 'perm_varname' , 'PERMUTATION_INDEX', @ischar    );
+    addParameter(p , 'RestrictPermutationByCV', false, @islogicallike );
     % Output control
     addParameter(p , 'SmallFootprint', false  , @islogicallike );
     addParameter(p , 'SaveResultsAs'  , 'mat' , @isMatOrJSON   );
@@ -168,6 +174,13 @@ end
 function x = load_variable(filename,variable)
     StagingContainer = load(filename, variable);
     x = StagingContainer.(variable);
+end
+
+function p = load_permutations(filename,variable,index)
+    p = load_variable(filename,variable);
+    for i = 1:numel(p)
+        p(i).permutation_index = p(i).permutation_index(:,index);
+    end
 end
 
 function SubjectArray = load_data_as_subjects(filenames, variable, subject_id_fmt)
@@ -320,6 +333,30 @@ function y = normalize_columns(x, method, wrt)
         if VERBOSE
             fprintf('Constant-valued voxel indexes:\n');
             disp(find(~z));
+        end
+    end
+end
+
+function SubjectArray = generate_embeddings(SubjectArray, tau, FiltersToApplyBeforeEmbedding)
+    for i = 1:numel(SubjectArray)
+        if ~isempty(tau) && tau ~= 0
+            % If tau is set, generate embeddings from target similarity matrices.
+            if isempty(FiltersToApplyBeforeEmbedding)
+                SubjectArray(i) = SubjectArray(i).generateEmbeddings(tau, 'ExtendEmbedding', true);
+            else
+                SubjectArray(i) = SubjectArray(i).generateEmbeddings(tau, 'ExtendEmbedding', true, 'PreFilter', FiltersToApplyBeforeEmbedding);
+            end
+        end
+    end
+end
+
+function SubjectArray = add_permutations(SubjectArray, PermutationMethod, RandomSeed, permutations)
+    for i = 1:numel(SubjectArray)
+        if strcmpi(PermutationMethod, 'manual')
+            P = selectbyfield(permutations, 'subject', SubjectArray(i).subject);
+            SubjectArray(i) = SubjectArray(i).setPermutations(PermutationMethod, RandomSeed, P.permutation_index);
+        else
+            SubjectArray(i) = SubjectArray(i).setPermutations('none', RandomSeed);
         end
     end
 end
