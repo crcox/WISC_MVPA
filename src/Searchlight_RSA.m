@@ -72,7 +72,7 @@ function results = Searchlight_RSA( varargin )
         'radius'           , p.Results.radius           , ...
         'regularization'   , p.Results.regularization);
     
-    results = initialize_results_struct(p, SubjectArray);
+    results = initialize_results_struct(p, ModelInstances);
     for i = 1:numel(ModelInstances)
         M = ModelInstances(i);
         S = selectbyfield(SubjectArray, 'subject', M.subject);
