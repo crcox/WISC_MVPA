@@ -87,8 +87,8 @@ function results = Searchlight_RSA( varargin )
             M.RandomSeed, ...
             M.SortByCoordsIndex);
         
-        if i == 1, printresults(ModelInstances(i).Model, 'header'); end
-        printresults(ModelInstances(i).Model, 'bysubject', p.Results.cvholdout, SubjectArray(i).subject);
+        if i == 1, printresults(SL, 'header'); end
+        printresults(SL, 'bysubject', M.cvholdout, S.subject);
         results(i) = update_results(results(i),SL);
     end
     save('results.mat', 'results');
