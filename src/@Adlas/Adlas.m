@@ -4,8 +4,6 @@ classdef Adlas
 
     properties
         LambdaSequence
-        A % Data
-        B % Targets
         X % Weights
         trainingFilter
         max_iter = 100000
@@ -43,18 +41,17 @@ classdef Adlas
     end
 
     methods
-        function obj = Adlas(A,B,LambdaSequence,trainingFilter,ModelHasBiasUnit,opts)
+        function obj = Adlas(sizeA,sizeB,LambdaSequence,trainingFilter,ModelHasBiasUnit,opts)
             if (nargin == 0)
                 obj.EMPTY = 1;
                 return
             end
             if (nargin <  4), opts = struct(); end
-            [obj.nitems,obj.nvoxels] = size(A);
-            obj.r = size(B,2);
+            obj.nitems = sizeA(1);
+            obj.nvoxels = sizeA(2);
+            obj.r = sizeB(2);
             obj.s = RandStream('mt19937ar','Seed',0);
             obj.L = 1;
-            obj.A = A;
-            obj.B = B;
             obj.num_tasks = 1;
             obj.ModelHasBiasUnit = ModelHasBiasUnit;
             % Ensure that lambda is non-increasing
@@ -71,7 +68,7 @@ classdef Adlas
             obj.lambda1 = opts.lambda1;
             if isempty(trainingFilter)
                 obj.trainingFilter = true(obj.nitems, 1);
-            elseif numel(trainingFilter) ~= size(A,1);
+            elseif numel(trainingFilter) ~= obj.nitems;
                 error('The trainingFilter must have as many elements as there are targets (i.e., examples in the dataset).');
             else
                 obj.trainingFilter = trainingFilter;
@@ -87,21 +84,19 @@ classdef Adlas
             obj.EMPTY = 0;
         end
 
-        function obj = train(obj, opts)
+        function obj = train(obj, A,B,opts)
             fn = fieldnames(opts);
             for i = 1:numel(fn)
                 obj.(fn{i}) = opts.(fn{i});
             end
-            obj = Adlas1(obj);
+            obj = Adlas1(obj,A,B);
         end
 
-        function obj = test(obj)
-            x = obj.X;                        % Weights
-            a = obj.A(~obj.trainingFilter,:); % Data
-            b = obj.B(~obj.trainingFilter,:); % Targets
+        function obj = test(obj,A,B)
+            x = obj.X;
+            [a,b] = obj.getTestingData(A,B);
             obj.testError = nrsa_loss(b,a*x);
-            a = obj.A(obj.trainingFilter,:);  % Data
-            b = obj.B(obj.trainingFilter,:);  % Targets
+            [a,b] = obj.getTrainingData(A,B);
             obj.trainingError = nrsa_loss(b,a*x);
         end
         function x = isempty(obj)
@@ -111,7 +106,7 @@ classdef Adlas
         function [W,nzvox,nvox] = getWeights(obj, varargin)
             p = inputParser();
             addRequired(p, 'obj');
-            addOptional(p, 'subjects', 1:numel(obj.A), @isnumeric); % not used
+            addOptional(p, 'subjects', 1, @isnumeric); % not used
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             addParameter(p, 'dropBias', false, @(x) islogical(x) || x==1 || x==0);
             addParameter(p, 'verbose'  , false, @(x) islogical(x) || x==1 || x==0);
@@ -127,15 +122,15 @@ classdef Adlas
             end
         end
 
-        function y = getTarget(obj,varargin)
+        function y = getTarget(obj,B,varargin)
             p = inputParser();
             addRequired(p, 'obj');
-            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addOptional(p, 'subjects', 1, @isnumeric);
             addParameter(p, 'subset', 'all', @ischar);
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
-            parse(p, obj, varargin{:});
+            parse(p, obj, B, varargin{:});
 
-            y = obj.B;
+            y = p.Results.B;
             switch lower(p.Results.subset)
                 case 'all'
 %                     y = y;
@@ -149,15 +144,16 @@ classdef Adlas
             end
         end
 
-        function x = getData(obj,varargin)
+        function x = getData(obj,A,varargin)
             p = inputParser();
             addRequired(p, 'obj');
-            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addRequired(p, 'A');
+            addOptional(p, 'subjects', 1, @isnumeric);
             addParameter(p, 'subset', 'all', @ischar);
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
-            parse(p, obj, varargin{:});
+            parse(p, obj, A,varargin{:});
 
-            x = obj.A; %(p.Results.subjects);
+            x = p.Results.A; %(p.Results.subjects);
             switch lower(p.Results.subset)
                 case 'all'
 %                     x = x;
@@ -171,44 +167,40 @@ classdef Adlas
             end
         end
 
-        function [x,y] = getTrainingData(obj,varargin)
+        function [x,y] = getTrainingData(obj,A,B,varargin)
             p = inputParser();
             addRequired(p, 'obj');
-            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
+            addRequired(p, 'A');
+            addRequired(p, 'B');
+            addOptional(p, 'subjects', 1, @isnumeric);
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
-            parse(p, obj, varargin{:});
+            parse(p, obj, A,B,varargin{:});
 
             if p.Results.transposeX
-                x = obj.A(obj.trainingFilter,:)';
+                x = p.Results.A(obj.trainingFilter,:)';
             else
-                x = obj.A(obj.trainingFilter,:);
+                x = p.Results.A(obj.trainingFilter,:);
             end
-            y = obj.B(obj.trainingFilter,:);
-            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
-                x = x{1};
-                y = y{1};
-            end
+            y = p.Results.B(obj.trainingFilter,:);
+
         end
 
-        function [X,Y] = getTestingData(obj,varargin)
+        function [X,Y] = getTestingData(obj,A,B,varargin)
             p = inputParser();
             addRequired(p, 'obj');
-            addOptional(p, 'subjects', 1:obj.num_tasks, @isnumeric);
-            addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
+            addRequired(p, 'A');
+            addRequired(p, 'B');
+            addOptional(p, 'subjects', 1, @isnumeric);
             addParameter(p, 'transposeX', false, @(x) islogical(x) || x==1 || x==0);
-            parse(p, obj, varargin{:});
+            parse(p, obj, A,B,varargin{:});
 
             if p.Results.transposeX
-                X = obj.A(~obj.trainingFilter,:)';
+                X = p.Results.A(~obj.trainingFilter,:)';
             else
-                X = obj.A(~obj.trainingFilter,:);
+                X = p.Results.A(~obj.trainingFilter,:);
             end
-            Y = obj.B(~obj.trainingFilter,:);
-            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
-                X = X{1};
-                Y = Y{1};
-            end
+            Y = p.Results.B(~obj.trainingFilter,:);
         end
 
         function Yz = getPrediction(obj, varargin)
@@ -323,7 +315,7 @@ classdef Adlas
     end
 end
 
-function obj = Adlas1(obj, verbosity)
+function obj = Adlas1(obj,A,B,verbosity)
     % Constants for exit status
     STATUS_RUNNING    = 0;
     STATUS_OPTIMAL    = 1;
@@ -331,13 +323,12 @@ function obj = Adlas1(obj, verbosity)
     STATUS_ALLZERO    = 3;
     STATUS_MSG = {'Optimal','Iteration limit reached','All weights set to zero'};
 
-    if nargin < 2
+    if nargin < 4
         verbosity = 0;
     end
     % Initialize parameters
     X       = obj.X; % Weights
-    A       = obj.A(obj.trainingFilter,:); % Data
-    B       = obj.B(obj.trainingFilter,:); % Targets
+    [A,B]   = getTrainingData(obj,A,B); 
     Ax      = A * X;
     Y       = X;
     status  = STATUS_RUNNING;

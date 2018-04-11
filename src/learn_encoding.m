@@ -105,9 +105,10 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
 %                     if ~iscell(Y), Y = {Y}; end
                 case {'L1L2','GROWL','GROWL2'}
                     % LambdaSeq must be a column vector
-                    ModelInstances(i).Model = Adlas(lamseq(:), train_set{1}, bias, options);
                     X = X{1};
                     Y = Y{1}; 
+                    ModelInstances(i).Model = Adlas(size(X),size(Y),lamseq(:), train_set{1}, bias, options);
+
             end
             ModelInstances(i).Model = ModelInstances(i).Model.train(X,Y,options);
             ModelInstances(i).Model = ModelInstances(i).Model.test(X,Y);
