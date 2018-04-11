@@ -155,14 +155,14 @@ classdef Searchlight
             parse(p, obj, cvindex, subject);
 
             cvix = p.Results.cvindex;
-            subj = p.Results.subjects;
+            subj = p.Results.subject;
             fprintf('%8d%8d%8d%8d%8d\n', ...
                 subj,cvix,obj.radius,nnz(obj.failedSearchlights),obj.nvox);
 
         end
         
         function printheader(~)
-            fprintf('%8s%8s%8s%8s%8s\n', 'subj','cvindex','radius','failures','nvox');
+            fprintf('%8s%8s%8s%8s%8s\n', 'subj','cvindex','radius','failed','nvox');
         end
 
     end

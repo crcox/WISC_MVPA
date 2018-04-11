@@ -87,7 +87,7 @@ function results = Searchlight_RSA( varargin )
             M.RandomSeed, ...
             M.SortByCoordsIndex);
         
-        if i == 1, printresults(SL, 'header'); end
+        if i == 1, printheader(SL); end
         printresults(SL, M.cvholdout, S.subject);
         results(i) = update_results(results(i),SL);
     end
@@ -307,7 +307,7 @@ function SL = run_searchlight_models(S, cvholdout, normalize_data, normalize_tar
     train_set  = S.getTrainingSet(cvholdout);
     xyz = S.getCoords(orientation, 'xyz', 'simplify', true);
     SL = Searchlight(radius,xyz,S.getCVScheme(),train_set,bias,struct());
-    SL.computeInformationMap(X,Y);
+    SL = SL.computeInformationMap(X,Y);
     
     if SortByCoordsIndex
         SL.error_map1 = SL.error_map1(xi);
