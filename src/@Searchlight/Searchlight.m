@@ -55,11 +55,20 @@ classdef Searchlight
             obj.s = RandStream('mt19937ar','Seed',seed);
         end
 
+% very inefficient
+%         function SL = generate_searchlights(~,xyz,radius)
+%             D = squareform(pdist(xyz));
+%             SL = cell(size(D,1),1);
+%             for j = 1:size(D,1)
+%                 SL{j} = find(D(j,:) <= radius);
+%             end
+%         end
         function SL = generate_searchlights(~,xyz,radius)
-            D = squareform(pdist(xyz));
-            SL = cell(size(D,1),1);
-            for j = 1:size(D,1)
-                SL{j} = find(D(j,:) <= radius);
+            n = size(xyz,1);
+            SL = cell(n,1);
+            for j = 1:n
+                z = distance_to_reference(xyz(j,:), xyz) <= radius;
+                SL{j} = find(z);
             end
         end
 
@@ -68,23 +77,30 @@ classdef Searchlight
             [Xtest,Ctest] = obj.getTestingData(X,C,'TransposeX',false);
             [done,failed] = deal(0);
             for i = 1:numel(obj.SL)
-                nchar = fprintf('Progress: %d done, %d failed, out of %d', done, failed, numel(obj.SL));
+                if ~isdeployed
+                    nchar = fprintf('Progress: %d done, %d failed, out of %d', done, failed, numel(obj.SL));
+                end
                 obj.currentSearchlight = i;
                 g = obj.SL{i};
                 [glmnetOpts, FAILED] = obj.tune(Xtrain(:,g),Ctrain);
                 if FAILED
                     obj.failedSearchlights(i) = true;
-                    failed = failed + 1;
-                    eraser = repmat('\b',1,nchar);
-                    fprintf(eraser);
+                    if ~isdeployed
+                        failed = failed + 1;
+                        eraser = repmat('\b',1,nchar);
+                        fprintf(eraser);
+                    end
                     continue
                 end
                 glmnetModel = obj.train(Xtrain(:,g),Ctrain,glmnetOpts);
                 obj.error_map2(i) = obj.test(Xtrain(:,g),Ctrain,glmnetModel);
                 obj.error_map1(i) = obj.test(Xtest(:,g),Ctest,glmnetModel);
-                done = done + 1;
-                eraser = repmat('\b',1,nchar);
-                fprintf(eraser);
+                %eraser = repmat('\b',1,nchar);
+                if ~isdeployed
+                    done = done + 1;
+                    eraser = repmat('\b',1,nchar);
+                    fprintf(eraser);
+                end
             end
         end
 
@@ -168,3 +184,8 @@ classdef Searchlight
     end
 end
 
+function d = distance_to_reference(reference, points)
+    xp=reference(1); yp=reference(2); zp=reference(3);
+    x = points(:,1); y = points(:,2); z = points(:,3);
+    d = sqrt(((xp-x).^2) + ((yp-y).^2) + ((zp-z).^2));
+end
