@@ -147,25 +147,22 @@ classdef Searchlight
             C = Ca(~obj.trainingFilter,:);
         end
         
-        function printresults(obj,varargin)
+        function printresults(obj, cvindex, subject)
             p = inputParser();
             addRequired(p, 'obj');
-            addOptional(p, 'outputcontrol', 'bycv', @ischar);
-            addOptional(p, 'bysubject', 0, @isnumeric);
-            addOptional(p, 'subjects', 1, @isnumeric);
-            parse(p, obj, varargin{:});
+            addRequired(p, 'cvindex', @isscalar);
+            addRequired(p, 'subject', @isscalar);
+            parse(p, obj, cvindex, subject);
 
             cvix = p.Results.cvindex;
             subj = p.Results.subjects;
-            switch lower(p.Results.outputcontrol)
-                case 'header'
-                    fprintf('%8s%8s%8s%8s%8s\n', 'subj','cvindex','radius','failures','nvox');
-                case 'bysubject'
-                    fprintf('%8d%8d%8d%8d%8d\n', ...
-                        subj,cvix,obj.radius,nnz(obj.failedSearchlights),obj.nvox);
+            fprintf('%8d%8d%8d%8d%8d\n', ...
+                subj,cvix,obj.radius,nnz(obj.failedSearchlights),obj.nvox);
 
-            end
-
+        end
+        
+        function printheader(~)
+            fprintf('%8s%8s%8s%8s%8s\n', 'subj','cvindex','radius','failures','nvox');
         end
 
     end

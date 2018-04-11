@@ -1,12 +1,12 @@
 function results = Searchlight_RSA( varargin )
-%SEARCHLIGHT_MVPA A wrapper to SearchMight (by Francisco Periera)
+%SEARCHLIGHT_RSA A wrapper to GLMnet GroupLasso
     p = Searchlight_MVPA_Parameters();
     p = parse_input_parameters(p, varargin);
     set_global_random_stream_seed(p.Results.RandomSeed)
     
     metadata = load_variable(p.Results.metadata, p.Results.metadata_varname);
     % Load permutation object
-    if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod,'manual');
+    if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod,'manual')
         permutations = load_variable(p.Results.PermutationIndex, p.Results.perm_varname);
     end
     
@@ -88,7 +88,7 @@ function results = Searchlight_RSA( varargin )
             M.SortByCoordsIndex);
         
         if i == 1, printresults(SL, 'header'); end
-        printresults(SL, 'bysubject', M.cvholdout, S.subject);
+        printresults(SL, M.cvholdout, S.subject);
         results(i) = update_results(results(i),SL);
     end
     save('results.mat', 'results');
@@ -186,7 +186,7 @@ end
 
 function set_global_random_stream_seed(seed)
     if ~isempty(seed) && isscalar(seed)
-        if seed == 0;
+        if seed == 0
             rng('default')
         else
             rng(seed);
@@ -219,7 +219,7 @@ function SubjectArray = add_metadata_to_subjects(SubjectArray, metadata, cvschem
         % Select metadata matching current subject ID
         M = selectbyfield(metadata, 'subject', SubjectArray(i).subject);
         if numel(M) > 1
-            error('WholeBrain_MVPA:SubjectSelect','Subject ID %s does not uniquely match a metadata entry.', num2cell(SubjectArray.subject));
+            error('WholeBrain_MVPA:SubjectSelect','Subject ID %s does not uniquely match a metadata entry.', SubjectArray(i).subject);
         end
         % Pull content from metadata object
         CV = M.cvind(:,cvscheme);
