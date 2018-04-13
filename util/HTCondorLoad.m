@@ -61,40 +61,9 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
 
 %% Preallocate result structure
 % Assumption is that all result files are identical size with same fields
-    i = 0;
-    fileExists = false;
-    if nargout > 1
-        while ~fileExists
-            i = i + 1;
-            jobDir     = fullfile(RESULT_DIR, jobDirs{i});
-            resultPath = fullfile(jobDir, RESULT_FILE);
-            fileExists = exist(resultPath, 'file') == 2;
-        end
-        paramsPath = fullfile(jobDir, PARAMS_FILE);
-        tmp_p = loadjson(paramsPath);
-        tmp_p.jobdir = 0;
-        tmp_p.subject = 0;
-        Params(nJobDirs) = tmp_p;
-        tmp = load(resultPath);
-        if ~isfield(tmp,'results')
-            tmp2 = tmp; clear tmp;
-            m = numel(tmp2.err1);
-            tmp.results = init_results();
-            tmp.results(m).job = [];
-            clear tmp2;
-        end
-        R = tmp.results;
-        if ~isempty(INCLUDE) && isempty(SKIP)
-            SKIP = fieldnames(rmfield(R,INCLUDE));
-        end
-        R = rmfield(R, SKIP);
-
-        N = nJobDirs * numel(R);
-        Results = R(1);
-        Results.job = 0;
-        Results(N).job = 0;
-    end
-
+    [Results,Params] = PreallocateResultsStruct(jobDirs,RESULT_DIR,RESULT_FILE,PARAMS_FILE);
+    Params(1).subject = [];
+    Params(1).jobdir = [];
     nchar = 0;
     if ~QUIET
         fprintf('Loading job ');
@@ -117,7 +86,7 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
         else
             tmp.subject = sscanf(tmp.data,'s%02d');
         end
-        Params(i)   = tmp;
+        Params(i) = tmp;
         clear tmp;
 
         if nargout > 1
@@ -127,93 +96,59 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
                 continue;
             end
             tmp = load(resultPath);
-            if isfield(tmp,'results')
-                R = tmp.results;
-            else
-                R = tmp;
-            end
-            if LEGACY
-                tmp = [fieldnames(R)';cellfun(@(x) mat2cell(x, ones(size(x,1),1), size(x,2)), struct2cell(R), 'Unif', 0)'];
-                R = struct(tmp{:});
-            end
+            R = tmp.results;
             [R.job] = deal(i);
             R = rmfield(R, SKIP);
             a = cursor + 1;
             b = cursor + numel(R);
-            if LEGACY
-                Params(i).cvholdout = num2cell(Params(i).cvholdout);
-                Params(i).filters = {Params(i).filters};
-                Params(i).COPY = {Params(i).COPY};
-                tmp = [fieldnames(Params)';struct2cell(Params(i))'];
-                ParamsAB = struct(tmp{:});
 
-                fnames = fieldnames(Results);
-                nf = numel(fnames);
-                for iField = 1:nf
-                    fn = fnames{iField};
-                    iiR = 0;
-                    for iR = a:b
-                        iiR = iiR + 1;
-                        if isfield(R,fn)
-                            Results(iR).(fn) = R(iiR).(fn);
-                        elseif isfield(Params,fn)
-                            Results(iR).(fn) = ParamsAB(iiR).(fn);
-                        else
-                            % do nothing
-                        end
-                    end
+            if isfield(R,'nz_rows') && ~isfield(R,'Uix')
+                for iii = 1:numel(R)
+                    R(iii).Uix = find(R(iii).nz_rows);
                 end
-            else
-                if any(strcmp('Uix', fieldnames(R)))
-                    z = ismember(fieldnames(R),fieldnames(Results));
-                    fnp = fieldnames(R);
-                    fnp(z) = [];
-                    if all(z)
-                        Results(a:b) = R;
-                    else
-                        Results(a:b) = rmfield(R,fnp{:});
-                    end
-                elseif any(strcmp('nz_rows', fieldnames(R)))
-                    for iii = 1:numel(R)
-                        R(iii).Uix = find(R(iii).nz_rows);
-                    end
-                    z = ismember(fieldnames(R),fieldnames(Results));
-                    fnp = fieldnames(R);
-                    fnp(z) = [];
-                    if all(z)
+                z = ismember(fieldnames(R),fieldnames(Results));
+                fnp = fieldnames(R);
+                fnp(z) = [];
+                if all(z)
                     Results(a:b) = R;
-                    else
-                    Results(a:b) = rmfield(R,fnp{:});
-                    end
                 else
-                    for iii = 1:numel(R)
-                        R(iii).Sz = [];
-                        R(iii).nz_rows = full(any(R(iii).Uz, 2));
-                        R(iii).Uix = find(R(iii).nz_rows);
-                        R(iii).nvox = size(R(iii).Uz, 1);
-                        R(iii).structureScoreMap = [];
-                    end
-                    if a == 1
-                        [Results.Sz] = deal([]);
-                        [Results.nz_rows] = deal([]);
-                        [Results.Uix] = deal([]);
-                        [Results.nvox] = deal([]);
-                    end
-                    z = ismember(fieldnames(R),fieldnames(Results));
-                    fnp = fieldnames(R);
-                    fnp(z) = [];
                     Results(a:b) = rmfield(R,fnp{:});
-                    %               Results(a:b) = R;
+                end
+                
+            elseif isfield(R,'Uz')
+                for iii = 1:numel(R)
+                    R(iii).Sz = [];
+                    R(iii).nz_rows = full(any(R(iii).Uz, 2));
+                    R(iii).Uix = find(R(iii).nz_rows);
+                    R(iii).nvox = size(R(iii).Uz, 1);
+                    R(iii).structureScoreMap = [];
+                end
+                if a == 1
+                    [Results.Sz] = deal([]);
+                    [Results.nz_rows] = deal([]);
+                    [Results.Uix] = deal([]);
+                    [Results.nvox] = deal([]);
+                end
+                z = ismember(fieldnames(R),fieldnames(Results));
+                fnp = fieldnames(R);
+                fnp(z) = [];
+                Results(a:b) = rmfield(R,fnp{:});
+                %               Results(a:b) = R;
+            else
+                z = ismember(fieldnames(R),fieldnames(Results));
+                fnp = fieldnames(R);
+                fnp(z) = [];
+                if all(z)
+                    Results(a:b) = R;
+                else
+                    Results(a:b) = rmfield(R,fnp{:});
                 end
             end
             n(i) = numel(R);
             cursor = b;
-            a = cursor + 1;
-            if a < b
-                Results(a:b) = [];
-            end
         end
     end
+    
     f = fieldnames(Results);
     z = cellfun(@isempty, {Results.(f{1})});
     Results(z) = [];
@@ -221,3 +156,43 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
         fprintf('\n')
     end
 end
+
+function [results,params] = PreallocateResultsStruct(jobDirs,RESULT_DIR,RESULT_FILE,PARAMS_FILE)
+    [r,p] = LoadFirstNotEmpty(jobDirs,RESULT_DIR,RESULT_FILE,PARAMS_FILE);
+    results = repmat(EmptyFields(r(:)),numel(jobDirs),1);
+    params = repmat(EmptyFields(p(:)),numel(jobDirs),1);
+end
+
+function [r,p] = LoadFirstNotEmpty(jobDirs,RESULT_DIR,RESULT_FILE,PARAMS_FILE)
+    i = 0;
+    fileExists = false;
+    while ~fileExists
+        i = i + 1;
+        jobDir     = fullfile(RESULT_DIR, jobDirs{i});
+        resultPath = fullfile(jobDir, RESULT_FILE);
+        if exist(resultPath, 'file') == 2
+            tmp = load(resultPath);
+            fileExists = isfield(tmp,'results');
+        end
+    end
+    r = tmp.results;
+    if nargout > 1
+        paramsPath = fullfile(jobDir, PARAMS_FILE);
+        p = loadjson(paramsPath);
+    end
+end
+
+function [se] = EmptyFields(s)
+    f = fieldnames(s);
+    x = [f(:)';repmat({[]},1,numel(f))];
+    se = struct(x{:});
+end
+    
+
+% if ~isfield(tmp,'results')
+%     tmp2 = tmp; clear tmp;
+%     m = numel(tmp2.err1);
+%     tmp.results = init_results();
+%     tmp.results(m).job = [];
+%     clear tmp2;
+% end
