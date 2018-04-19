@@ -62,6 +62,10 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
 %% Preallocate result structure
 % Assumption is that all result files are identical size with same fields
     [Results,Params] = PreallocateResultsStruct(jobDirs,RESULT_DIR,RESULT_FILE,PARAMS_FILE);
+    if isfield(Results,'nz_rows') && ~isfield(Results,'Uix')
+        Results(1).Uix = [];
+    end
+    Results(1).jobdir = [];
     Params(1).subject = [];
     Params(1).jobdir = [];
     nchar = 0;
@@ -86,6 +90,7 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
             tmp.subject = sscanf(tmp.data,'s%02d');
         end
         tmp.jobdir  = jobDir;
+        tmp = orderfields(tmp, Params(1));
         Params(i) = tmp;
         clear tmp;
 
@@ -97,7 +102,7 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
             end
             tmp = load(resultPath);
             R = tmp.results;
-            [R.job] = deal(i);
+            [R.jobdir] = deal(i);
             R = rmfield(R, SKIP);
             a = cursor + 1;
             b = cursor + numel(R);
@@ -106,14 +111,13 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
                 for iii = 1:numel(R)
                     R(iii).Uix = find(R(iii).nz_rows);
                 end
-                z = ismember(fieldnames(R),fieldnames(Results));
-                fnp = fieldnames(R);
-                fnp(z) = [];
-                if all(z)
-                    Results(a:b) = R;
-                else
-                    Results(a:b) = rmfield(R,fnp{:});
-                end
+%                 z = ismember(fieldnames(R),fieldnames(Results));
+%                 fnp = fieldnames(R);
+%                 fnp(z) = [];
+                R = orderfields(R, Results(1));
+                Results(a:b) = R;
+
+                
                 
             elseif isfield(R,'Uz')
                 for iii = 1:numel(R)
@@ -132,16 +136,17 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
                 z = ismember(fieldnames(R),fieldnames(Results));
                 fnp = fieldnames(R);
                 fnp(z) = [];
-                Results(a:b) = rmfield(R,fnp{:});
+                R = orderfields(R, rmfield(R,fnp{:}));
+                Results(a:b) = R;
                 %               Results(a:b) = R;
             else
                 z = ismember(fieldnames(R),fieldnames(Results));
                 fnp = fieldnames(R);
                 fnp(z) = [];
                 if all(z)
-                    Results(a:b) = R;
+                    Results(a:b) = orderfields(R,Results(1));
                 else
-                    Results(a:b) = rmfield(R,fnp{:});
+                    Results(a:b) = orderfields(rmfield(R,fnp{:}),Results(1));
                 end
             end
             n(i) = numel(R);
@@ -149,9 +154,6 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
         end
     end
     
-    f = fieldnames(Results);
-    z = cellfun(@isempty, {Results.(f{1})});
-    Results(z) = [];
     if ~QUIET
         fprintf('\n')
     end

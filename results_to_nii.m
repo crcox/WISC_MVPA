@@ -1,6 +1,6 @@
-rootDir = pwd();
+rootDir = 'C:\Users\mbmhscc4\MATLAB\src\WholeBrain_MVPA';
 addpath(fullfile(rootDir, 'dependencies', 'nifti'));
-datadir = '/Users/Chris/MRI/Manchester/data/raw';
+datadir = 'D:\MRI\SoundPicture\data\raw';
 MASK_ORIG_O = struct('subject',num2cell(1:23)', 'filename', {
     fullfile(datadir,'s02_rightyes','mask','nS_c1_mask_nocerebellum_O.nii')
     fullfile(datadir,'s03_leftyes','mask','nS_c1_mask_nocerebellum_O.nii')
