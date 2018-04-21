@@ -16,6 +16,7 @@ function WholeBrain_MVPA(varargin)
     addParameter(p , 'diameter'         , []      , @isnumeric     );
     addParameter(p , 'shape'            , []      , @ischar        );
     addParameter(p , 'overlap'          , []      , @isnumeric     );
+    addParameter(p , 'sosgroups'        , []      , @iscellstr     );
     % Target definition
     addParameter(p , 'target_label'     , [], @ischar );
     addParameter(p , 'target_type'      , [], @ischar );
@@ -269,38 +270,12 @@ function WholeBrain_MVPA(varargin)
     end
     switch upper(p.Results.regularization)
         case 'SOSLASSO'
-            [diameter_u,~,ib] = unique(cat(1,ModelInstances.diameter),'rows');
-            [overlap_u,~,ic] = unique(cat(1,ModelInstances.overlap),'rows');
-            MIT = unique(table( ...
-                ib, ...
-                ic, ...
-                {ModelInstances.shape}', ...
-                'VariableNames', {'diameter','overlap','shape'}));
-            MIT.diameter = num2cell(MIT.diameter);
-            MIT.overlap = num2cell(MIT.overlap);
-            G = cell(size(MIT,1),1);
-            for ii = 1:size(MIT,1)
-                MIT.diameter{ii} = diameter_u(MIT.diameter{ii},:);
-                MIT.overlap{ii} = overlap_u(MIT.overlap{ii},:);
-                G{ii} = coordGrouping(xyz, ...
-                    MIT.diameter{ii}, ...
-                    MIT.overlap{ii}, ...
-                    MIT.shape{ii});
+            if isfield(ModelInstances, 'diameter')
+                ModelInstances = SOSGroupModels(ModelInstances, xyz);
+            elseif isfield(ModelInstances, 'sosgroups')
+                ModelInstances = SOSGroupLoad(ModelInstances);
             end
-            for ii = 1:numel(ModelInstances)
-                diameter = ModelInstances(ii).diameter;
-                overlap = ModelInstances(ii).overlap;
-                shape = ModelInstances(ii).shape;
-                if size(MIT,1) > 1
-                    z = all(bsxfun(@eq, cell2mat(MIT.diameter), diameter), 2) & ...
-                        all(bsxfun(@eq, cell2mat(MIT.overlap), overlap), 2) & ...
-                        strcmp(MIT.shape, shape);
-                else
-                    z = 1;
-                end 
-                ModelInstances(ii).G = G{z};
-                ModelInstances(ii).subject = [SubjectArray.subject];
-            end
+            [ModelInstances.subject] = deal([SubjectArray.subject]);
 
         case {'LASSO','RIDGE'}
             G = coordGrouping(xyz, 0, 0, 'unitary');
@@ -435,34 +410,30 @@ function [hyperparameters] = verify_setup_MVPA(p)
             hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'lamL2',p.lamL2,'hyperband',p.SearchWithHyperband);
 
         case 'SOSLASSO'
-            assert(all(isfield(p,{'diameter','shape','overlap'})) && ~isempty(p.diameter) && ~isempty(p.shape) && ~isempty(p.overlap), 'diameter, shape, and overlap must all be defined for SOSLASSO regularization.');
-            assert( ...
-                all(isfield(p,{'alpha','lambda'})) && ~isempty(p.alpha) && ~isempty(p.lambda) || ...
-                all(isfield(p,{'lamSOS','lamL1'})) && ~isempty(p.lamSOS) && ~isempty(p.lamL1), ...
-                'Either (alpha and lambda) or (lamSOS and lamL1) must be defined for SOSLASSO regularization.');
-            if any(isfield(p,{'alpha','lambda'})) && ~all(isfield(p,{'lamSOS','lamL1'}))
-                assert(all(isfield(p,{'alpha','lambda'})), 'Alpha and lambda must both be specified to generate lamSOS and lamL1 for SOSLASSO regularization.')
-            end
-            if all(isfield(p,{'alpha','lambda'})) && ~isempty(p.alpha) && ~isempty(p.lambda)
-                warning('Alpha will be translated to lamSOS with respect to lambda.');
-                warning('Lambda will be translated to lamL1 with respect to alpha.');
+            [b,c] = soslassoParameterExistenceCheck(p);
+            assert(b, 'Invalid parameterization for SOS Lasso.');
+            if any(c.id == [1,3])
                 [lamSOS,lamL1] = ratio2independent(p.alpha,p.lambda);
-            elseif all(isfield(p,{'lamSOS','lamL1'})) && ~isempty(p.lamSOS) && ~isempty(p.lamL1)
+            else
                 lamSOS = p.lamSOS;
                 lamL1 = p.lamL1;
             end
-            if all(size(p.diameter) == [1,3])
-                diameter = {{p.diameter}};
+            if any(c.id == [3,4])
+                if all(size(p.diameter) == [1,3])
+                    diameter = {{p.diameter}};
+                else
+                    diameter = p.diameter;
+                end
+                if all(size(p.overlap) == [1,3])
+                    overlap = {{p.overlap}};
+                else
+                    overlap = p.overlap;
+                end
+                hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',diameter,'shape',p.shape,'overlap',overlap,'hyperband',p.SearchWithHyperband);
             else
-                diameter = p.diameter;
+                hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'sosgroups',p.sosgroups,'hyperband',p.SearchWithHyperband);
             end
-            if all(size(p.overlap) == [1,3])
-                overlap = {{p.overlap}};
-            else
-                overlap = p.overlap;
-            end
-            hyperparameters = struct('lamSOS',lamSOS,'lamL1',lamL1,'diameter',diameter,'shape',p.shape,'overlap',overlap,'hyperband',p.SearchWithHyperband);
-
+            
     end
 end
 
