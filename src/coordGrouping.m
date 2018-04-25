@@ -110,7 +110,8 @@ function G = coordGrouping(coords, diameter, overlap, shape)
                     G(a:b, j~=(1:N)) = {uint32(zeros(0,1))};
                 end
             else
-                G(:, 1) = num2cell(uint32(1:n(1)));
+                G = num2cell(uint32(1:n(1)));
+                G = G(:);
             end
     end
     G(all(cellfun('isempty',G),2),:) = [];
