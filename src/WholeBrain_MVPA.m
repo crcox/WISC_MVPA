@@ -271,7 +271,7 @@ function WholeBrain_MVPA(varargin)
     switch upper(p.Results.regularization)
         case 'SOSLASSO'
             if isfield(ModelInstances, 'diameter')
-                ModelInstances = SOSGroupModels(ModelInstances, xyz);
+                ModelInstances = SOSGroupMake(ModelInstances, xyz);
             elseif isfield(ModelInstances, 'sosgroups')
                 ModelInstances = SOSGroupLoad(ModelInstances);
             end
