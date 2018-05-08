@@ -153,6 +153,8 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
             cursor = b;
         end
     end
+    z = cellfun('isempty',{Results.jobdir});
+    Results(z) = [];
     
     if ~QUIET
         fprintf('\n')
