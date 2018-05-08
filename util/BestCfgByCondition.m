@@ -35,19 +35,43 @@ function [ Tbest, Tavg ] = BestCfgByCondition( tune_table, hyperparams, objectiv
     addParameter(p, 'minimize', true, @(x) islogical(x) || any(x==[0,1]));
     parse(p, tune_table, hyperparams, objective, varargin{:});
     
+    
     T = p.Results.tune_table;
-%     T = handle_empty_rows(T,hyperparams,p.Results.by);      
+%     T = handle_empty_rows(T,hyperparams,p.Results.by);
+    hyperparams_c = cellfun(@(x) strjoin({x,'c'},'_'),hyperparams,'UniformOutput',false);
+    for i = 1:numel(hyperparams)
+        try
+            T.(hyperparams_c{i}) = categorical(T.(hyperparams{i}));
+        catch
+            T.(hyperparams_c{i}) = categorical(cell2mat(T.(hyperparams{i})));
+        end
+    end
+    
+    for i = 1:numel(p.Results.by)
+        try
+            T.(p.Results.by{i}) = categorical(T.(p.Results.by{i}));
+        catch
+            T.(p.Results.by{i}) = categorical(cell2mat(T.(p.Results.by{i})));
+        end
+    end
     
     try
-        G = findgroups(T(:,[hyperparams,p.Results.by]));
-        Tavg = unique(T(:,[hyperparams,p.Results.by]));
+        G = findgroups(T(:,[hyperparams_c,p.Results.by]));
+        [Tavg,ia] = unique(T(:,[hyperparams_c,p.Results.by]));
     catch ME
-        [Tavg,~,G] = unique(T(:,[hyperparams,p.Results.by]));
+        [Tavg,ia,G] = unique(T(:,[hyperparams_c,p.Results.by]));
+    end
+    for i = 1:numel(hyperparams)
+        Tavg.(hyperparams{i}) = T.(hyperparams{i})(ia);
     end
     varsToAverage = [{objective},p.Results.extras];
     for i = 1:numel(varsToAverage)
         f = varsToAverage{i};
-        Tavg.(f) = splitapply(@mean, T.(f), G);
+        try
+            Tavg.(f) = splitapply(@mean, T.(f), G);
+        catch
+            Tavg.(f) = splitapply(@mean, cell2mat(T.(f)), G);
+        end
     end
 
     try
@@ -59,8 +83,7 @@ function [ Tbest, Tavg ] = BestCfgByCondition( tune_table, hyperparams, objectiv
     
     varsToReport = [{objective},p.Results.extras,hyperparams];
     if p.Results.minimize
-        whichmin_obj = @(x) whichmin(x);
-        X = splitapply(whichmin_obj, Tavg{:,varsToReport}, G);
+        X = splitapply(@whichmin, Tavg(:,varsToReport), G);
     else
         whichmax_obj = @(x) whichmax(objective, x);
         X = splitapply(whichmax_obj, Tavg(:,varsToReport), G);
@@ -69,13 +92,21 @@ function [ Tbest, Tavg ] = BestCfgByCondition( tune_table, hyperparams, objectiv
 %     Tbest = cat(1, X{:});
     for i = 1:numel(varsToReport)
         f = varsToReport{i};
-        Tbest.(f) = X(:,i);
+        if isnumeric(T.(f))
+            Tbest.(f) = cell2mat(X(:,i));
+        else
+            Tbest.(f) = X(:,i);
+        end
     end
 end
 
-function [X,I] = whichmin( x )
-    [~,I] = min(x(:,1));
-    X = x(I,:);
+function [X,I] = whichmin( varargin )
+    objective = varargin{1};
+    X = cell(size(varargin));
+    [~,I] = min(objective);
+    for i = 1:numel(varargin)
+        X{i} = varargin{i}(I,:);
+    end
 end
 
 function [X,I] = whichmax( objective, x )
