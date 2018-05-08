@@ -75,10 +75,11 @@ function ac = ModelContainer(varargin)
     [B{:}] = ndgrid(expand_index{:});
     for i = 1:n
         if iscell(expand_struct_pu.(fn{i})) % char or cellstr types, or cells containing arrays
-            expand_struct.(fn{i}) = expand_struct_pu.(fn{i})(B{i}(:)');
+            tmp = expand_struct_pu.(fn{i})(B{i}(:)');
         else % numeric types
-            expand_struct.(fn{i}) = num2cell(expand_struct_pu.(fn{i})(B{i}(:)'));
+            tmp = num2cell(expand_struct_pu.(fn{i})(B{i}(:)'));
         end
+        expand_struct.(fn{i}) = tmp(:);
     end
     if isempty(hbn)
         tmp = [struct2cell(expand_struct); {[]}];
@@ -86,10 +87,11 @@ function ac = ModelContainer(varargin)
     else
         for i = 1:numel(hbn)
             if iscell(HB.(hbn{i}))
-                HB.(hbn{i}) = HB.(hbn{i})(cell2mat(expand_struct.configID));
+                tmp = HB.(hbn{i})(cell2mat(expand_struct.configID));
             else
-                HB.(hbn{i}) = num2cell(HB.(hbn{i})(cell2mat(expand_struct.configID)));
+                tmp = num2cell(HB.(hbn{i})(cell2mat(expand_struct.configID)));
             end
+            HB.(hbn{i}) = tmp(:);
         end
         tmp = [struct2cell(expand_struct); struct2cell(HB); {[]}];
         fn = [fn; hbn; {'Model'}];
