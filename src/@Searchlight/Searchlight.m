@@ -9,6 +9,8 @@ classdef Searchlight
         error_map1
         error_map2
         trainingFilter
+        C_map1
+        C_map2
     end
 
     properties ( Access = public, Hidden = true )
@@ -20,6 +22,8 @@ classdef Searchlight
         glmnetCV
         currentSearchlight = 0
         failedSearchlights
+        NumberOfModelledDimensions
+        StoreAllModelPredictions = false
         EMPTY = 1
     end
 
@@ -35,6 +39,8 @@ classdef Searchlight
 
             obj.nvox = size(coords, 1);
             obj.trainingFilter = trainingFilter;
+            ntrain = nnz(trainingFilter);
+            ntest = nnz(~trainingFilter);
 
             [~,~,cvind_adj] = unique(cvind(trainingFilter));
             obj.glmnetCV = cvind_adj;
@@ -49,6 +55,10 @@ classdef Searchlight
             end
             obj.setRandomSeed(0);
             obj.EMPTY = 0;
+            if obj.StoreAllModelPredictions
+                obj.C_map1 = nan(ntest,obj.NumberOfModelledDimensions,obj.nvox);
+                obj.C_map2 = nan(ntrain,obj.NumberOfModelledDimensions,obj.nvox);
+            end
         end
 
         function obj = setRandomSeed(obj, seed)
@@ -96,6 +106,10 @@ classdef Searchlight
                 obj.error_map2(i) = obj.test(Xtrain(:,g),Ctrain,glmnetModel);
                 obj.error_map1(i) = obj.test(Xtest(:,g),Ctest,glmnetModel);
                 %eraser = repmat('\b',1,nchar);
+                if obj.StoreAllModelPredictions
+                    obj.C_map1(:,:,i) = Ctest;
+                    obj.C_map2(:,:,i) = Ctrain;
+                end
                 if ~isdeployed
                     done = done + 1;
                     eraser = repmat('\b',1,nchar);
