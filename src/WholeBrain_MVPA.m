@@ -160,7 +160,7 @@ function WholeBrain_MVPA(varargin)
         end
         % Pull content from metadata object
         CV = M.cvind(:,p.Results.cvscheme);
-        RF = selectbyfield(M.filters, 'label', p.Results.filters, 'dimension', 1);
+        RF = selectbyfield(M.filters, 'label', [p.Results.filters,p.Results.FiltersToApplyBeforeEmbedding], 'dimension', 1);
         CF = selectbyfield(M.filters, 'label', p.Results.filters, 'dimension', 2);
         T = selectbyfield(M.targets, ...
             'label', p.Results.target_label, ...
@@ -180,6 +180,14 @@ function WholeBrain_MVPA(varargin)
                 SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true);
             else
                 SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true, 'PreFilter', p.Results.FiltersToApplyBeforeEmbedding);
+            end
+        end
+        % Remove Pre-filters if they are not also used as standard filters.
+        for j = 1:numel(p.Results.FiltersToApplyBeforeEmbedding)
+            xx = p.Results.FiltersToApplyBeforeEmbedding{j};
+            if ~strcmp(xx, p.Results.filters)
+                z = strcmp(xx,{SubjectArray(i).rowfilters.label});
+                SubjectArray(i).rowfilters(z) = [];
             end
         end
         % Set permutation data. If a permutation test is not being run,

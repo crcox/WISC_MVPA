@@ -3,13 +3,13 @@ function results = Searchlight_RSA( varargin )
     p = Searchlight_MVPA_Parameters();
     p = parse_input_parameters(p, varargin);
     set_global_random_stream_seed(p.Results.RandomSeed)
-    
+
     metadata = load_variable(p.Results.metadata, p.Results.metadata_varname);
     % Load permutation object
     if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod,'manual')
         permutations = load_variable(p.Results.PermutationIndex, p.Results.perm_varname);
     end
-    
+
     SubjectArray = load_data_as_subjects( ...
         p.Results.data, ...
         p.Results.data_varname, ...
@@ -24,13 +24,21 @@ function results = Searchlight_RSA( varargin )
         p.Results.target_type, ...
         p.Results.sim_source, ...
         p.Results.sim_metric, ...
-        p.Results.filters);
-    
+        [p.Results.filters,p.Results.FiltersToApplyBeforeEmbedding]);
+
     SubjectArray = generate_embeddings( ...
         SubjectArray, ...
         p.Results.tau, ...
         p.Results.FiltersToApplyBeforeEmbedding);
-    
+    % Remove Pre-filters if they are not also used as standard filters.
+    for i = 1:numel(p.Results.FiltersToApplyBeforeEmbedding)
+        xx = p.Results.FiltersToApplyBeforeEmbedding{i};
+        if ~strcmp(xx, p.Results.filters)
+            z = strcmp(xx,{SubjectArray.rowfilters.label});
+            SubjectArray.rowfilters(z) = [];
+        end
+    end
+
     switch p.Results.PermutationMethod
         case 'manual'
             SubjectArray = add_permutations( ...
@@ -44,16 +52,16 @@ function results = Searchlight_RSA( varargin )
                 p.Results.PermutationMethod, ...
                 p.Results.RandomSeed);
     end
-    
+
     report_target_information( ...
         p.Results.target_label, ...
         p.Results.target_type, ...
         p.Results.sim_source, ...
         p.Results.sim_metric)
-    
-    report_data_information(SubjectArray)
+
+    report_data_information(SubjectArray, p.Results.filters)
     fprintf('Data loaded and processed.\n');
-    
+
     ModelInstances = ModelContainer( ...
         'subject'          , {SubjectArray.subject}, ...
         'RandomSeed'       , p.Results.RandomSeed       , ...
@@ -69,9 +77,10 @@ function results = Searchlight_RSA( varargin )
         'normalize_wrt'    , p.Results.normalize_wrt    , ...
         'orientation'      , p.Results.orientation      , ...
         'SortByCoordsIndex', p.Results.SortByCoordsIndex, ...
+        'StoreAllModelPredictions', p.Results.StoreAllModelPredictions, ...
         'radius'           , p.Results.radius           , ...
         'regularization'   , p.Results.regularization);
-    
+
     results = initialize_results_struct(p, ModelInstances);
     for i = 1:numel(ModelInstances)
         M = ModelInstances(i);
@@ -85,8 +94,10 @@ function results = Searchlight_RSA( varargin )
             M.radius, ...
             M.orientation, ...
             M.RandomSeed, ...
-            M.SortByCoordsIndex);
-        
+            M.SortByCoordsIndex, ...
+            M.StoreAllModelPredictions ...
+        );
+
         if i == 1, printheader(SL); end
         printresults(SL, M.cvholdout, S.subject);
         results(i) = update_results(results(i),SL);
@@ -106,12 +117,12 @@ function p = parse_input_parameters(p, args)
         fields = fieldnames(jdat);
         jcell = [fields'; struct2cell(jdat)'];
         parse(p, jcell{:});
-        
+
     elseif isstruct(args{1})
         s = args{1};
         x = [fieldnames(s), struct2cell(s)]';
         parse(p, x{:});
-        
+
     else
         % From command line
         parse(p, args{:});
@@ -158,6 +169,7 @@ function p = Searchlight_MVPA_Parameters()
     addParameter(p , 'perm_varname' , 'PERMUTATION_INDEX', @ischar    );
     addParameter(p , 'RestrictPermutationByCV', false, @islogicallike );
     % Output control
+    addParameter(p , 'StoreAllModelPredictions', false, @islogicallike);
     addParameter(p , 'SmallFootprint', false  , @islogicallike );
     addParameter(p , 'SaveResultsAs'  , 'mat' , @isMatOrJSON   );
     addParameter(p , 'subject_id_fmt' , '%d'  , @ischar        );
@@ -172,7 +184,7 @@ function p = Searchlight_MVPA_Parameters()
     addParameter(p , 'URLS'       , [] );
     addParameter(p , 'executable' , [] );
     addParameter(p , 'wrapper'    , [] );
-    
+
     function b = isMatOrJSON(x)
         b = any(strcmpi(x, {'mat','json'}));
     end
@@ -223,7 +235,7 @@ function SubjectArray = add_metadata_to_subjects(SubjectArray, metadata, cvschem
         end
         % Pull content from metadata object
         CV = M.cvind(:,cvscheme);
-        
+
         RF = selectbyfield(M.filters, 'label', filters, 'dimension', 1);
         CF = selectbyfield(M.filters, 'label', filters, 'dimension', 2);
         T = selectbyfield(M.targets, ...
@@ -253,7 +265,7 @@ function report_target_information(target_label, target_type, sim_source, sim_me
     fprintf('\n');
 end
 
-function report_data_information(SubjectArray)
+function report_data_information(SubjectArray, filters)
     fprintf('Data Dimensions\n');
     fprintf('---------------\n');
     fprintf('%16s%16s%16s\n','subject','initial','filtered');
@@ -262,7 +274,7 @@ function report_data_information(SubjectArray)
         fprintf('%16s (%6d,%6d) (%6d,%6d)\n', ...
             num2str(SubjectArray(i).subject), ...
             size(SubjectArray(i).getData('unfiltered',true)), ...
-            size(SubjectArray(i).getData('unfiltered',false)));
+            size(SubjectArray(i).getData('unfiltered',false,'include', filters)));
     end
     fprintf('\n');
 end
@@ -284,7 +296,7 @@ function r = update_results(r,SL)
     r.error_map2 = SL.error_map2;
 end
 
-function SL = run_searchlight_models(S, cvholdout, normalize_data, normalize_target, bias, radius, orientation, RandomSeed, SortByCoordsIndex)
+function SL = run_searchlight_models(S, cvholdout, normalize_data, normalize_target, bias, radius, orientation, RandomSeed, SortByCoordsIndex, StoreAllModelPredictions)
     X = S.getData();
     Y = S.getPermutedTargets(RandomSeed,'simplify',true);
     normalize_wrt = 'all_examples';
@@ -304,15 +316,24 @@ function SL = run_searchlight_models(S, cvholdout, normalize_data, normalize_tar
         X = X(:,coords.ind);
         [~,xi] = sort(coords.ind);
     end
+    if StoreAllModelPredictions
+        opts = struct( ...
+            'StoreAllModelPredictions', true, ...
+            'NumberOfModelledDimensions', size(Y, 2));
+    else
+        opts = struct( ...
+            'StoreAllModelPredictions', false, ...
+            'NumberOfModelledDimensions', size(Y, 2));
+    end
     train_set  = S.getTrainingSet(cvholdout);
     xyz = S.getCoords(orientation, 'xyz', 'simplify', true);
-    SL = Searchlight(radius,xyz,S.getCVScheme(),train_set,bias,struct());
+    SL = Searchlight(radius,xyz,S.getCVScheme(),train_set,bias,opts);
     SL = SL.computeInformationMap(X,Y);
-    
+
     if SortByCoordsIndex
         SL.error_map1 = SL.error_map1(xi);
         SL.error_map2 = SL.error_map2(xi);
-    end    
+    end
 end
 
 function y = normalize_columns(x, method, wrt)
@@ -343,7 +364,7 @@ function y = normalize_columns(x, method, wrt)
     z = ss > 0;
     y(:,z) = bsxfun(@minus,x(:,z), mm(z));
     y(:,z) = bsxfun(@rdivide,y(:,z), ss(z));
-    
+
     if any(~z)
         warning('There are %d constant-valued voxels. These voxels are not normalized.', sum(z));
         if VERBOSE
