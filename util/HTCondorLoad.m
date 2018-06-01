@@ -136,7 +136,7 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
                 z = ismember(fieldnames(R),fieldnames(Results));
                 fnp = fieldnames(R);
                 fnp(z) = [];
-                R = orderfields(R, rmfield(R,fnp{:}));
+                R = orderfields(rmfield(R,fnp{:}),Results);
                 Results(a:b) = R;
                 %               Results(a:b) = R;
             else
