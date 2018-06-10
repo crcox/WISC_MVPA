@@ -288,12 +288,16 @@ function results = initialize_results_struct(p,SubjectArray)
         'radius', p.Results.radius, ...
         'RandomSeed', p.Results.RandomSeed, ...
         'error_map1', [], ...
-        'error_map2', []);
+        'error_map2', [], ...
+        'C_map1', [], ...
+        'C_map2', []);
 end
 
 function r = update_results(r,SL)
     r.error_map1 = SL.error_map1;
-    r.error_map2 = SL.error_map2;
+%     r.error_map2 = SL.error_map2;
+    r.C_map1 = SL.C_map1;
+%     r.C_map2 = SL.C_map2;
 end
 
 function SL = run_searchlight_models(S, cvholdout, normalize_data, normalize_target, bias, radius, orientation, RandomSeed, SortByCoordsIndex, StoreAllModelPredictions)
@@ -332,8 +336,11 @@ function SL = run_searchlight_models(S, cvholdout, normalize_data, normalize_tar
 
     if SortByCoordsIndex
         SL.error_map1 = SL.error_map1(xi);
-        SL.error_map2 = SL.error_map2(xi);
+        SL.SL.error_map2 = SL.error_map2(xi);
+        SL.C_map1 = SL.C_map1(:,:,xi);
+        SL.C_map2 = SL.C_map1(:,:,xi);
     end
+    
 end
 
 function y = normalize_columns(x, method, wrt)
