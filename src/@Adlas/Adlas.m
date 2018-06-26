@@ -38,6 +38,7 @@ classdef Adlas
         t = 1
         eta = 2
         verbosity = 0
+        Cz
     end
 
     methods
@@ -94,6 +95,7 @@ classdef Adlas
 
         function obj = test(obj,A,B)
             x = obj.X;
+            obj.Cz = A*x;
             [a,b] = obj.getTestingData(A,B);
             obj.testError = nrsa_loss(b,a*x);
             [a,b] = obj.getTrainingData(A,B);
@@ -211,10 +213,7 @@ classdef Adlas
             addParameter(p, 'forceCell', false, @(x) islogical(x) || x==1 || x==0);
             parse(p, obj, varargin{:});
 
-            w = obj.getWeights(p.Results.subjects); % subjects aren't used yet.
-            x = obj.getData(p.Results.subjects,'subset',p.Results.subset); % subjects aren't used yet.
-%             Yz = cell(size(x)); % subjects aren't used yet.
-            Yz = x * w;
+            Yz = obj.Cz; % subjects aren't used yet.
             if iscell(Yz) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
                 Yz = Yz{1};
             end
@@ -235,7 +234,6 @@ classdef Adlas
             nz_rows = any(Uz,2);
             nzvox = nnz(nz_rows);
             nvox = numel(nz_rows);
-            Cz = obj.getPrediction('subset','all');
             CONTEXT = p.Results.modelcontext;
             COORDS = META.getCoords();
             COORDS_FIELDS = fieldnames(META.coords);
@@ -252,7 +250,7 @@ classdef Adlas
 
             r = struct( ...
                 'Uz'               , Uz(nz_rows,:) , ...
-                'Cz'               , Cz , ...
+                'Cz'               , obj.Cz , ...
                 'target_label'     , CONTEXT.target_label , ...
                 'target_type'      , CONTEXT.target_type  , ...
                 'sim_source'       , CONTEXT.sim_source, ...

@@ -10,6 +10,14 @@ function [hdr, filetype, fileprefix, machine] = load_nii_hdr(fileprefix)
 
    machine = 'ieee-le';
    new_ext = 0;
+   
+   GUNZIPPED = false;
+   if strcmp(fileprefix(end-2:end), '.gz')
+       gunzip(fileprefix);
+       fileprefix = fileprefix(1:end-3);
+       extracted_file = fileprefix;
+       GUNZIPPED = true;
+   end
 
    if findstr('.nii',fileprefix) & strcmp(fileprefix(end-3:end), '.nii')
       new_ext = 1;
@@ -91,6 +99,9 @@ function [hdr, filetype, fileprefix, machine] = load_nii_hdr(fileprefix)
       filetype = 0;
    end
 
+   if GUNZIPPED
+       delete(extracted_file);
+   end
    return					% load_nii_hdr
 
 
