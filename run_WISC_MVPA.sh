@@ -88,15 +88,11 @@ trap terminated SIGTERM SIGKILL
 
 set -e
 set -x
-SQUID="http://proxy.chtc.wisc.edu/SQUID/crcox"
-## Download the runtime environment from SQUID
-download "${SQUID}/r2015b.tar.gz" 5
-tar xzf "r2015b.tar.gz"
 
-# This is an attempt to fix broken environments by shipping libraries that are
-# missing on some nodes.
-download "${SQUID}/libXmu_libXt.el6.x86_64.tgz" 5
-tar xzf "./libXmu_libXt.el6.x86_64.tgz"
+EXECUTABLE=$1
+JOB_DIR=$2
+PROXY_ROOT=$3
+isOSG=$4
 
 ## Download all large data files listed in URLS from SQUID
 # touch the files to ensure they exist
@@ -105,25 +101,46 @@ touch URLS_SHARED
 cat URLS URLS_SHARED > ALLURLS
 cat ALLURLS
 while read url; do
-  download "http://proxy.chtc.wisc.edu/SQUID/${url}" 5
+  download "${PROXY_ROOT}/${url}" 5
 done < ALLURLS
 
 # Run the Matlab application
-exe_name=$0
-exe_dir=`dirname "$0"`
-echo "------------------------------------------"
-echo Setting up environment variables
-MCRROOT="v90"
-echo ---
-LD_LIBRARY_PATH=.:${MCRROOT}/runtime/glnxa64 ;
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCRROOT}/bin/glnxa64 ;
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCRROOT}/sys/os/glnxa64;
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:"./lib64"
-XAPPLRESDIR=${MCRROOT}/X11/app-defaults ;
-export XAPPLRESDIR;
-export LD_LIBRARY_PATH;
-echo LD_LIBRARY_PATH is ${LD_LIBRARY_PATH};
-eval "${exe_dir}/WholeBrain_MVPA"
+if [ $isOSG = "True" ]; then
+  source /cvmfs/oasis.opensciencegrid.org/osg/modules/lmod/current/init/bash
+  module load matlab/2015b
+
+else
+  # CHTC
+  echo "------------------------------------------"
+  echo Setting up environment variables
+  ## Download the runtime environment from PROXY_ROOT
+  download "${PROXY_ROOT}/crcox/r2015b.tar.gz" 5
+  tar xzf "r2015b.tar.gz"
+
+  # This is an attempt to fix broken environments by shipping libraries that are
+  # missing on some nodes.
+  download "${PROXY_ROOT}/crcox/libXmu_libXt.el6.x86_64.tgz" 5
+  tar xzf "./libXmu_libXt.el6.x86_64.tgz"
+  MCR_ROOT="`pwd`/v90"
+  mkdir cache && export MCR_CACHE_ROOT="`pwd`/cache"
+
+  echo "MCR_ROOT: ${MCR_ROOT}"
+  echo "MCR_CACHE_ROOT: ${MCR_CACHE_ROOT}"
+
+  echo ---
+  LD_LIBRARY_PATH=.:${MCR_ROOT}/runtime/glnxa64 ;
+  LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCR_ROOT}/bin/glnxa64 ;
+  LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCR_ROOT}/sys/os/glnxa64;
+  LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:"./lib64"
+  XAPPLRESDIR=${MCR_ROOT}/X11/app-defaults ;
+  export XAPPLRESDIR;
+  export LD_LIBRARY_PATH;
+  echo LD_LIBRARY_PATH is ${LD_LIBRARY_PATH};
+
+fi
+
+chmod +x ${EXECUTABLE}
+eval "${EXECUTABLE}"
 
 # Exit successfully. Hooray!
 trap success EXIT SIGTERM
