@@ -91,6 +91,7 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
         end
         tmp.jobdir  = jobDir;
         tmp = orderfields(tmp, Params(1));
+%         Params(i) = structfun(@forceRowVecIfChar, tmp, 'UniformOutput', false);
         Params(i) = tmp;
         clear tmp;
 
@@ -101,7 +102,8 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
                 continue;
             end
             tmp = load(resultPath);
-            R = tmp.results;
+            R = structfun(@forceRowVecIfChar, tmp.results, 'UniformOutput', false);
+%             R = tmp.results;
             [R.jobdir] = deal(i);
             R = rmfield(R, SKIP);
             a = cursor + 1;
@@ -192,7 +194,13 @@ function [se] = EmptyFields(s)
     se = struct(x{:});
 end
     
-
+function [y] = forceRowVecIfChar(x)
+    if ischar(x) && isvector(x)
+        y = x(:)';
+    else
+        y = x;
+    end
+end
 % if ~isfield(tmp,'results')
 %     tmp2 = tmp; clear tmp;
 %     m = numel(tmp2.err1);

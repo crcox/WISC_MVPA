@@ -55,65 +55,129 @@ function [ Tbest, Tavg ] = BestCfgByCondition( tune_table, hyperparams, objectiv
         end
     end
     
-    try
-        G = findgroups(T(:,[hyperparams_c,p.Results.by]));
-        [Tavg,ia] = unique(T(:,[hyperparams_c,p.Results.by]));
-    catch ME
-        [Tavg,ia,G] = unique(T(:,[hyperparams_c,p.Results.by]));
-    end
+    [G, Tavg, ia] = AssignGroupLabels(T(:,[hyperparams_c,p.Results.by]));
+
     for i = 1:numel(hyperparams)
         Tavg.(hyperparams{i}) = T.(hyperparams{i})(ia);
     end
+    
     varsToAverage = [{objective},p.Results.extras];
     for i = 1:numel(varsToAverage)
         f = varsToAverage{i};
-        try
-            Tavg.(f) = splitapply(@mean, T.(f), G);
-        catch
-            Tavg.(f) = splitapply(@mean, cell2mat(T.(f)), G);
-        end
+        Tavg.(f) = ApplyByGroup(@mean, T.(f), G);
     end
 
-    try
-        G = findgroups(Tavg(:,p.Results.by));
-        Tbest = unique(Tavg(:,p.Results.by));
-    catch ME % older versions do not have find groups
-        [Tbest,~,G] = unique(Tavg(:,p.Results.by));
-    end
+    G = AssignGroupLabels(Tavg(:,p.Results.by));
     
-    varsToReport = [{objective},p.Results.extras,hyperparams];
-    if p.Results.minimize
-        X = splitapply(@whichmin, Tavg(:,varsToReport), G);
-    else
-        whichmax_obj = @(x) whichmax(objective, x);
-        X = splitapply(whichmax_obj, Tavg(:,varsToReport), G);
-    end
+    varsToReport = [{objective},p.Results.extras,hyperparams,p.Results.by];
+    Tbest = OptByGroup(objective, Tavg(:,varsToReport), G, 'minimize', p.Results.minimize);
+    
+% Solution A
+% ==========
 %     Tbest = array2table(X,'VariableNames',varsToReport);
 %     Tbest = cat(1, X{:});
-    for i = 1:numel(varsToReport)
-        f = varsToReport{i};
-        if isnumeric(T.(f))
-            Tbest.(f) = cell2mat(X(:,i));
+
+% Solution B
+% ==========
+%     for i = 1:numel(varsToReport)
+%         f = varsToReport{i};
+%         if isnumeric(T.(f))
+%             Tbest.(f) = cell2mat(X(:,i));
+%         else
+%             Tbest.(f) = X(:,i);
+%         end
+%     end
+end
+
+% 
+% function [X,I] = whichmin( varargin )
+%     objective = varargin{1};
+%     X = cell(size(varargin));
+%     [~,I] = min(objective);
+%     for i = 1:numel(varargin)
+%         X{i} = varargin{i}(I,:);
+%     end
+% end
+
+function y = OptByGroup(objective, x, g, varargin)
+    p = inputParser();
+    addRequired(p, 'objective');
+    addRequired(p, 'x');
+    addRequired(p, 'g');
+    addParameter(p, 'minimize', true);
+    parse(p, objective, x, g, varargin{:});
+
+    if iscell(x)
+        x = cell2mat(x);
+    end
+    
+    if isnumeric(objective)
+        z = (1:size(x,2)) == objective;
+    end
+        
+    if istable(x)
+        tin = true;
+        labs = x.Properties.VariableNames;
+        q = x.(objective);
+    else
+        tin = false;
+        q = x(:, z);
+    end
+
+    if p.Results.minimize
+        ind = accumarray(g, q, [], @whichmin);
+    else
+        ind = accumarray(g, q, [], @whichmax);
+    end
+    
+%     y = zeros(max(g), size(x,2));
+    y = x(1:max(g),:);
+    for i = 1:max(g)
+        tmp = x(g == i, :);
+        y(i,:) = tmp(ind(i), :);
+    end
+    
+    function ind = whichmax( x )
+        [~,ind] = max(x);
+    end
+
+    function ind = whichmin( x )
+        [~,ind] = min(x);
+    end 
+end
+
+function y = ApplyByGroup(func, x, g)
+    if iscell(x)
+        x = cell2mat(x);
+    end
+        
+    if exist('splitapply','builtin') == 5
+        y = splitapply(func, x, g);
+    else
+        if istable(x)
+            tin = true;
+            labs = x.Properties.VariableNames;
+            x = table2array(x);
         else
-            Tbest.(f) = X(:,i);
+            tin = false;
+        end
+        
+        y = accumarray(g, x, [], func);
+        
+        if tin
+            y = array2table(y, 'VariableNames', labs);
         end
     end
 end
 
-function [X,I] = whichmin( varargin )
-    objective = varargin{1};
-    X = cell(size(varargin));
-    [~,I] = min(objective);
-    for i = 1:numel(varargin)
-        X{i} = varargin{i}(I,:);
+function [g,avg,ia] = AssignGroupLabels(x)
+    if exist('findgroups', 'builtin') == 5
+        g = findgroups(x);
+        [avg,ia] = unique(x);
+    else
+        [avg,ia,g] = unique(x);
     end
 end
-
-function [X,I] = whichmax( objective, x )
-    [~,I] = max(x.(objective));
-    X = x(I,:);
-end
-
 % function T = handle_empty_rows(T,hyperparams,by)
 %     z = cellfun(@isempty, T.(hyperparams{1}));
 %     if any(z)
