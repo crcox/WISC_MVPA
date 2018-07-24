@@ -143,7 +143,7 @@ else
 fi
 
 chmod +x ${EXECUTABLE}
-eval "${EXECUTABLE}"
+eval "./${EXECUTABLE}"
 
 # Exit successfully. Hooray!
 trap success EXIT SIGTERM
