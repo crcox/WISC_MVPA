@@ -40,7 +40,7 @@ INCL= -I $(SRC) -I $(JSON) -I $(UTILS) -I $(GLMNET) \
       -I $(CVX)/structures
 .PHONEY: all clean-all clean-libsvm clean-Searchmight clean-postbuild cvx glmnet libsvm Searchmight sdist
 
-all: setup glmnet WholeBrain_MVPA clean-postbuild
+all: setup glmnet WISC_MVPA clean-postbuild
 
 setup: $(SRC) $(DEP) $(UTILS)
 $(SRC) $(DEP):
@@ -64,20 +64,20 @@ glmnet: $(GLMNET)/glmnetMex.mexa64
 $(GLMNET)/glmnetMex.mexa64: $(GLMNET)/glmnetMex.F $(GLMNET)/GLMnet.f
 	$(MEX) -fortran -outdir $(GLMNET) $^
 
-WholeBrain_MVPA: $(SRC)/WholeBrain_MVPA.m # $(SEARCHMIGHT)/searchmightGNB.mexa64
+WISC_MVPA: $(SRC)/WISC_MVPA.m # $(SEARCHMIGHT)/searchmightGNB.mexa64
 	$(MCC) -v $(MFLAGS) $(INCL) -o $@ $<
 
 clean-postbuild:
 	-rm *.dmr
 	-rm mccExcludedFiles.log
 	-rm readme.txt
-	-rm run_WholeBrain_MVPA.sh
+	-rm run_WISC_MVPA.sh
 
 sdist:
 	tar czhf $(SRCTAR) src dependencies
 
 clean-all:
-	-rm WholeBrain_MVPA
+	-rm WISC_MVPA
 	-rm $(SEARCHMIGHT)/searchmightGNB.mexa64
 	-rm $(LIBSVM)/read_sparse.mexa64
 	-rm $(LIBSVM)/svmpredict.mexa64

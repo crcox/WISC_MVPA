@@ -4,39 +4,10 @@
 # Sets up the MCR environment for the current $ARCH and executes
 # the specified command.
 #
-download() {
-  url=$1
-  maxtries=$2
-  try=0
-  name=$(basename "$url")
-  DOWNLOAD_STATUS=1
-  while [ $DOWNLOAD_STATUS -gt 0 ]; do
-    rm -f $name
-    wget -q "${url}"
-    wget -q "${url}.md5"
-    md5sum -c "./${name}.md5"
-    DOWNLOAD_STATUS=$?
-    try=$((try+1))
-    if [ $try -gt $maxtries ]; then echo "Download exceeded max tries. Exiting..."; exit; fi
-  done
-  rm "${name}.md5"
-}
 cleanup() {
   # Remove the Matlab runtime distribution
   if [ -f "r2015b.tar.gz" ]; then
     rm -v "r2015b.tar.gz"
-  fi
-  if [ -f "libXmu_libXt.el6.x86_64.tgz" ]; then
-    rm -v "libXmu_libXt.el6.x86_64.tgz"
-  fi
-  # Check the home directory for any transfered files.
-  if [ -f ALLURLS ]; then
-    while read url; do
-      fname=$(basename "$url")
-      if [ -f "$fname" ]; then
-        rm -v "$fname"
-      fi
-    done < ALLURLS
   fi
   echo "all clean"
 }
@@ -89,20 +60,13 @@ trap terminated SIGTERM SIGKILL
 set -e
 set -x
 
-EXECUTABLE=$1
+EXECUTABLE=WISC_MVPA
 JOB_DIR=$2
 PROXY_ROOT=$3
 isOSG=$4
 
 ## Download all large data files listed in URLS from SQUID
 # touch the files to ensure they exist
-touch URLS
-touch URLS_SHARED
-cat URLS URLS_SHARED > ALLURLS
-cat ALLURLS
-while read url; do
-  download "${PROXY_ROOT}/${url}" 5
-done < ALLURLS
 
 # Run the Matlab application
 if [ $isOSG = "True" ]; then
@@ -116,14 +80,10 @@ else
   # CHTC
   echo "------------------------------------------"
   echo Setting up environment variables
-  ## Download the runtime environment from PROXY_ROOT
-  download "${PROXY_ROOT}/crcox/r2015b.tar.gz" 5
   tar xzf "r2015b.tar.gz"
 
   # This is an attempt to fix broken environments by shipping libraries that are
   # missing on some nodes.
-  download "${PROXY_ROOT}/crcox/libXmu_libXt.el6.x86_64.tgz" 5
-  tar xzf "./libXmu_libXt.el6.x86_64.tgz"
   MCR_ROOT="`pwd`/v90"
   mkdir cache && export MCR_CACHE_ROOT="`pwd`/cache"
 
