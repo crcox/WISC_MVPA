@@ -1,6 +1,11 @@
 # Whole-brain Imaging with Sparse Correlations (WISC) Workflow
 
-The WISC workflow implements whole-brain classification and representational analysis methods for cognitive neuroscience. The tool is intended for use with Hight Throughput/Performance Computing clusters: parameters can be specified using a JSON formatted text file in the working directory, and results are written to disk as a structure. Tools have been written to aggregate over `results.mat` files returned by several parallel jobs.
+The WISC workflow implements whole-brain classification and representational analysis methods for cognitive neuroscience. It highlights two techniques developed at the University of Wisconsin-Madison and the Wisconsin Institutes for Discovery:
+
+1. Sparse Overlapping Sets (SOS) Lasso [1]
+2. Network Representational Similarity Analsysis [2]
+
+The tool is intended for use with Hight Throughput/Performance Computing clusters: parameters can be specified using a JSON formatted text file in the working directory, and results are written to disk as a structure. Tools have been written to aggregate over `results.mat` files returned by several parallel jobs.
 
 ## Usage
 Adapt the `Makefile` to point to your (or your institution's) Matlab Compiler `mcc`. This will build a portable executable that can be run anywhere there is a compatible Matlab Runtime Environment without duplicating licenses. Your computing environment may have specific documentation on this process. I build the code against **Matlab 2015b**, and avoid using data types and features introduced in recent years. However, Matlab's feature set changes all the time time making forward or backward compatability difficult to predict.
@@ -55,7 +60,7 @@ observations unless the dataset is somehow reduced.
 
 ### Lasso (least absolute shrinkage and selection operator)
 There are many ways to go about reducing the number of features.
-Here, we consider a solution called Lasso [1]. Lasso involves
+Here, we consider a solution called Lasso [3]. Lasso involves
 modifying the regression problem. In addition simply minimizing `f()`,
 an additional component is added to the optimization:
 
@@ -100,7 +105,7 @@ terms of fMRI data, Lasso is an inherently single-subject analysis
 approach.
 
 ### SOS Lasso
-SOS Lasso [2] attempts to address these limitations by allowing features
+SOS Lasso [1] attempts to address these limitations by allowing features
 to be organized into sets. Instead of penalizing all weights equally,
 as is done by Lasso, SOS Lasso will penalize less within sets than
 across sets. It involves adding yet another component to the
@@ -193,13 +198,13 @@ is achieved even within sets.
 # Network RSA
 Network RSA leverages the concepts of structured sparsity and multitask learning in a different way. Rather than multiple subjects related to a 1-dimensional target structure (a classification problem), Network RSA relates the data from one subject to a multidimensional target structure.
 
-Many of the concepts covered above are relevant to Network RSA as well. For a full discussion of the technique please see our publication [3].
+Many of the concepts covered above are relevant to Network RSA as well. For a full discussion of the technique please see our publication [2].
 
 ## References
-[1] Tibshirani (1996). "Regression shrinkage and selection via the lasso". Journal of the Royal Statistical Society, Series B 58(1), pp 267-–288.
-
-[2] Rao, Cox, Nowak, and Rogers (2013). "Sparse Overlapping Sets Lasso
+[1] Rao, Cox, Nowak, and Rogers (2013). "Sparse Overlapping Sets Lasso
 for multitask learning and its application to fMRI analysis".
 Advances in Neural Information Processing Systems 26, pp 2202--2210.
 
-[3] Oswal, Cox, Lambon Ralph, Rogers, Nowak (2016). "Representational similarity learning with application to brain networks". ICML'16 Proceedings of the 33rd International Conference on Machine Learning, 48, pp 1041--1049.
+[2] Oswal, Cox, Lambon Ralph, Rogers, Nowak (2016). "Representational similarity learning with application to brain networks". ICML'16 Proceedings of the 33rd International Conference on Machine Learning, 48, pp 1041--1049.
+
+[3] Tibshirani (1996). "Regression shrinkage and selection via the lasso". Journal of the Royal Statistical Society, Series B 58(1), pp 267-–288.
