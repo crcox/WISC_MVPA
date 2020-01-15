@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/19497385.svg)](https://zenodo.org/badge/latestdoi/19497385)
+
 # Whole-brain Imaging with Sparse Correlations (WISC) Workflow
 
 The WISC workflow implements whole-brain classification and representational analysis methods for cognitive neuroscience. It highlights two techniques developed at the University of Wisconsin-Madison and the Wisconsin Institutes for Discovery:
