@@ -86,6 +86,8 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
         tmp         = loadjson(paramsPath);
         if iscell(tmp.data)
             tmp.subject = cellfun(@(x) sscanf(x,'s%02d'), tmp.data, 'Unif', 0);
+        elseif isstring(tmp.data)
+            tmp.subject = cellfun(@(x) sscanf(x,'s%02d'), tmp.data, 'Unif', 0);
         else
             tmp.subject = sscanf(tmp.data,'s%02d');
         end
