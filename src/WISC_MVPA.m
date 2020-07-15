@@ -23,7 +23,7 @@ function WISC_MVPA(varargin)
     addParameter(p , 'sim_source'       , [], @ischar );
     addParameter(p , 'sim_metric'       , [], @ischar );
     addParameter(p , 'tau'              , [], @isnumeric     );
-    addParameter(p , 'FiltersToApplyBeforeEmbedding' , [], @(x) ischar(x) || iscellstr(x) );
+    addParameter(p , 'FiltersToApplyBeforeEmbedding' , [], @(x) ischar(x) || iscellstr(x) || isstring(x));
     % Data definition
     addParameter(p , 'filters'          , []                  );
     addParameter(p , 'data'             , []                  );
