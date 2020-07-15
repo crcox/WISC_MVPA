@@ -297,7 +297,7 @@ function WISC_MVPA(varargin)
         r = p.Results.BRACKETS.r;
         while 1
             opts.max_iter = r(bracket_index) * p.Results.IterationsPerHyperband;
-            ModelInstances = learn_encoding(ModelInstances, SubjectArray, p.Results.regularization, 'AdlasOpts', opts);
+            ModelInstances = learn_encoding(ModelInstances, SubjectArray, p.Results.regularization, 'options', opts);
             % Delete low ranked configurations:
             bracket_index = bracket_index + 1;
             ModelInstances = hyperband_pick_top_n(ModelInstances, n(bracket_index));
@@ -310,7 +310,7 @@ function WISC_MVPA(varargin)
         end
     else
         % Grid search
-        ModelInstances = learn_encoding(ModelInstances, SubjectArray, p.Results.regularization, 'AdlasOpts', opts);
+        ModelInstances = learn_encoding(ModelInstances, SubjectArray, p.Results.regularization, 'options', opts);
     end
 
     cur = 0;
