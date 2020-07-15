@@ -1,47 +1,29 @@
+[![DOI](https://zenodo.org/badge/19497385.svg)](https://zenodo.org/badge/latestdoi/19497385)
+
+# Whole-brain Imaging with Sparse Correlations (WISC) Workflow
+
+The WISC workflow implements whole-brain classification and representational analysis methods for cognitive neuroscience. It highlights two techniques developed at the University of Wisconsin-Madison and the Wisconsin Institutes for Discovery:
+
+1. Sparse Overlapping Sets (SOS) Lasso [1]
+2. Network Representational Similarity Analsysis [2]
+
+The tool is intended for use with Hight Throughput/Performance Computing clusters: parameters can be specified using a JSON formatted text file in the working directory, and results are written to disk as a structure. Tools have been written to aggregate over `results.mat` files returned by several parallel jobs.
+
+## Usage
+Adapt the `Makefile` to point to your (or your institution's) Matlab Compiler `mcc`. This will build a portable executable that can be run anywhere there is a compatible Matlab Runtime Environment without duplicating licenses. Your computing environment may have specific documentation on this process. I build the code against **Matlab 2015b**, and avoid using data types and features introduced in recent years. However, Matlab's feature set changes all the time time making forward or backward compatability difficult to predict.
+
+Once built, running the executable in the same directory as a JSON file called `params.json` will instruct the program. JSON fields should correspond to the parameters listed at the beginning on `src/WISC_MVPA.m`.
+
+When completed, the program will return a file called `results.mat`. This will contain a structured array that will differ depending on whether you are running **SOS LASSO** or **Network RSA** (aka GrOWL).
+
+## Data
+Functional imaging data are assumed to be represented over two Matlab `.mat` files. The first contains the functional imagine data itself for a single subject. This file will contain one or more matrices (if there are multiple versions of the data for each subject). Which matrix is loaded is controlled with the `data_varname` parameter, which is a required parameter (even if only one matrix exists in the file). Rows of this matrix correspond to training examples (trials, stimuli, etc.) and columns correspond to features (voxels, electrodes, etc.).
+
+The second file contains metadata. Metadata corresponds to targets, filters, coordinates, crossvalidation labels, and more. See the `demos/` folder for examples defining data and metadata files and for running basic analyses on simulated data.
+
+Paths to data (and variables to read from these `.mat` files) is all specified within the params.json file. 
+
 # Sparse Overlapping Sets (SOS) Lasso
-
-## Unfiled note to self!
-The `subject_id_fmt` field, and ultimately `sscanf` that uses it, can be
-used to extract a wide variety of substrings. Notably, if it is
-extracting only a number, it will return the value as a numeric data
-type, but in other cases it is perfectly happy to return a string.
-
-Consider the following examples (where the second argument is the value
-of `subject_id_fmt`. In the first, we use `sscanf` to extract the digits
-`101` from the filename and return them as the number `101`. In the
-second, rather than matching digits, we match an unbroken string of
-characters that are each in the range 0-9, and return a string. Finally,
-by including 'BM' within the set of characters to match, we can extract
-the full subject code 'BM101', and trim the (in this case) unwanted
-information. (Note, the goal is to isolate the portion of the filename
-that corresponds to the `subject` field within the `metadata` structure.
-This is how metadata and data are related to one another at present).
-
-```
-sscanf('BM101_avg.mat','BM%d_avg.mat')
-ans =
-    101
-```
-
-```
-sscanf('BM101_avg.mat','BM%[0-9]_avg.mat')
-ans =
-'101'
-```
-
-```
-sscanf('BM101_avg.mat','%[BM0-9]_avg.mat')
-ans =
-'BM101'
-```
-
-Note that this last option is not very precise. It would match any
-permutation of the numbers 0-9 and the letters B and M. If precision is
-important, something like this would match exactly BM[numbers].
-
-```
-sscanf('BM101_avg.mat','%[B]%[M]%[0-9]_avg.mat')
-```
 
 ## Overview and background
 
@@ -80,7 +62,7 @@ observations unless the dataset is somehow reduced.
 
 ### Lasso (least absolute shrinkage and selection operator)
 There are many ways to go about reducing the number of features.
-Here, we consider a solution called Lasso [1]. Lasso involves
+Here, we consider a solution called Lasso [3]. Lasso involves
 modifying the regression problem. In addition simply minimizing `f()`,
 an additional component is added to the optimization:
 
@@ -125,7 +107,7 @@ terms of fMRI data, Lasso is an inherently single-subject analysis
 approach.
 
 ### SOS Lasso
-SOS Lasso [2] attempts to address these limitations by allowing features
+SOS Lasso [1] attempts to address these limitations by allowing features
 to be organized into sets. Instead of penalizing all weights equally,
 as is done by Lasso, SOS Lasso will penalize less within sets than
 across sets. It involves adding yet another component to the
@@ -215,11 +197,16 @@ members of the set. SOS Lasso simply prefers to select features from
 a small number of sets (see the illustrative example above). Sparsity
 is achieved even within sets.
 
-## References
-[1] Tibshirani (1996). "Regression shrinkage and selection via
-the lasso". Journal of the Royal Statistical Society, Series B 58
-(1): 267–288
+# Network RSA
+Network RSA leverages the concepts of structured sparsity and multitask learning in a different way. Rather than multiple subjects related to a 1-dimensional target structure (a classification problem), Network RSA relates the data from one subject to a multidimensional target structure.
 
-[2] Rao, Cox, Nowak, and Rogers (2013). "Sparse Overlapping Sets Lasso
+Many of the concepts covered above are relevant to Network RSA as well. For a full discussion of the technique please see our publication [2].
+
+## References
+[1] Rao, Cox, Nowak, and Rogers (2013). "Sparse Overlapping Sets Lasso
 for multitask learning and its application to fMRI analysis".
-Advances in Neural Information Processing Systems 26, 2202--2210
+Advances in Neural Information Processing Systems 26, pp 2202--2210.
+
+[2] Oswal, Cox, Lambon Ralph, Rogers, Nowak (2016). "Representational similarity learning with application to brain networks". ICML'16 Proceedings of the 33rd International Conference on Machine Learning, 48, pp 1041--1049.
+
+[3] Tibshirani (1996). "Regression shrinkage and selection via the lasso". Journal of the Royal Statistical Society, Series B 58(1), pp 267-–288.
