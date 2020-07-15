@@ -473,9 +473,7 @@ function [hyperparameters] = verify_setup_RSA(p)
             end
             assert(~isempty(p.lambda), 'Group Lasso requires lambda.');
             lam    = p.lambda;
-            lam1   = [];
-            lamSeq = 'none';
-            hyperparameters = struct('lambda',lam,'lambda1',lam1,'lambdaSeq',lamSeq,'hyperband',p.SearchWithHyperband);
+            hyperparameters = struct('lambda',lam,'hyperband',p.SearchWithHyperband);
 
         case {'GROWL','GROWL2'}
             assert(isfield(p,'lambda') && ~isempty(p.lambda) && any(~isnan(p.lambda)), 'grOWL requires lambda.');

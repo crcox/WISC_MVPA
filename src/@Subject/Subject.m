@@ -1,7 +1,7 @@
 classdef Subject
     %SUBJECT Summary of this class goes here
     %   Detailed explanation goes here
-    
+
     properties
         filename
         subject
@@ -14,7 +14,7 @@ classdef Subject
         coords
         permutations
     end
-    
+
     properties (Hidden=true)
         BoxCar
         WindowStart
@@ -22,7 +22,7 @@ classdef Subject
         nTotalExamples
         nTotalFeatures
     end
-    
+
     methods
         % This function should be more stringent. For example, check that
         % required fields are set and check that they are set to sane
@@ -41,7 +41,7 @@ classdef Subject
                 obj.(fn{i}) = s.(fn{i});
             end
         end
-        
+
         function obj = setFilename(obj, filename)
             obj.filename = filename;
             if hasWindowInfo(filename)
@@ -50,7 +50,7 @@ classdef Subject
                 obj.WindowStart = s.WindowStart;
                 obj.WindowSize = s.WindowSize;
             end
-            
+
             % Functions private to this method
             function s = extractWindowInfo(x)
                 a = strfind(x,'BoxCar');
@@ -67,38 +67,41 @@ classdef Subject
                 b = all(ismember(y,strsplit(x, '/'))) || all(ismember(y,strsplit(x, '\')));
             end
         end
-        
+
         function b = hasWindowInfo(obj)
             b = ~isempty(obj.Boxcar);
         end
-        
+
         function obj = setLabel(obj, label)
             obj.label = label;
         end
-        
+
         function obj = setDataFromFilenameAndLabel(obj)
             % Currently assumes that data is .mat format
             tmp = load(obj.filename, obj.label);
             obj = obj.setData(tmp.(obj.label));
         end
-        
+
         function obj = setData(obj, x)
             obj.data = x;
             [obj.nTotalExamples,obj.nTotalFeatures] = size(x);
         end
-        
+
         function obj = setTargets(obj, targets)
+            if (size(targets, 1) == 1)
+                targets = targets';
+            end
             obj.targets = targets;
         end
-        
+
         function obj = setRowFilters(obj, filters)
             obj = obj.setFilters(filters, 'rowfilters');
         end
-        
+
         function obj = setColFilters(obj, filters)
             obj = obj.setFilters(filters, 'colfilters');
         end
-        
+
         function obj = setFilters(obj,filters,field)
             for i = 1:numel(filters);
                 % Force row vector
@@ -106,7 +109,7 @@ classdef Subject
             end
             obj.(field) = filters;
         end
-        
+
         function obj = setFinalHoldoutFilter(obj, finalholdoutindex)
             FHO = structWithFields(fieldnames(obj.rowfilters));
             FHO.label = 'finalholdout';
@@ -128,7 +131,7 @@ classdef Subject
                 s = struct(c{:});
             end
         end
-        
+
         function obj = setSubjectIDFromFilename(obj, pattern)
             [~,fname,~] = fileparts(obj.filename);
             id = sscanf(fname, pattern);
@@ -137,7 +140,7 @@ classdef Subject
             end
             obj.subject = id;
         end
-        
+
         function obj = setSubjectIDFromString(obj, string, pattern)
             [~,fname,~] = fileparts(string);
             id = sscanf(fname, pattern);
@@ -146,11 +149,11 @@ classdef Subject
             end
             obj.subject = id;
         end
-        
+
         function obj = setCVScheme(obj, cvscheme)
             obj.cvscheme = cvscheme;
         end
- 
+
         function obj = setPermutations(obj, method, index, varargin)
         % Note on randomization for permutation
         % -------------------------------------
@@ -174,7 +177,7 @@ classdef Subject
             addOptional(p, 'permpool', [], @isnumeric);
             addParameter(p, 'extend', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
             parse(p, obj, method, index, varargin{:});
-            
+
             switch method
                 case 'manual'
                     P = struct( ...
@@ -189,11 +192,11 @@ classdef Subject
                 otherwise
                     error('Subject:setPermutations:InvalidMethod', 'Permutations need to be specified manually.');
             end
-            
-            
+
+
             P.index = extend_permutation_index(P.index, obj.nTotalExamples);
             obj.permutations = P;
-            
+
             function permutation_index = extend_permutation_index(permutation_index, target_length)
                 remainder = rem(target_length, size(permutation_index, 1));
                 if remainder > 0
@@ -211,18 +214,18 @@ classdef Subject
                 end
             end
         end
-        
+
         function obj = setCoords(obj, coords)
             obj.coords = coords;
         end
-        
+
         function rf = getRowFilter(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
             addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             parse(p, obj, varargin{:});
-            
+
             if ~isempty(p.Results.include)
                 RF = selectbyfield(obj.rowfilters, 'label', p.Results.include, 'dimension', 1);
             elseif ~isempty(p.Results.exclude)
@@ -237,14 +240,14 @@ classdef Subject
             end
             rf = all(cat(1, RF.filter),1);
         end
-        
+
         function cf = getColFilter(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
             addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             parse(p, obj, varargin{:});
-            
+
             if ~isempty(p.Results.include)
                 CF = selectbyfield(obj.colfilters, 'label', p.Results.include, 'dimension', 2);
             elseif ~isempty(p.Results.exclude)
@@ -259,18 +262,18 @@ classdef Subject
             end
             cf = all(cat(1, CF.filter),1);
         end
-        
+
         function [rf,cf] = getFilters(obj, varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
             addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             parse(p, obj, varargin{:});
-            
+
             rf = obj.getRowFilter(varargin{:});
             cf = obj.getColFilter(varargin{:});
         end
-        
+
         function c = getCoords(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
@@ -281,7 +284,7 @@ classdef Subject
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'simplify', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
             parse(p, obj, varargin{:});
-            
+
             if p.Results.unfiltered
                 cf = true(1, size(obj.data,2));
             else
@@ -321,7 +324,7 @@ classdef Subject
             addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             parse(p, obj, varargin{:});
-            
+
             if p.Results.unfiltered
                 x = obj.cvscheme;
             else
@@ -335,7 +338,7 @@ classdef Subject
                 x = obj.cvscheme(rf);
             end
         end
-        
+
         function t = getTestSet(obj, cvind, varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
@@ -344,15 +347,15 @@ classdef Subject
             addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             parse(p, obj, cvind, varargin{:});
-            
+
             x = obj.getCVScheme( ...
                 'unfiltered', p.Results.unfiltered, ...
                 'include', p.Results.include, ...
                 'exclude', p.Results.exclude);
-            
+
             t = x == p.Results.cvind;
         end
-        
+
         function t = getTrainingSet(obj,cvind,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
@@ -361,7 +364,7 @@ classdef Subject
             addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             parse(p, obj, cvind, varargin{:});
-            
+
             t = ~obj.getTestSet( ...
                 p.Results.cvind, ...
                 'unfiltered', p.Results.unfiltered, ...
@@ -376,7 +379,7 @@ classdef Subject
             addParameter(p, 'include', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             parse(p, obj, varargin{:});
-            
+
             if p.Results.unfiltered
                 x = obj.data;
             else
@@ -390,7 +393,7 @@ classdef Subject
                 x = obj.data(rf, cf);
             end
         end
-        
+
         function c = getTargets(obj,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
@@ -399,7 +402,7 @@ classdef Subject
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'simplify', false, @(x) islogical(x) || any(isnumeric(x) == [2,1,0]));
             parse(p, obj, varargin{:});
-            
+
             if ~p.Results.unfiltered
                 if ~isempty(p.Results.include);
                     rf = obj.getRowFilter('include',p.Results.include);
@@ -458,12 +461,12 @@ classdef Subject
                 c = x;
             end
         end
-        
+
         function pix = getPermutationIndex(obj, RandomSeed)
             z = obj.permutations.RandomSeed == RandomSeed;
             pix = obj.permutations.index(:,z);
         end
-        
+
         function tp = getPermutedTargets(obj,RandomSeed,varargin)
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
@@ -473,12 +476,18 @@ classdef Subject
             addParameter(p, 'exclude', {}, @(x) iscell(x) || ischar(x) );
             addParameter(p, 'simplify', false, @(x) islogical(x) || any(isnumeric(x) == [2,1,0]));
             parse(p, obj, RandomSeed, varargin{:});
-            
+
             t = obj.getTargets(...
                 'unfiltered', true, ...
                 'include', p.Results.include, ...
                 'exclude', p.Results.exclude, ...
                 'simplify', p.Results.simplify);
+
+            if (size(t, 1) == 1)
+                t = t';
+            end
+            disp(size(t));
+
             pix = obj.getPermutationIndex(p.Results.RandomSeed);
             if p.Results.unfiltered
                 tp = t(pix,:);
@@ -489,7 +498,7 @@ classdef Subject
                 tp = tp(rfp,:);
             end
         end
-        
+
         function obj = generateEmbeddings(obj, tau, varargin)
         % For all targets with type 'similarity', generate a low-rank
         % embedding and update the 'target' field of the targets structure
@@ -502,7 +511,7 @@ classdef Subject
             addParameter(p, 'ExtendEmbedding', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
             addParameter(p, 'PreFilterWith', [], @(x) ischar(x) || iscellstr(x));
             parse(p, obj, tau, varargin{:});
-            
+
             if strcmpi(obj.targets.type, 'similarity');
                 T = obj.getTargets('unfiltered',true,'simplify',false);
                 if isempty(p.Results.PreFilterWith)
@@ -512,21 +521,21 @@ classdef Subject
                 end
                 [C, r] = sqrt_truncate_r(S, tau);
                 fprintf('S decomposed into %d dimensions (tau=%.2f)\n', r, tau);
-                
+
                 if ~isempty(p.Results.PreFilterWith)
                     tmp = C;
                     rf = obj.getRowFilter('include',p.Results.PreFilterWith);
                     C = nan(numel(rf),r);
                     C(rf,:) = tmp;
                 end
-                
+
                 if isfield(T,'embedding_subset') && ~isempty(T.embedding_subset)
                     if ~isempty(p.Results.PreFilterWith)
                         warning('Embedding Subsets and Similarity Matrix Prefilters are probably incompatible features! This may be an error in the future.');
                     end
                     C = C(T.embedding_subset,:);
                 end
-                
+
                 C = expand(C, obj.nTotalExamples);
                 obj.targets.target = {C,S};
                 obj.targets.type = {'embedding','similarity'};
