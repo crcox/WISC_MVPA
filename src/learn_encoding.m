@@ -34,16 +34,21 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
         options = p.Results.options;
         switch upper(ModelInstances(i).regularization)
             case 'L1L2'
+                X = X{1};
+                Y = Y{1};
+                train_set = train_set{1};
                 options.lambda = ModelInstances(i).lambda;
-                options.lambda1 = ModelInstances(i).lambda1;
+                options.lambda1 = NaN;
                 lamseq = options.lambda;
+                options.max_iter = 1;
                 
             case {'GROWL','GROWL2'}
             % There is no real distinction between GROWL and GROWL2
             % anymore, but for continuity I'll make GROWL2 map to this
             % anyway.
                 X = X{1};
-                Y = Y{1}; 
+                Y = Y{1};
+                train_set = train_set{1};
                 d = size(X, 2);
                 options.lambda = ModelInstances(i).lambda;
                 options.lambda1 = ModelInstances(i).lambda1;
@@ -109,10 +114,10 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
                     % LambdaSeq must be a column vector (or scalar)
                     % train_set{1} is intentional---Adlas only models one
                     % subject at a time.
-                    if length(train_set) > 1
-                        error('There should only be one training set filter specified for Adlas');
-                    end
-                    ModelInstances(i).Model = Adlas(size(X),size(Y),lamseq(:), train_set{1}, bias, options);
+%                     if length(train_set) > 1
+%                         error('There should only be one training set filter specified for Adlas');
+%                     end
+                    ModelInstances(i).Model = Adlas(size(X),size(Y),lamseq(:), train_set, bias, options);
 
             end
             ModelInstances(i).Model = ModelInstances(i).Model.train(X,Y,options);
