@@ -69,7 +69,7 @@ classdef Adlas
             obj.lambda1 = opts.lambda1;
             if isempty(trainingFilter)
                 obj.trainingFilter = true(obj.nitems, 1);
-            elseif numel(trainingFilter) ~= obj.nitems;
+            elseif numel(trainingFilter) ~= obj.nitems
                 error('The trainingFilter must have as many elements as there are targets (i.e., examples in the dataset).');
             else
                 obj.trainingFilter = trainingFilter;
@@ -119,7 +119,7 @@ classdef Adlas
             end
             nzvox = nnz(any(W,2));
             nvox = size(W,1);
-            if iscell(W) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+            if iscell(W) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell
                 W = W{1};
             end
         end
@@ -141,7 +141,7 @@ classdef Adlas
                 case {'train','training','trainset','trainingset'}
                     y = y(obj.trainingFilter,:);
             end
-            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+            if numel(p.Results.subjects) == 1 && ~p.Results.forceCell
                 y = y{1};
             end
         end
@@ -164,7 +164,7 @@ classdef Adlas
                 case {'train','training','trainset','trainingset'}
                     x = x(obj.trainingFilter,:);
             end
-            if iscell(x) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+            if iscell(x) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell
                 x = x{1};
             end
         end
@@ -214,7 +214,7 @@ classdef Adlas
             parse(p, obj, varargin{:});
 
             Yz = obj.Cz; % subjects aren't used yet.
-            if iscell(Yz) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell;
+            if iscell(Yz) && numel(p.Results.subjects) == 1 && ~p.Results.forceCell
                 Yz = Yz{1};
             end
         end
