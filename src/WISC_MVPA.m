@@ -102,9 +102,9 @@ function WISC_MVPA(varargin)
     % --- setup hyperparameters ---
     switch upper(p.Results.regularization)
         % The verify_setup_* functions can probably be merged...
-        case {'L1L2','GROWL','GROWL2'};
+        case {'L1L2','GROWL','GROWL2'}
             HYPERPARAMETERS = verify_setup_RSA(p.Results);
-        case {'RIDGE','LASSO','SOSLASSO'};
+        case {'RIDGE','LASSO','SOSLASSO'}
             HYPERPARAMETERS = verify_setup_MVPA(p.Results);
     end
     % --- searchlight specific ---
@@ -136,7 +136,7 @@ function WISC_MVPA(varargin)
     metadata = StagingContainer.(p.Results.metadata_varname);
     clear StagingContainer;
     % Load permutation object
-    if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod,'manual');
+    if p.Results.PermutationTest && strcmpi(p.Results.PermutationMethod,'manual')
     	StagingContainer = load(p.Results.PermutationIndex, p.Results.perm_varname);
         permutations = StagingContainer.(p.Results.perm_varname);
         clear StagingContainer;
