@@ -483,11 +483,6 @@ classdef Subject
                 'exclude', p.Results.exclude, ...
                 'simplify', p.Results.simplify);
 
-            if (size(t, 1) == 1)
-                t = t';
-            end
-            disp(size(t));
-
             pix = obj.getPermutationIndex(p.Results.RandomSeed);
             if p.Results.unfiltered
                 tp = t(pix,:);
