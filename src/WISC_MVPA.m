@@ -402,15 +402,11 @@ function [hyperparameters] = verify_setup_MVPA(p)
             assert(any(isfield(p,'lamL2')), 'For RIDGE regularization, lamL2 must be defined.');
             if isfield(p,'alpha') && ~isempty(p.alpha)
                 warning('Alpha is not relevant for performing Lasso with SOSLasso_logistic. Forcing lamSOS=0, which means that lamL1 will not be scaled up or down. The critical thing for lasso is that all voxels get their own group. This is enforced elsewhere...');
-                lamSOS = 0;
-                lamL1 = 0;
+
             end
             if isfield(p,'lamSOS') && ~isempty(p.lamSOS)
                 if p.lamSOS ~= 0
                     warning('lamSOS is not relevant for performing RIDGE with SOSLasso_logistic. Forcing lamSOS=0 to prevent SOS regularization.');
-                    lamSOS = 0;
-                else
-                    lamSOS = p.lamSOS;
                 end
             end
             lamSOS = 0;
