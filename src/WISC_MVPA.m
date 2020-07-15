@@ -156,7 +156,7 @@ function WISC_MVPA(varargin)
         % Select metadata matching current subject ID
         M = selectbyfield(metadata, 'subject', SubjectArray(i).subject);
         if numel(M) > 1
-            error('WISC_MVPA:SubjectSelect','Subject ID %s does not uniquely match a metadata entry.', num2cell(SubjectArray.subject));
+            error('WISC_MVPA:SubjectSelect','Subject ID %s does not uniquely match a metadata entry.', num2str(SubjectArray(i).subject));
         end
         % Pull content from metadata object
         CV = M.cvind(:,p.Results.cvscheme);
