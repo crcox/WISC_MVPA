@@ -3,7 +3,7 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
     addRequired(p  , 'ModelInstances');
     addRequired(p  , 'SubjectArray');
     addRequired(p  , 'regularization');
-    addParameter(p , 'AdlasOpts' , struct() );
+    addParameter(p , 'options' , struct() );
     addParameter(p , 'Verbose'   , true     );
     parse(p, ModelInstances, SubjectArray, regularization, varargin{:});
 
@@ -31,7 +31,7 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
         end
 
         bias = ModelInstances(i).bias;
-        options = p.Results.AdlasOpts;
+        options = p.Results.options;
         switch upper(ModelInstances(i).regularization)
             case 'L1L2'
                 options.lambda = ModelInstances(i).lambda;
@@ -106,7 +106,12 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
 %                     if ~iscell(X), X = {X}; end
 %                     if ~iscell(Y), Y = {Y}; end
                 case {'L1L2','GROWL','GROWL2'}
-                    % LambdaSeq must be a column vector
+                    % LambdaSeq must be a column vector (or scalar)
+                    % train_set{1} is intentional---Adlas only models one
+                    % subject at a time.
+                    if length(train_set) > 1
+                        error('There should only be one training set filter specified for Adlas');
+                    end
                     ModelInstances(i).Model = Adlas(size(X),size(Y),lamseq(:), train_set{1}, bias, options);
 
             end
