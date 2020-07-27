@@ -40,8 +40,7 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
                 options.lambda = ModelInstances(i).lambda;
                 options.lambda1 = NaN;
                 lamseq = options.lambda;
-                options.max_iter = 1;
-                
+
             case {'GROWL','GROWL2'}
             % There is no real distinction between GROWL and GROWL2
             % anymore, but for continuity I'll make GROWL2 map to this
