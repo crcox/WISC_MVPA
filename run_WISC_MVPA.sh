@@ -6,8 +6,8 @@
 #
 cleanup() {
   # Remove the Matlab runtime distribution
-  if [ -f "r2015b.tar.gz" ]; then
-    rm -v "r2015b.tar.gz"
+  if [ -f "r2018b.tar.gz" ]; then
+    rm -v "r2018b.tar.gz"
   fi
   echo "all clean"
 }
@@ -79,12 +79,12 @@ if [ $isOSG = "True" ]; then
 else
   # CHTC
   echo "------------------------------------------"
-  echo Setting up environment variables
-  tar xzf "r2015b.tar.gz"
+  echo "Setting up environment variables"
+  tar xzf "r2018b.tar.gz"
 
   # This is an attempt to fix broken environments by shipping libraries that are
   # missing on some nodes.
-  MCR_ROOT="`pwd`/v90"
+  MCR_ROOT="`pwd`/v95"
   mkdir cache && export MCR_CACHE_ROOT="`pwd`/cache"
 
   echo "MCR_ROOT: ${MCR_ROOT}"

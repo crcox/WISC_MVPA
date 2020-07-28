@@ -3,7 +3,7 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
     addRequired(p  , 'ModelInstances');
     addRequired(p  , 'SubjectArray');
     addRequired(p  , 'regularization');
-    addParameter(p , 'AdlasOpts' , struct() );
+    addParameter(p , 'options' , struct() );
     addParameter(p , 'Verbose'   , true     );
     parse(p, ModelInstances, SubjectArray, regularization, varargin{:});
 
@@ -31,19 +31,24 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
         end
 
         bias = ModelInstances(i).bias;
-        options = p.Results.AdlasOpts;
+        options = p.Results.options;
         switch upper(ModelInstances(i).regularization)
             case 'L1L2'
+                X = X{1};
+                Y = Y{1};
+                train_set = train_set{1};
                 options.lambda = ModelInstances(i).lambda;
-                options.lambda1 = ModelInstances(i).lambda1;
+                options.lambda1 = NaN;
                 lamseq = options.lambda;
+                options.max_iter = 1;
                 
             case {'GROWL','GROWL2'}
             % There is no real distinction between GROWL and GROWL2
             % anymore, but for continuity I'll make GROWL2 map to this
             % anyway.
                 X = X{1};
-                Y = Y{1}; 
+                Y = Y{1};
+                train_set = train_set{1};
                 d = size(X, 2);
                 options.lambda = ModelInstances(i).lambda;
                 options.lambda1 = ModelInstances(i).lambda1;
@@ -106,8 +111,13 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
 %                     if ~iscell(X), X = {X}; end
 %                     if ~iscell(Y), Y = {Y}; end
                 case {'L1L2','GROWL','GROWL2'}
-                    % LambdaSeq must be a column vector
-                    ModelInstances(i).Model = Adlas(size(X),size(Y),lamseq(:), train_set{1}, bias, options);
+                    % LambdaSeq must be a column vector (or scalar)
+                    % train_set{1} is intentional---Adlas only models one
+                    % subject at a time.
+%                     if length(train_set) > 1
+%                         error('There should only be one training set filter specified for Adlas');
+%                     end
+                    ModelInstances(i).Model = Adlas(size(X),size(Y),lamseq(:), train_set, bias, options);
 
             end
             ModelInstances(i).Model = ModelInstances(i).Model.train(X,Y,options);
