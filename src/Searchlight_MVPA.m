@@ -3,9 +3,9 @@ function results = Searchlight_MVPA( varargin )
     p = Searchlight_MVPA_Parameters();
     p = parse_input_parameters(p, varargin);
     set_global_random_stream_seed(p.Results.RandomSeed)
-    
+
     metadata = load_variable(p.Results.metadata, p.Results.metadata_varname);
-    
+
     SubjectArray = load_data_as_subjects( ...
         p.Results.data, ...
         p.Results.data_varname, ...
@@ -18,16 +18,16 @@ function results = Searchlight_MVPA( varargin )
         p.Results.finalholdout, ...
         p.Results.target_label, ...
         p.Results.filters);
-    
+
     report_target_information( ...
         p.Results.target_label, ...
         p.Results.target_type, ...
         p.Results.sim_source, ...
         p.Results.sim_metric)
-    
+
     report_data_information(SubjectArray)
     fprintf('Data loaded and processed.\n');
-    
+
     results = initialize_results_struct(p, SubjectArray);
     for i = 1:numel(SubjectArray)
         [am,pm,hm,fm] = run_searchlight_models( ...
@@ -54,12 +54,12 @@ function p = parse_input_parameters(p, args)
         fields = fieldnames(jdat);
         jcell = [fields'; struct2cell(jdat)'];
         parse(p, jcell{:});
-        
+
     elseif isstruct(args{1})
         s = args{1};
         x = [fieldnames(s), struct2cell(s)]';
         parse(p, x{:});
-        
+
     else
         % From command line
         parse(p, args{:});
@@ -112,7 +112,7 @@ function p = Searchlight_MVPA_Parameters()
     addParameter(p , 'URLS'       , [] );
     addParameter(p , 'executable' , [] );
     addParameter(p , 'wrapper'    , [] );
-    
+
     function b = isMatOrJSON(x)
         b = any(strcmpi(x, {'mat','json'}));
     end
@@ -241,7 +241,8 @@ function [am,pm,hm,fm] = run_searchlight_models(S, classifier, normalize_data, r
             % cannot normalize this way.
     end
 
-    coords = selectbyfield(S.coords,'orientation',orientation);
+    %coords = selectbyfield(S.coords,'orientation',orientation);
+    coords = S.getCoords('orig');
     [~,xi] = sort(coords.ind);
     [mask,dxyz] = coordsTo3dMask(coords.xyz);
 
@@ -261,7 +262,8 @@ function [am,pm,hm,fm] = run_searchlight_models(S, classifier, normalize_data, r
     else
         TestToUseCfg = {'testToUse','accuracyOneSided_analytical'};
     end
-    [am,pm,hm,fm] = computeInformationMap(X(:,coords.ind),Y,cvscheme,classifier,'searchlight', ...
+    %[am,pm,hm,fm] = computeInformationMap(X(:,coords.ind),Y,cvscheme,classifier,'searchlight', ...
+    [am,pm,hm,fm] = computeInformationMap(X,Y,cvscheme,classifier,'searchlight', ...
         meta.voxelsToNeighbours,meta.numberOfNeighbours,TestToUseCfg{:});
     am = am(xi);
     pm = pm(xi);
@@ -297,7 +299,7 @@ function y = normalize_columns(x, method, wrt)
     z = ss > 0;
     y(:,z) = bsxfun(@minus,x(:,z), mm(z));
     y(:,z) = bsxfun(@rdivide,y(:,z), ss(z));
-    
+
     if any(~z)
         warning('There are %d constant-valued voxels. These voxels are not normalized.', sum(z));
         if VERBOSE
