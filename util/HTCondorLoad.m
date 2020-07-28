@@ -84,12 +84,15 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
         jobDir      = fullfile(RESULT_DIR, jobDirs{i});
         paramsPath  = fullfile(jobDir,PARAMS_FILE);
         tmp         = loadjson(paramsPath);
-        if iscell(tmp.data)
-            tmp.subject = cellfun(@(x) sscanf(x,'s%02d'), tmp.data, 'Unif', 0);
-        elseif isstring(tmp.data)
-            tmp.subject = cellfun(@(x) sscanf(x,'s%02d'), tmp.data, 'Unif', 0);
+        if iscell(tmp.data) || isstring(tmp.data)
+            tmp.subject = zeros(1, numel(tmp.data));
+            for i_data = 1:numel(tmp.data)
+                [d_p, d_f, d_e] = fileparts(tmp.data{i_data});
+                tmp.subject(i_data) = sscanf(strcat(d_f, d_e), tmp.subject_id_fmt);
+            end
         else
-            tmp.subject = sscanf(tmp.data,'s%02d');
+            [d_p, d_f, d_e] = fileparts(tmp.data);
+            tmp.subject = sscanf(strcat(d_f, d_e), tmp.subject_id_fmt);
         end
         tmp.jobdir  = jobDir;
         tmp = orderfields(tmp, Params(1));
@@ -104,7 +107,10 @@ function [Params, Results, n] = HTCondorLoad(ResultDir, varargin)
                 continue;
             end
             tmp = load(resultPath);
-            R = structfun(@forceRowVecIfChar, tmp.results, 'UniformOutput', false);
+            for i_result = 1:numel(tmp.results)
+                tmp.results(i_result) = structfun(@forceRowVecIfChar, tmp.results(i_result), 'UniformOutput', false);
+            end
+            R = tmp.results;
 %             R = tmp.results;
             [R.jobdir] = deal(i);
             R = rmfield(R, SKIP);
