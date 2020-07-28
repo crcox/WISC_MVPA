@@ -1,6 +1,6 @@
 # This Makefile is used under Linux
 
-MATLABDIR ?= /usr/csbmb/pkg/MATLAB/matlab
+MATLABDIR ?= /home/chriscox/.local/MATLAB/R2019b
 CXX ?= g++
 #CXX = g++-4.1
 CFLAGS = -Wall -O3 -fPIC -I$(MATLABDIR)/extern/include
