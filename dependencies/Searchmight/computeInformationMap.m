@@ -16,7 +16,7 @@
 %     2005)
 %     - 'qda_shrinkage' - QDA with same, given that lda_shrinkage is better than the others might
 %     as well use it
-%   - SVM 
+%   - SVM
 %     - 'svm_linear'
 %     - 'svm_quadratic'
 %     - 'svm_sigmoid'
@@ -38,10 +38,10 @@
 %
 % Out:
 % - a map of accuracy at each voxel or region around it
-% - a map of p-values of the test of the null hypothesis at each voxel 
+% - a map of p-values of the test of the null hypothesis at each voxel
 %
 % Examples
-% 
+%
 % - GNB single-voxel classifier
 %   [accuracyMap,pvalueMap] = computeInformationMap(examples,labels,labelsGroup,'gnb');
 %
@@ -103,7 +103,7 @@ if nargin > 4
   while idx <= nargin
     argName = varargin{idx}; idx = idx + 1;
 
-    switch argName      
+    switch argName
      case {'testToUse'}
       testToUse = varargin{idx}; idx = idx + 1;
       switch testToUse
@@ -114,10 +114,10 @@ if nargin > 4
        otherwise
         fprintf('%s: test %s is not supported\n',this,testToUse);return;
       end
-     
+
      case {'errorMeasure'}
       measure = varargin{idx}; idx = idx + 1;
-     
+
      case {'searchlight'}
       % neighbour information given, two arguments intead
       voxelsToNeighbours = varargin{idx}; idx = idx + 1;
@@ -126,19 +126,19 @@ if nargin > 4
 
      case {'usePriors'}
       usePriors = 1;
-      
+
      case {'storeSearchlightCovarianceMatrices'}
       storeSearchlightCovarianceMatrices = 1;
-      
+
      case {'storeLocalConfusionMatrices'}
       storeLocalConfusionMatrices = 1;
-      
+
      case {'storeCorrectMatrix'}
       storeCorrectMatrix = 1;
-    
+
      case {'storeAverageClassMeansStdvs'}
       storeAverageClassMeansStdvs = 1;
-      
+
      case {'computePairmaps'}
       computePairmaps = 1;
 
@@ -149,12 +149,12 @@ if nargin > 4
      case {'classifierParameters'}
       % a cell array with all the parameters we would give the classifier code
       classifierParameters = varargin{idx}; idx = idx + 1;
-      
+
      case {'groupLabelsOriginal'}
       % in case we are using even/odd group labels, we need
       % to provide labels to subdivide even/odd folds
       groupLabelsOriginal = varargin{idx}; idx = idx + 1;
-      
+
      case {'seed'}
       seed = varargin{idx}; idx = idx + 1;
     end
@@ -230,43 +230,40 @@ end
 % used in both normal and pairmaps
 
 if ~computePairmaps
-  % this is the normal case, maps for all pairs of classes are at the bottom 
-  
+  % this is the normal case, maps for all pairs of classes are at the bottom
+
   switch classifier
    case {'gnb_searchmight'}
     % the accuracy map is computed later, as the same function produces the map and permutations
     % (to keep things neat, if analytical p-values are requested it's also done there)
    otherwise
     % complication so that we can have a single command line regardless of the kind of parameters used
-    extraParameters = '';
+    extraParameters = {};
     if useSearchlight
-      extraParameters = sprintf('%s,''searchlight'',voxelsToNeighbours,numberOfNeighbours',extraParameters);
+      extraParameters = [extraParameters, {'searchlight', voxelsToNeighbours, numberOfNeighbours}];
     end
     if storeSearchlightCovarianceMatrices
-      extraParameters = sprintf('%s,''storeSearchlightCovarianceMatrices''',extraParameters);
+      extraParameters = [extraParameters, {'storeSearchlightCovarianceMatrices'}];
     end
     if storeLocalConfusionMatrices
-      extraParameters = sprintf('%s,''storeLocalConfusionMatrices''',extraParameters);
+      extraParameters = [extraParameters, {'storeLocalConfusionMatrices'}];
     end
     if storeCorrectMatrix
-      extraParameters = sprintf('%s,''storeCorrectMatrix''',extraParameters);
+      extraParameters = [extraParameters, {'storeCorrectMatrix'}];
     end
     if storeAverageClassMeansStdvs
-      extraParameters = sprintf('%s,''storeAverageClassMeansStdvs''',extraParameters);
+      extraParameters = [extraParameters, {'storeAverageClassMeansStdvs'}];
     end
     if addRegressorFeatures
       %regressorFeatures = varargin{idx}; idx = idx + 1;
-      extraParameters = sprintf('%s,''addRegressorFeatures'',regressorFeatures',extraParameters);
+      extraParameters = [extraParameters, {'addRegressorFeatures', regressorFeatures}];
     end
-    
     if usePriors
-      extraParameters = sprintf('%s,''usePriors''',extraParameters);
+      extraParameters = [extraParameters, {'usePriors'}];
     end
-    
-    cmd = sprintf('[sortedFeatures,sortedError,discard,optionalReturns] = computeLocalClassifiers(examples,labels,classifier,''groupLabels'',groupLabels,''classifierParameters'',classifierParameters,''groupLabelsOriginal'',groupLabelsOriginal,''errorMeasure'',''averageRank''');
-    if isequal(extraParameters,''); cmd = [cmd,');']; else cmd = sprintf('%s%s);',cmd,extraParameters); end
-    eval(cmd);
-    
+
+    [sortedFeatures,sortedError,discard,optionalReturns] = computeLocalClassifiers(examples, labels, classifier, 'groupLabels', groupLabels, 'classifierParameters', classifierParameters, 'groupLabelsOriginal', groupLabelsOriginal, 'errorMeasure', 'averageRank', extraParameters{:});
+
     if 0
       if useSearchlight
         if storeSearchlightCovarianceMatrices
@@ -278,88 +275,84 @@ if ~computePairmaps
         [sortedFeatures,sortedError] = summarizeELE_rankByNestedCV_g(examples,labels,classifier,'groupLabels',groupLabels);
       end
     end
-    
+
     % reorder into original feature order
     [discard,neworder] = sort(sortedFeatures);
     accuracyMap = 1 - sortedError(neworder); % code returns error
-  
+
   end
-  
+
   %
   % compute p-values
   %
 
   chance = 1/nClasses;
-  
+
   switch testToUse
    case {'accuracyOneSided_analytical'}
-    switch classifier 
+    switch classifier
      case {'gnb_searchmight'}
       % to keep things parallel with the permutation test code, for this classifier the maps are obtained here
       [discard,newOrder] = sort(groupLabels); % sort so that the groups come in order (makes code simpler)
       neighbourMax    = size(voxelsToNeighbours,2);
       neighbourRadius = round((neighbourMax+1)^(1/3)-1)/2;
-      
+
       [accuracyMap,discard,pvalueMap,hitMap,falseMap] = searchmightGNB(examples(newOrder,:)',labels(newOrder)',groupLabels(newOrder)',neighbourRadius,voxelsToNeighbours',numberOfNeighbours',0); clear discard;
       %accuracyMap = accuracyMap'; pvalueMap = pvalueMap';
      otherwise
       % we already have the accuracyMap
     end
       % convert accuracy to count of #examples out of n that were labelled correctly
-    countMap  = round(accuracyMap*n);  
-    
+    countMap  = round(accuracyMap*n);
+
     % P(X>=observed|H0 is true) = 1 - P(X<observed|H0 is true)
     pvalueMap = 1-(binocdf(countMap,n,chance)-binopdf(countMap,n,chance));
-    
+
    case {'accuracyOneSided_permutation'}
- 
+
     switch classifier
      case {'gnb_searchmight'}
       % requires a completely different command line
       [discard,newOrder] = sort(groupLabels); % sort so that the groups come in order (makes code simpler)
       neighbourMax    = size(voxelsToNeighbours,2);
       neighbourRadius = round((neighbourMax+1)^(1/3)-1)/2;
-      
+
       [accuracyMap,discard,pvalueMap,hitMap,hitMap] = searchmightGNB(examples(newOrder,:)',labels(newOrder)',groupLabels(newOrder)',neighbourRadius,voxelsToNeighbours',numberOfNeighbours',nPermutations); clear discard;
       accuracyMap = accuracyMap'; pvalueMap = pvalueMap';
-     
+
      otherwise
       labelsPermuted  = zeros(size(labels));
       aboveOrEqualMap = zeros(1,m); % count how often accuracy on permuted data goes over observed
       fprintf('computing permutation test p-values\n');
-      
-      % prepare commandline
-      cmd = sprintf('[sortedFeatures,sortedError,discard,optionalReturns] = computeLocalClassifiers(examples,labelsPermuted,classifier,''groupLabels'',groupLabels','useSilence');
-      if isequal(extraParameters,''); cmd = [cmd,');']; else; cmd = sprintf('%s%s);',cmd,extraParameters); end
-    
+
       % compute
       countEqual = 0; % # of permutations equal to original labelling
-    
+
       for p = 1:nPermutations
         if (rem(p,10) == 1) tic; end
-        
+
         % permute labels within each group
         for g = 1:nGroups
           labelsPermuted(indicesGroup{g}) = labels(indicesGroup{g}(randperm(nPerGroup(g))));
         end
 
         if labelsPermuted == labels; countEqual = countEqual + 1; end
-      
+
         % call the prepared commandline
-        eval(cmd);
-      
+        [sortedFeatures,sortedError,discard,optionalReturns] = computeLocalClassifiers(examples,labelsPermuted,classifier,'groupLabels',groupLabels,extraParameters{:});
+
         %    if useSearchlight
         %      [sortedFeatures,sortedError] = computeLocalClassifiers(examples,labelsPermuted,classifier,'groupLabels',groupLabels,'searchlight',voxelsToNeighbours,numberOfNeighbours,'useSilence');
         %    else
         %      [sortedFeatures,sortedError] = computeLocalClassifiers(examples,labelsPermuted,classifier,'groupLabels',groupLabels,'useSilence');
         %    end
-        
+
         % reorder into original feature order
         [discard,neworder] = sort(sortedFeatures);
         accuracyMapPermuted = 1 - sortedError(neworder); % code returns error
-      
+
         if (rem(p,10) == 1) t=toc; fprintf('\tcomputed permutation %d/%d: estimated time to completion: %s seconds\n',p,nPermutations,num2str(t*(nPermutations-p)));end
-      
+
         % tally whether accuracy on permuted data went over observed
         indicesHigher = find(accuracyMapPermuted >= accuracyMap);
         aboveOrEqualMap(indicesHigher) = aboveOrEqualMap(indicesHigher) + 1;
@@ -368,50 +361,46 @@ if ~computePairmaps
       % compute p-values from tally
       % the value is the fraction of the number of permutations where the accuracy was >= observed accuracy
       pvalueMap = aboveOrEqualMap / nPermutations;
-    
-    end; % of switch on classifier 
+
+    end; % of switch on classifier
   end; % of switch on test to use
 
 
 else
   %
   % computation of maps for each pair of classes
-  % 
+  %
 
   nPairs = nClasses*(nClasses-1)/2;
-  
+
   [n,m] = size(examples);
   labelValues = unique(labels); nClasses = length(labelValues);
   groupValues = unique(groupLabels); nGroups = length(groupValues);
-  
+
   accuracyMap     = zeros(nPairs,m);
   pvalueMap       = zeros(nPairs,m);
   optionalReturns = cell(nPairs,1);
-  
+
   p = 1;
   for c1 = 1:(nClasses-1)
     indicesC1 = indicesClass{c1};
     for c2 = (c1+1):nClasses
       indicesC2 = indicesClass{c2};
-      
+
       % call this for the examples in this pair of classes
-      
+
       indicesPair = [indicesC1;indicesC2];
-      
-      cmd = sprintf('[accuracyMap(p,:),pvalueMap(p,:),optionalReturns{p}]=computeInformationMap(examples(indicesPair,:),labels(indicesPair),groupLabels(indicesPair),classifier,''classifierParameters'',classifierParameters');
-      for i = 5:nargin
-        cmd = sprintf('%s,varargin{%d}',cmd,i);
-      end
-      cmd = sprintf('%s);',cmd);
+
+      [accuracyMap(p,:),pvalueMap(p,:),optionalReturns{p}]=computeInformationMap(examples(indicesPair,:),labels(indicesPair),groupLabels(indicesPair),classifier,'classifierParameters',classifierParameters,varargin{5:end});
       eval(cmd);
-      
+
       p = p + 1;
     end
-  end  
+  end
 end
 
 
-function [] = testThis() 
+function [] = testThis()
 
 %% simple two class dataset with a 3D mask
 
@@ -448,7 +437,7 @@ else
   voxelMeans3D(5,5,6,2) = 1;
   voxelMeans3D(5,5,7,2) = 1;
   voxelMeans3D(5,5,7,2) = 1;
-  
+
   voxelMeans3D(5,5,2,3) = 4;
   voxelMeans3D(5,5,2,3) = 4;
   voxelMeans3D(5,5,3,3) = 4;
@@ -458,12 +447,12 @@ else
   voxelMeans3D(5,5,7,3) = 2;
   voxelMeans3D(5,5,7,3) = 2;
 end
-  
+
 for ic = 1:nClasses
   tmp = voxelMeans3D(:,:,:,ic);
   voxelMeans{ic} = tmp(meta.indicesIn3D)';
 end
-  
+
 nGroups = 4;
 nPerClassPerGroup = 25; npcpg = nPerClassPerGroup;
 
@@ -478,10 +467,10 @@ idx = 1;
 for ig = 1:nGroups
   for ic = 1:nClasses
     range = idx:(idx+npcpg-1);
-    
+
     examples(range,:) = randn(npcpg,m) * 0.5;
     examples(range,:) = examples(range,:) + repmat(voxelMeans{ic},npcpg,1);
-    
+
     labels(range)      = ic;
     labelsGroup(range) = ig;
     idx = idx + npcpg;
@@ -554,12 +543,12 @@ for ic = 1:nClasses
   voxelMeans3D(xrange,yrange,iz,ic) = templateClass{ic};
   iz = iz + 2;
 end
-  
+
 for ic = 1:nClasses
   tmp = voxelMeans3D(:,:,:,ic);
   voxelMeans{ic} = tmp(meta.indicesIn3D)';
 end
-  
+
 nGroups = 4;
 nPerClassPerGroup = 25; npcpg = nPerClassPerGroup;
 
@@ -588,10 +577,10 @@ idx = 1;
 for ig = 1:nGroups
   for ic = 1:nClasses
     range = idx:(idx+npcpg-1);
-    
+
     examples(range,:) = randn(npcpg,m) * 0.25;
     examples(range,:) = examples(range,:) + repmat(voxelMeans{ic},npcpg,1);
-    
+
     labels(range)      = ic;
     labelsGroup(range) = ig;
     idx = idx + npcpg;

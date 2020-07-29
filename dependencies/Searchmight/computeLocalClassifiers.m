@@ -16,7 +16,7 @@
 %      if the classifier requires parameters, computeInformationMap will handle parameter
 %      processing and checking and pass them in this cell array
 %
-%   - 'errorMeasure',<'error'|'averageRank'> - error measure to use 
+%   - 'errorMeasure',<'error'|'averageRank'> - error measure to use
 %     (defaults to 'error', 'averageRank' is the normalized average
 %      rank in a multiclass situation:
 %      for every example, the classifier outputs a ranking of possible classes
@@ -30,11 +30,11 @@
 %     (e.g. for each example, have an indicator of what run it comes from and the
 %      the code will compute leave-one-run-out-crossvalidation)
 %
-%   - 'searchlight',<voxelsToNeighbours>,<numberOfNeighbours> - 
+%   - 'searchlight',<voxelsToNeighbours>,<numberOfNeighbours> -
 %      compute the error measure for a searchlight centred on the voxels, with searchlight
 %      details being given by the neighbourhood.
 %
-%   - 'errorMeasure',<'error'|'averageRank'> - error measure to use 
+%   - 'errorMeasure',<'error'|'averageRank'> - error measure to use
 %     (defaults to 'error', 'averageRank' is the normalized average
 %      rank in a multiclass situation:
 %      for every example, the classifier outputs a ranking of possible classes
@@ -77,7 +77,7 @@ this = 'computeLocalClassifiers';
 
 %% process arguments and figure out/test a few things
 
-if nargin < 3; eval(sprintf('help %s',this));return; end
+if nargin < 3; help(this); return; end
 
 examples   = varargin{1};
 labels     = varargin{2};
@@ -127,13 +127,13 @@ if nargin > 3
   while idx <= nargin
     argName = varargin{idx}; idx = idx + 1;
 
-    switch argName      
+    switch argName
      case {'errorMeasure'}
       measure = varargin{idx}; idx = idx + 1;
-     
+
      case {'groupLabels'}
       groupLabels = varargin{idx}; idx = idx + 1;
-     
+
      case {'searchlight'}
       if isinteger(varargin{idx})
 	% we're given radius, compute neighbours explicitly
@@ -150,10 +150,10 @@ if nargin > 3
 
      case {'usePriors'}
       usePriors = 1;
-      
+
      case {'useWholeTrainingSet'}
-      useWholeTrainingSet = 1; 
-      
+      useWholeTrainingSet = 1;
+
      case {'storeSearchlightCovarianceMatrices'}
       % stores the average local covariance matrix (average over folds)
       storeSearchlightCovarianceMatrices = 1;
@@ -167,17 +167,17 @@ if nargin > 3
       % stores the local confusion matrix (searchlight or not)
       storeLocalConfusionMatrices = 1;
       optionalReturns.localConfusionMatrices = zeros(nLabels,nLabels,nFeatures);
-     
+
      case {'storeCorrectMatrix'}
       % this is the #examples x #voxels matrix of binary values
       storeCorrectMatrix = 1;
       optionalReturns.correctmatrix = zeros(nExamples,nFeatures);
-   
+
      case {'storeAverageClassMeansStdvs'}
       storeAverageClassMeansStdvs = 1;
       optionalReturns.averageClassMeans = zeros(nLabels,nFeatures);
       optionalReturns.averageClassStdvs = zeros(nLabels,nFeatures);
-      
+
      case {'addRegressorFeatures'}
       addRegressorFeatures = 1;
       regressorFeatures = varargin{idx}; idx = idx + 1;
@@ -185,13 +185,13 @@ if nargin > 3
      case {'classifierParameters'}
       % a cell array with all the parameters we would give the classifier code
       classifierParameters = varargin{idx}; idx = idx + 1;
-      
+
      case {'useSilence'}
       % cuts down most messages
       useSilence = 1;
-    
+
      case {'groupLabelsOriginal'}
-      groupLabelsOriginal = varargin{idx}; idx = idx + 1;    
+      groupLabelsOriginal = varargin{idx}; idx = idx + 1;
     end
 
   end
@@ -205,19 +205,19 @@ if addRegressorFeatures
   % add mock neighbours to every voxel corresponding to all the new regressors
   [tmp,nRegressorFeatures] = size(regressorFeatures);
   if tmp ~= nExamples; fprintf('%s: regressor features must have same #rows as data\n',this); return; end
-    
+
   %numberOfNeighbours = numberOfNeighbours + 1;
   maxNeighbours = size(voxelsToNeighbours,2);
-  
+
   voxelsToNeighbours = [voxelsToNeighbours,zeros(nFeatures,nRegressorFeatures)];
-    
+
   newNeighbours = nFeatures + (1:nRegressorFeatures);
   for v = 1:nFeatures
     nrange = numberOfNeighbours(v) + (1:nRegressorFeatures);
     voxelsToNeighbours(v,nrange) = newNeighbours;
   end
   numberOfNeighbours = numberOfNeighbours + nRegressorFeatures;
-  
+
   examples = [examples,regressorFeatures];
 end
 
@@ -225,13 +225,13 @@ end
 %% extra searchlight processing
 
 if useSearchlight
-  
+
   if isempty(groupLabels)
     fprintf('%s: in order to use searchlight you must specify group labels\n',this); return
   end
 
   if computeNeighbourInformation
-    fprintf('%s: computing neighbour information, consider precomputing this\n',this); return      
+    fprintf('%s: computing neighbour information, consider precomputing this\n',this); return
     [voxelsToNeighbours,numberOfNeighbours] = neighboursWithinRadius(colToCoord,radius); %#ok<UNRCH>
   end
 else
@@ -247,13 +247,13 @@ switch classifier
   %% if using libsvm, the code will order labels by the first time they appear, so
   %% things are simple if, within each group, examples are sorted by class
   %% (ideally this should be fixed directly in the label prediction wrapper code)
-  
+
   if 1
     groups = unique(groupLabels); nGroups = length(groups);
     examplesNew    = zeros(size(examples));
     labelsNew      = zeros(size(labels));
     groupLabelsNew = zeros(size(groupLabels));
-  
+
     for g = 1:nGroups
       indices = find(groupLabels == groups(g));
       [discard,neworder] = sort(labels(indices));
@@ -265,18 +265,18 @@ switch classifier
     labels      = labelsNew;      clear labelsNew;
     groupLabels = groupLabelsNew; clear groupLabelsNew;
   end
-  
+
  otherwise
 end
-  
+
 %% Find the indices of the examples in each class
 
 indicesLabel  = cell(nLabels,1);
 nPerLabel     = zeros(nLabels,1);
 
-for l = 1:nLabels  
+for l = 1:nLabels
   % find examples with this label
-  label = sortedLabelValues(l); 
+  label = sortedLabelValues(l);
   maskLabel{l}    = (labels == label);
   indicesLabel{l} = find(maskLabel{l});
   nPerLabel(l)    = length(indicesLabel{l});
@@ -341,7 +341,7 @@ switch classifier
   optionalReturns.gammas  = zeros(nGroups,nFeatures);
  otherwise
 end
-  
+
 %
 % main cross-validation loop
 %
@@ -349,54 +349,54 @@ end
 for g = 1:nGroups
   group = groups(g); % group to leave out
   if ~useSilence; fprintf('\tprocessing group %d\n',g); end
-  
+
   mask = (groupLabels == group);
   indicesTest  = find( mask); nTest  = length(indicesTest);
   indicesTrain = find(~mask); nTrain = length(indicesTrain);
-  
+
   exampleMeanTrainClass = zeros(nLabels,nFeatures);
   exampleStdvTrainClass = zeros(nLabels,nFeatures);
-  
+
   for l = 1:nLabels
     indicesTestClass{l}  = find(  mask & maskLabel{l} );
     indicesTrainClass{l} = find( ~mask & maskLabel{l} );
-  
+
     exampleMeanTrainClass(l,:) = mean(examples(indicesTrainClass{l},:),1);
     exampleStdvTrainClass(l,:) = std( examples(indicesTrainClass{l},:),0,1);
   end
-  
+
   % make train and test data be the same
   if useWholeTrainingSet
     indicesTrain = indicesTest; nTrain = nTest;
   end
 
-  labelsTest    = labels(indicesTest);    
+  labelsTest    = labels(indicesTest);
   labelsTrain   = labels(indicesTrain);
 
   scoresTest = zeros(nTest,nFeatures,nLabels);
 
   switch classifier
 
-%%%% GNB classifiers 
-    
+%%%% GNB classifiers
+
    case {'gaussian','nbayes','gaussianPooled','nbayesPooled','gnb','gnbtest','gnb_pooled'}
-    
-    %% compute the class mean and standard deviation for each feature 
+
+    %% compute the class mean and standard deviation for each feature
     %% inside the training set
-    
+
     if useSearchlight;
-      groupMean = cell(nLabels,nFeatures); 
-      groupStdv = cell(nLabels,nFeatures); 
+      groupMean = cell(nLabels,nFeatures);
+      groupStdv = cell(nLabels,nFeatures);
     end
 
     nTrainPerLabel = zeros(1,nLabels);
     for l = 1:nLabels
       label = sortedLabelValues(l);
-      
+
       indices{l}   = find(labelsTrain == label); % training set examples with this label
       groupMean{l} = mean(examples(indicesTrain(indices{l}),:),1);
       nTrainPerLabel(l) = length(indices{l});
-      
+
       switch classifier
        case {'gaussian','nbayes','gnb'}
         % each class has its own standard deviation estimate
@@ -410,7 +410,7 @@ for g = 1:nGroups
       end
     end; % for over labels
     classPriorsTrain = nTrainPerLabel / sum(nTrainPerLabel);
-    
+
     switch classifier
      case {'gaussian','nbayes','gnb'}
       % all done
@@ -431,14 +431,14 @@ for g = 1:nGroups
                          repmat(groupMean{l},nTrainPerLabel(l),1).^2, 1);
       end
       tmp = tmp / (nTrain-1);
-      
+
       for l = 1:nLabels; groupStdv{l} = tmp; end
      case {'lda','lda_ridge','lda_shrinkage'}
       % any reasonable way of computing voxelwise parts of covariance matrix?
-      
+
       % Although different matrices have different dimensions, it would be more
       % efficient to store in a conceptual 27x27x #voxels matrix. In practice,
-      % it will be 
+      % it will be
     end
 
     if storeAverageClassMeansStdvs
@@ -447,14 +447,14 @@ for g = 1:nGroups
         optionalReturns.averageClassStdvs(l,:) = optionalReturns.averageClassStdvs(l,:) + groupStdv{l};
       end
     end
-    
+
     % now restore the means, if necessary
-    
+
     for l = 1:nLabels
       label = sortedLabelValues(l);
-      
+
       %indices{l} = find(labelsTrain == label); % training set examples with this label
-      
+
       switch classifier
        case {'gaussian','nbayes','gnb'}
         % nothing to do
@@ -463,27 +463,27 @@ for g = 1:nGroups
         examples(indicesTrain(indices{l}),:) = examples(indicesTrain(indices{l}),:)+repmat(groupMean{l},nTrainPerLabel(l),1);
        case {'gnbtest'}
       end
-      
+
     end; % for over labels
-    
-    
+
+
     %% use the learnt means and standard deviations to compute the
     %% class score for each feature on the test examples
 
     % class priors train is 1 x #classes
     if usePriors;  matrixOfPriors = log(repmat(classPriorsTrain,nTest,1)); end
-    
+
     for lA = 1:nLabels
-      
+
       if ~useSearchlight
-        
+
         switch classifier
          case {'gaussian','gaussianPooled','nbayes','nbayesPooled','gnb','gnb_pooled'}
           % compute
           % log(prob(class<lA>|feature)), for all classes <lA>
           % assume priors are equal for all classes (given that
           % dataset is balanced)
-          
+
           tmp = examples(indicesTest,:);
           tmp = tmp -  repmat(groupMean{lA},nTest,1);
           tmp = tmp ./ repmat(groupStdv{lA},nTest,1);
@@ -491,24 +491,24 @@ for g = 1:nGroups
           tmp = tmp - log(sqrt(2*pi)*repmat(groupStdv{lA},nTest,1));
 
           if usePriors; tmp = tmp + matrixOfPriors(:,lA); end
-          
+
           % use to store scores directly, too much memory in a single structure
-          % scores(indicesTest,:,lA) = tmp;  
+          % scores(indicesTest,:,lA) = tmp;
 
           % tmp is #test examples x #features
-          
+
           scoresTest(:,:,lA) = tmp; clear tmp;
-          
+
          case {'gnbtest'}
           fprintf('ERROR: not implemented yet\n');pause;
           % needs to be implemented to take into account our keeping variances
-        end 
-        
+        end
+
       else
-        
+
         switch classifier
          case {'gaussian','gaussianPooled','nbayes','nbayesPooled','gnb','gnb_pooled'}
-          
+
           if ~useSilence; fprintf('\tgroup %d: label %d: searchlight applying feature by feature\n',g,lA); end
           %          size(examples)
           %          pause
@@ -520,7 +520,7 @@ for g = 1:nGroups
             %            neighbours
             %            examples(:,neighbours((end-1):end))'
             %            pause
-            
+
             %           catch
             %             nFeatures
             %             size(numberOfNeighbours)
@@ -540,7 +540,7 @@ for g = 1:nGroups
 
             % used to store scores directly, too much memory in a single structure
             %scores(indicesTest,v,lA) = sum(tmp,2);
-            
+
             %scoresTest(:,v,lA) = sum(tmp,2); clear tmp;
             scoresTest(:,v,lA) = tmp; clear tmp;
           end
@@ -566,19 +566,19 @@ for g = 1:nGroups
               tmp = tmp ./ repmat(groupStdv{lA}([v,neighbours]),nTest,1);
               tmp = sum(tmp,2);
             end
-            
+
             if usePriors; tmp = tmp + matrixOfPriors(:,lA); end
 
             scoresTest(:,v,lA) = tmp; clear tmp;
           end
           if useCount & ~useSilence; fprintf('\n'); end
-          
+
         end
-        
+
       end; % if searchlight
-      
+
     end; % for over labels
-    
+
     if useSearchlight
       if storeSearchlightCovarianceMatrices
         % no need for a loop over labels
@@ -587,43 +587,43 @@ for g = 1:nGroups
          otherwise
           fprintf('error: searchlight covariance matrix for non-pooled variance estimates does not make sense\n');return;
         end
-        
+
         tmp = std(examples(indicesTrain,:),0,1);
         for l = 1:nLabels; groupStdv{l} = tmp; end
 
         for v = 1:nFeatures
           %if useCount & ~useSilence; if ~rem(v,1000); fprintf('%d ',v); end; end
-          
+
           neighbours = voxelsToNeighbours(v,1:numberOfNeighbours(v));
 
           S = diag(groupStdv{1}([v,neighbours]));
 
           if storeSearchlightCovarianceMatrices
             % the covariance matrix
-            optionalReturns.searchlightCovarianceMatrices(1:(numberOfNeighbours(v)+1),1:(numberOfNeighbours(v)+1),v) = optionalReturns.searchlightCovarianceMatrices(1:(numberOfNeighbours(v)+1),1:(numberOfNeighbours(v)+1),v) + S;          
+            optionalReturns.searchlightCovarianceMatrices(1:(numberOfNeighbours(v)+1),1:(numberOfNeighbours(v)+1),v) = optionalReturns.searchlightCovarianceMatrices(1:(numberOfNeighbours(v)+1),1:(numberOfNeighbours(v)+1),v) + S;
           end
         end
       end
     end
 
-%%%%% LDA/QDA, different loop     
-    
+%%%%% LDA/QDA, different loop
+
    case {'lda','lda_shrinkage','lda_ridge','qda_shrinkage'}
     % this requires an entirely different loop
 
     %disp(examples(:,[(end-3) (end-2) (end-1) end])); pause
-    
+
     % find class means and subtract them from respective training set points
     for l = 1:nLabels
       label = sortedLabelValues(l);
-      
+
       indices{l} = find(labelsTrain == label); % training set examples with this label
-      
+
       groupMean{l} = mean(examples(indicesTrain(indices{l}),:),1);
 
       examples(indicesTrain(indices{l}),:) = examples(indicesTrain(indices{l}),:)-repmat(groupMean{l},length(indices{l}),1);
     end; % for over labels
-    
+
     %% main loop over features
 
     switch classifier
@@ -634,7 +634,7 @@ for g = 1:nGroups
     end
 
     switch classifier
-     
+
      case {'lda','lda_ridge','lda_shrinkage'}
       for v = 1:nFeatures
         if useCount & ~useSilence; if ~rem(v,1000); fprintf('%d ',v); end; end
@@ -652,10 +652,10 @@ for g = 1:nGroups
           S = cov_shrinkage(examples(indicesTrain,[v,neighbours]));
         end
         Sinv = inv(S);
-        
+
         if storeSearchlightCovarianceMatrices
           optionalReturns.searchlightCovarianceMatrices(1:(numberOfNeighbours(v)+1),1:(numberOfNeighbours(v)+1),v) = optionalReturns.searchlightCovarianceMatrices(1:(numberOfNeighbours(v)+1),1:(numberOfNeighbours(v)+1),v) + S;
-        
+
           %optionalReturns.searchlightMeans = zeros(nFeatures,27,nLabels);
           % the mean
           for l = 1:nLabels
@@ -663,23 +663,23 @@ for g = 1:nGroups
                 optionalReturns.searchlightMeans(v,1:(numberOfNeighbours(v)+1),l) +  groupMean{l}([v,neighbours]);
           end
         end
-        
+
         % classify test examples
-        for lA = 1:nLabels       
+        for lA = 1:nLabels
           tmp = examples(indicesTest,[v,neighbours]) - repmat(groupMean{lA}([v,neighbours]),nTest,1);
           scoresTest(:,v,lA) = diag(tmp*Sinv*tmp');
         end
       end; % loop over voxels
 
      case {'qda_shrinkage'}
-      
+
       for v = 1:nFeatures
         if useCount & ~useSilence; if ~rem(v,1000); fprintf('%d ',v); end; end
 
         neighbours = voxelsToNeighbours(v,1:numberOfNeighbours(v));
-        
+
         % classify test examples
-        for lA = 1:nLabels       
+        for lA = 1:nLabels
           % find the <lA> class covariance matrix
           S = cov_shrinkage(examples(indicesTrainClass{lA},[v,neighbours]));
           Sinv = inv(S);
@@ -688,29 +688,29 @@ for g = 1:nGroups
           scoresTest(:,v,lA) = - exp(-diag(tmp*Sinv*tmp')/2) / sqrt(det(S));
         end
       end; % loop over voxels
-      
+
     end
-    
-    
+
+
     if useCount & ~useSilence; fprintf('\n'); end
-    
+
     % replace class means
     for l = 1:nLabels
       examples(indicesTrain(indices{l}),:) = examples(indicesTrain(indices{l}),:)+repmat(groupMean{l},length(indices{l}),1);
     end; % for over labels
-    
+
     scoresTest = exp(-0.5*scoresTest);
-    
+
 %%%%% all the SVM classifiers
-    
+
    case {'svm_linear','svm_quadratic','svm_sigmoid','svm_rbf'}
-    
+
     %
     % parameter processing (taken from the classifier wrappers):
     % - classifierLIBSVMwrapper
     % - classifierLogisticRegressionMulti
     %
-    
+
     % defaults for options
     lambda = 1;
     gamma  = 1/nFeatures; % default value and term used in libsvm docs
@@ -720,12 +720,12 @@ for g = 1:nGroups
     crossvalidateLambda = 0;
     crossvalidateGamma  = 0;
     kernelDefined = 0;
-    
+
     lcp = length(classifierParameters);
     idx = 1;
     while idx <= lcp
       argName = classifierParameters{idx}; idx = idx + 1;
-      
+
       switch argName
        case {'kernel'}
         kernel = classifierParameters{idx}; idx = idx + 1;
@@ -735,7 +735,7 @@ for g = 1:nGroups
         if isequal(lambda,'crossValidation')
           crossvalidateLambda = 1;
           if (isempty(groupLabels) | ~isrealmat(groupLabels) | (length(groupLabels)~=nExamples))
-            fprintf('error: to select lambda with crossvalidation you need to provide group labels\n');pause;return;          
+            fprintf('error: to select lambda with crossvalidation you need to provide group labels\n');pause;return;
           end
         else
           if lambda <= 0; fprintf('error: lambda must be positive\n',this); pause;return; end
@@ -747,14 +747,14 @@ for g = 1:nGroups
        case {'gamma'}
         if ~kernelDefined; fprintf('error: please specify kernel argument first\n');return;end
         if isequal(kernel,'linear');
-          fprintf('warning: no gamma with a linear kernel, gamma = 0\n'); 
+          fprintf('warning: no gamma with a linear kernel, gamma = 0\n');
           gamma = 0; idx = idx + 1;
         else
           gamma = classifierParameters{idx}; idx = idx + 1;
           if isequal(gamma,'crossValidation')
             crossvalidateGamma = 1;
             if (isempty(groupLabels) | ~isrealmat(groupLabels) | (length(groupLabels)~=nExamples))
-              fprintf('error: to select gamma with crossvalidation you need to provide group labels\n');pause;return;          
+              fprintf('error: to select gamma with crossvalidation you need to provide group labels\n');pause;return;
             end
           else
             switch kernel
@@ -783,10 +783,10 @@ for g = 1:nGroups
     end; % loop over arguments
 
     % argument processing done inside classifierLIBSVMwrapper
-    
+
     % defining a kernel argument string simplifies the rest of the code,
     % also define the parameter string for non-crossvalidated parameters
-    
+
     parameterString = '';
     if ~crossvalidateLambda
       parameterString = sprintf('%s -c %s',parameterString,num2str(lambda));
@@ -794,7 +794,7 @@ for g = 1:nGroups
     if ~crossvalidateGamma & ~isequal(kernel,'linear')
       parameterString = sprintf('%s -g %s',parameterString,num2str(gamma));
     end
-    
+
     % coefficient r is not cross-validated so might as well put it in kernelString
     switch kernel
      case {'linear'}
@@ -814,14 +814,14 @@ for g = 1:nGroups
     end
 
     if ~useSilence; fprintf('\tgroup %d: searchlight %s applying feature by feature\n',g,classifier); end
-      
+
     %% if crossvalidation of either parameter was requested
     %% do a grid search (each combination of settings requires running a CV
-    
+
     if crossvalidateLambda | crossvalidateGamma
       % if we need crossvalidation, set up the ranges
       fprintf('\tusing crossvalidation to find lambda/gamma\n');
-      
+
       % wastes memory but cleans up the code, at least till it's debugged
       cvexamples    = examples(indicesTrain,:); ncvexamples = nTrain;
       cvlabels      = labels(indicesTrain);
@@ -829,11 +829,11 @@ for g = 1:nGroups
       cvgroupLabels = groupLabelsOriginal(indicesTrain);
       %cvgroupLabels = groupLabels(indicesTrain);
       cvgroups = unique(cvgroupLabels); ncvgroups = length(cvgroups);
-      
+
       if ncvgroups == 1
         fprintf('error: only 1 group labels within training set, consider using groupLabelsOriginal\n');pause;return;
       end
-        
+
       bestcvresults = repmat(-1,1,nFeatures); % best accuracy thus far
 
       if crossvalidateLambda
@@ -857,7 +857,7 @@ for g = 1:nGroups
       end
       ng = length(gammaRange);
       gammas = repmat(gammaRange(1),1,nFeatures);
-      
+
       % and grid search over all combinations of settings
 
       for ir = 1:nl
@@ -865,12 +865,12 @@ for g = 1:nGroups
 
         baseString = sprintf(' -c %s',num2str(lambda));
         %fprintf('\ttesting lambda=%s\n',num2str(lambda));
-        
+
         for ig = 1:ng
           gamma = gammaRange(ig);
-          
+
           fprintf('\ttesting lambda=%s gamma=%s\n',num2str(lambda),num2str(gamma));
-          
+
           if gamma
             parameterString = sprintf('%s -g %s',baseString,num2str(gamma));
           else
@@ -878,18 +878,18 @@ for g = 1:nGroups
             parameterString = baseString;
           end
           completeString  = sprintf('%s %s',kernelString,parameterString);
-          
+
           %fprintf('\t\ttesting gamma=%s\n',num2str(gamma));
-          
+
           cvresults = zeros(1,nFeatures);
-          
+
           for icvg = 1:ncvgroups
             cvgroup = cvgroups(icvg);
             cvmask = (cvgroupLabels == cvgroup);
-            
+
             %fprintf('\t\tcrossvalidation loop\n');
             cvindicesTest  = find( cvmask); cvnTest = length(cvindicesTest);
-            cvindicesTrain = find(~cvmask); 
+            cvindicesTrain = find(~cvmask);
 
             zdummy = zeros(cvnTest,1); nPairs = nLabels*(nLabels-1)/2;
             tmp = zeros(cvnTest,nFeatures,nPairs); % hold predictions in this group
@@ -899,8 +899,8 @@ for g = 1:nGroups
               neighbours = voxelsToNeighbours(v,1:numberOfNeighbours(v));
 
               % now run the loop
-              cvModel = svmtrain(cvlabels(cvindicesTrain),cvexamples(cvindicesTrain,[v,neighbours]),completeString);              
-              
+              cvModel = svmtrain(cvlabels(cvindicesTrain),cvexamples(cvindicesTrain,[v,neighbours]),completeString);
+
               [discard1,discard2,tmp(:,v,:)] = svmpredict(zdummy,cvexamples(cvindicesTest,[v,neighbours]),cvModel);
             end
 
@@ -923,49 +923,49 @@ for g = 1:nGroups
                 ip = ip + 1;
               end
             end
-            
+
             [discard,tmp] = max(votes,[],3);
-            
+
             cvresults = cvresults + sum(tmp == repmat(cvlabels(cvindicesTest),1,nFeatures),1);
             clear votes tmp discard1 discard2 discard;
-            
+
           end; % loop over groups
           cvresults = cvresults / ncvexamples; % accuracy
-          
+
           % update lambda/gamma for voxels where current values gave better results
           indicesChanged = find(cvresults > bestcvresults);
           bestcvresults(indicesChanged) = cvresults(indicesChanged);
           lambdas(indicesChanged) = lambda;
           gammas(indicesChanged)  = gamma;
-          
+
         end; % loop over gamma
       end; % loop over lambda
-      
+
     else
       % no need to crossvalidate to find lambda/gamma
       lambdas = repmat(lambda,1,nFeatures); gammas = repmat(gamma,1,nFeatures);
       fprintf('\tusing given lambda/gamma (%s/%s)\n',num2str(lambda),num2str(gamma));
     end; % if cross-validating
-    
+
     % store lambda/gamma used in each voxel
     optionalReturns.lambdas = lambdas;
     optionalReturns.gammas  = gammas;
-    
+
     %% now train/test classifier on the full training data
     %% using estimated or provided lambdas/gammas
-    
+
     fprintf('\tlearning full training set SVM\n');
     zdummy = zeros(nTest,1); nPairs = nLabels*(nLabels-1)/2;
 
     % hold decision values in this group
     %tmp = zeros(nTest,nFeatures,nLabels);
     tmp = zeros(nTest,nFeatures,nPairs); % works for two classes
-    
+
     %tmplabels = zeros(nTest,nFeatures); % use for multi-label debugging below
 
     caralho = find(lambdas <= 0);
     if ~isempty(caralho)
-      fprintf('error! there are lambdas <= 0\n'); 
+      fprintf('error! there are lambdas <= 0\n');
       lambdas(caralho)
       return;
     end
@@ -977,14 +977,14 @@ for g = 1:nGroups
      otherwise
       for v = 1:nFeatures; stringvoxel{v} = sprintf('%s -c %s -g %s',kernelString,num2str(lambdas(v)),num2str(gammas(v)));end
     end
-    
+
     for v = 1:nFeatures
       neighbours = voxelsToNeighbours(v,1:numberOfNeighbours(v));
-      if useCount & ~useSilence; if ~rem(v,1000); fprintf('%d ',v); end; end        
+      if useCount & ~useSilence; if ~rem(v,1000); fprintf('%d ',v); end; end
 
       % train
       model = svmtrain(labels(indicesTrain),examples(indicesTrain,[v,neighbours]),stringvoxel{v});
-      
+
       [discard1,discard2,tmp(:,v,:)] = svmpredict(zdummy,examples(indicesTest,[v,neighbours]),model);
       %[tmplabels(:,v),discard2,tmp(:,v,:)] = svmpredict(zdummy,examples(indicesTest,[v,neighbours]),model);
     end; % loop over voxels
@@ -992,7 +992,7 @@ for g = 1:nGroups
     % what to do with decision values depends on the # labels
     % WARNING: assumes the label of class 1 is less than the label of class 2
     % (see below)
-    
+
     % transform decision values into vote counts for each class
     votes = zeros(nTest,nFeatures,nLabels);
     ip = 1;
@@ -1013,7 +1013,7 @@ for g = 1:nGroups
       end
     end
     scoresTest = votes; clear votes tmp discard1 discard2;
-    
+
     % check that we are replicating the voting mechanism correctly
     % make sure you uncomment tmplabels definition above,
     % then the line with tmplabels(:,v)
@@ -1021,7 +1021,7 @@ for g = 1:nGroups
     %[discard,maxpos] = max(scoresTest,[],3);
     %isequal(tmplabels,sortedLabelValues(maxpos))
     %pause
-    
+
     %    if model.Label(1) < model.Label(2)
     %      % labels are in the right order
     %      scoresTest(:,:,1) = tmp;
@@ -1032,30 +1032,30 @@ for g = 1:nGroups
     %      scoresTest(:,:,2) = tmp;
     %    end
     fprintf('\n');
-    
+
 %%%% nearest neighbour classifiers
-    
+
    case {'knn'}
 
     % process arguments, as the algorithms are different for
     % k=0 - distance to class means
     % k=1 - nearest neighbour
     % k>1 - k-nn proper
-    
+
     % defaults and processing of overrides
     k = 0;
     similarityMeasure = 'correlation';
-    
+
     lcp = length(classifierParameters);
     idx = 1;
     while idx <= lcp
       argval = classifierParameters{idx}; idx = idx + 1;
-      
+
       switch argval
        case {'k'}
         k = classifierParameters{idx}; idx = idx + 1;
         k = ceil(k); if k < 0; fprintf('error: knn: k < 0\n');return;end
-        
+
        case {'similarityMeasure'}
         similarityMeasure = classifierParameters{idx}; idx = idx + 1;
        otherwise
@@ -1064,7 +1064,7 @@ for g = 1:nGroups
     end
 
     %% main loop is over classes
-    
+
     % ancillary matrices
     switch k
      case {0}
@@ -1074,26 +1074,26 @@ for g = 1:nGroups
       tmpTrain = examples(indicesTrain,:)';
       tmpTest  = examples(indicesTest,:)';
     end
-    
+
     switch similarityMeasure
      case {'correlation'}
       measurenum = 0;
      case {'euclidean'}
       measurenum = 1;
     end
-    
+
     tmp = (1:nTest)';
-    
+
     % compute similarity measure for each neighbourhood
     for v = 1:nFeatures
       neighbours = voxelsToNeighbours(v,1:numberOfNeighbours(v));
-      if useCount & ~useSilence; if ~rem(v,1000); fprintf('%d ',v); end; end        
+      if useCount & ~useSilence; if ~rem(v,1000); fprintf('%d ',v); end; end
 
       [St,indicesMostSimilar,valuesMostSimilar] = rowiseSimilarity(tmpTest([v,neighbours],:),tmpTrain([v,neighbours],:),measurenum);
-      
+
       S = St'; % #test x #classes (k=0) or x #train (k=1)
       % indicesMostSimilar - #test x 1 - entries are in 1:#classes range (k=0) or 1:#train (k=1)
-      
+
       % all scores are 0 except 1 for the predicted class
       template = zeros(nTest,nLabels);
       switch k
@@ -1107,7 +1107,7 @@ for g = 1:nGroups
 %          neighbours
 %          pause
 %        end
-          
+
         template(indices) = 1;
         scoresTest(:,v,:) = template;
        case {1}
@@ -1118,9 +1118,9 @@ for g = 1:nGroups
       end
 
       %disp([labels(indicesTest),template]);pause
-      
+
     end; % for over features
-      
+
 %      switch classifier
 %       case {'lr_L1'}
 %        model = classifierLogisticRegressionMulti(examples(indicesTrain,[v,neighbours]),labels(indicesTrain),'regularization',{'L1',lambda},'useSilence');
@@ -1130,21 +1130,21 @@ for g = 1:nGroups
 %      decisions = [ones(nTest,1),examples(indicesTest,[v,neighbours])] * model.W;
 %      %scoresTest(:,v,:) = decisions;
 %      scoresTest(:,v,1) = decisions(:,1);
-%      scoresTest(:,v,2) = decisions(:,2);    
+%      scoresTest(:,v,2) = decisions(:,2);
 %    end; % loop over voxels
-    
-    
-    
-%%%% general purpose classifiers 
-    
+
+
+
+%%%% general purpose classifiers
+
    case {'lr_L2','lr_L1'}
 
     lambda = 1;
-      
+
     for v = 1:nFeatures
       neighbours = voxelsToNeighbours(v,1:numberOfNeighbours(v));
-      if useCount & ~useSilence; if ~rem(v,1000); fprintf('%d ',v); end; end        
-      
+      if useCount & ~useSilence; if ~rem(v,1000); fprintf('%d ',v); end; end
+
       switch classifier
        case {'lr_L1'}
         model = classifierLogisticRegressionMulti(examples(indicesTrain,[v,neighbours]),labels(indicesTrain),'regularization',{'L1',lambda},'useSilence');
@@ -1154,40 +1154,40 @@ for g = 1:nGroups
       decisions = [ones(nTest,1),examples(indicesTest,[v,neighbours])] * model.W;
       %scoresTest(:,v,:) = decisions;
       scoresTest(:,v,1) = decisions(:,1);
-      scoresTest(:,v,2) = decisions(:,2);    
-    end; % loop over voxels      
+      scoresTest(:,v,2) = decisions(:,2);
+    end; % loop over voxels
 
    otherwise
     fprintf('error: should not get here with %s\n',classifier);pause;return;
-    
+
   end; % switch over classifiers
-    
+
   %
   % for each feature, compute the error measure (error or average rank) in each example
   %
-  
+
   template = repmat(labelsTest,1,nFeatures);
-  
+
   switch measure
    case {'error'}
     clear labelRankings;
-    
+
     [maxScores,maxIndices] = max(scoresTest,[],3);  clear scoresTest;
     predictedLabels = sortedLabelValues( maxIndices );
-    
+
     measurePerExample(indicesTest,:) = (predictedLabels ~= template);
-    
-    
+
+
    case {'averageRank'}
     % last slice of sortedIndices contains z-coordinates of highest scores
-    
+
     [sortedScores,sortedIndices] = sort(scoresTest,3,'descend');  clear scoresTest;
     labelRankings   = sortedLabelValues( sortedIndices ); clear sortedIndices;
     predictedLabels = labelRankings(:,:,1);
-    
+
     % labelRankings has, for each example (x) and feature (y)
     % a ranking (z) of the labels by score (highest is first)
-    
+
     % Same dimensions, 0 everywhere except 1 where the true labels are
     % in the ranking. The position of the 1 in each ranking is the position
     % of the correct label in that ranking
@@ -1195,28 +1195,28 @@ for g = 1:nGroups
       labelRankings(:,:,l) = (labelRankings(:,:,l) == template);
     end
     %labelRankingsMask = (labelRankings == label); clear labelRankings;
-      
+
     % finds the position of the 1
     [dummy,correctLabelRank] = max(labelRankings,[],3);
     clear labelRankings;
-    
+
     % compute normalized rank (varies between 0 (perfect) and 1)
     measurePerExample(indicesTest,:) = (correctLabelRank - 1) / (nLabels - 1);
   end
-  
+
   %% if required, update the local confusion matrix
-  
+
   if storeLocalConfusionMatrices
     ncc = nLabels*nLabels;
     indexMatrix = repmat((0:ncc:(ncc*(nFeatures-1))),nTest,1);
     indexMatrix = indexMatrix + (predictedLabels-1)*nLabels + template;
-    
+
     for i = 1:(nFeatures*nTest)
       optionalReturns.localConfusionMatrices(indexMatrix(i)) = optionalReturns.localConfusionMatrices(indexMatrix(i)) + 1;
     end
-  
+
   end
-  
+
 end; % for over groups
 
 if storeSearchlightCovarianceMatrices
@@ -1263,7 +1263,7 @@ end
 %  tmp = reshape(optionalReturns.localConfusionMatrices,[nLabels*nLabels nFeatures]);
 
 
-  
+
 %% finally, sort the features
 [sortedMeasure,sortedFeatures] = sort(measureOverall);
 
@@ -1283,18 +1283,18 @@ end
 % - <m> x <n> matrix, where row <r> contains the mean over all rows
 %   except row <r>
 %
- 
+
 function [matrixOfMeans] = aux_meansMinusOneRow( m )
- 
+
 [nrows,ncols] = size(m);
 matrixOfMeans = zeros(nrows,ncols);
- 
+
 matrixSum = sum(m,1);
- 
+
 for r = 1:nrows
   matrixOfMeans(r,:) = matrixSum - m(r,:);
 end
- 
+
 matrixOfMeans = matrixOfMeans ./ (nrows-1);
 
 
@@ -1310,18 +1310,18 @@ matrixOfMeans = matrixOfMeans ./ (nrows-1);
 % - <m> x <n> matrix, where row <r> contains the standard deviation
 %   over all rows, except row <r>
 %
-                                                                                                 
+
 function [matrixOfStdevs] = aux_stdevsMinusOneRow( m )
-                                                                                                 
+
 [nrows,ncols] = size(m);
 matrixOfStdevs = zeros(nrows,ncols);
-                                                                                                 
+
 m1 = m;
 m2 = m .^ 2;
-                                                                                                 
+
 matrixOfMeans1 = aux_meansMinusOneRow(m1);
 matrixOfMeans2 = aux_meansMinusOneRow(m2);
-                                                                                                 
+
 matrixOfStdevs = matrixOfMeans2 - (matrixOfMeans1 .^ 2);
 matrixOfStdevs = sqrt(matrixOfStdevs);
 
