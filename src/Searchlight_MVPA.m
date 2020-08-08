@@ -230,7 +230,7 @@ end
 function [am,pm,hm,fm] = run_searchlight_models(S, classifier, normalize_data, radius, orientation, permutations)
     X = S.getData();
     Y = S.getTargets('simplify',true);
-    cvscheme = S.cvscheme;
+    cvscheme = S.getCVScheme();
     normalize_wrt = 'all_examples';
     switch normalize_wrt
         case 'all_examples'
