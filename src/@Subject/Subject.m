@@ -498,12 +498,15 @@ classdef Subject
         % For all targets with type 'similarity', generate a low-rank
         % embedding and update the 'target' field of the targets structure
         % (replacing the item-by-item symetric similarity matrix.
+        % ApplySingularValues is a logical parameter indicating whether the
+        % singular vectors should be rescaled by the singular values when
+        % producing the embedding.
         % PreFilterWith indicates which row filters should be applied to
         % the similarity matrix before computing the embedding.
             p = inputParser();
             addRequired(p, 'obj', @(x) isa(x, 'Subject'));
             addRequired(p, 'tau', @(x) isnumeric(x) && isscalar(x));
-            addParameter(p, 'ExtendEmbedding', false, @(x) islogical(x) || any(asnumeric(x) == [1,0]));
+            addParameter(p, 'ApplySingularValues', false, @ islogicallike);
             addParameter(p, 'PreFilterWith', [], @(x) ischar(x) || iscellstr(x));
             parse(p, obj, tau, varargin{:});
 
@@ -514,8 +517,21 @@ classdef Subject
                 else
                     S = obj.getTargets('include',p.Results.PreFilterWith,'simplify',true);
                 end
-                [C, r] = sqrt_truncate_r(S, tau);
+                if tau > 1.0
+                    r = floor(tau);
+                    [U, z] = embed_similarity_matrix(S, r);
+                else
+                    r = embed_rank_at_criterion(S, tau);
+                    [U, z] = embed_similarity_matrix(S, r);
+                end
                 fprintf('S decomposed into %d dimensions (tau=%.2f)\n', r, tau);
+                if p.Results.ApplySingularValues
+                    C = rescale_embedding(U, z);
+                    fprintf('Embedding is scaled by the singular values.\n');
+                else
+                    C = U;
+                    fprintf('Embedding is orthonormal.\n');
+                end
 
                 if ~isempty(p.Results.PreFilterWith)
                     tmp = C;
@@ -549,4 +565,8 @@ classdef Subject
             end
         end
     end
+end
+
+function b = islogicallike(x)
+    b = islogical(x) || any(x == [1,0]);
 end

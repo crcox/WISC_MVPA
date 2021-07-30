@@ -3,7 +3,7 @@ function WISC_MVPA(varargin)
     p.KeepUnmatched = false;
     % ----------------------Set parameters---------------------------------
     % Model definition
-	addParameter(p , 'regularization'   , []      , @ischar        );
+    addParameter(p , 'regularization'   , []      , @ischar        );
     addParameter(p , 'bias'             , false   , @islogicallike );
     addParameter(p , 'alpha'            , []      , @isnumeric     );
     addParameter(p , 'lambda'           , []      , @isnumeric     );
@@ -35,9 +35,10 @@ function WISC_MVPA(varargin)
     addParameter(p , 'cvholdout'        , [] , @isnumeric     );
     addParameter(p , 'orientation'      , [] , @ischar        );
     % Normalization
-    addParameter(p , 'normalize_data'  , 'none'         , @ischar ); % NEW NAME!
-    addParameter(p , 'normalize_target', 'none'         , @ischar ); % NEW VARIABLE!
-    addParameter(p , 'normalize_wrt'    , 'all_examples', @ischar ); % NEW VARIABLE!
+    addParameter(p , 'normalize_data'         , 'none'         , @ischar );
+    addParameter(p , 'normalize_target'       , 'none'         , @ischar );
+    addParameter(p , 'normalize_wrt'          , 'all_examples' , @ischar );
+    addParameter(p , 'scale_singular_vectors' , true , @islogicallike ); % NEW VARIABLE!
     % Permutation
     addParameter(p , 'RandomSeed'             , 0, @(x) isnumeric(x) && all(x>=0));
     addParameter(p , 'PermutationTest'        , false, @islogicallike );
@@ -174,12 +175,13 @@ function WISC_MVPA(varargin)
         SubjectArray(i) = SubjectArray(i).setFinalHoldoutFilter(p.Results.finalholdout);
         SubjectArray(i) = SubjectArray(i).setCoords(M.coords);
         SubjectArray(i) = SubjectArray(i).setTargets(T);
+        disp(p.Results.scale_singular_vectors)
         if ~isempty(p.Results.tau) && p.Results.tau ~= 0
             % If tau is set, generate embeddings from target similarity matrices.
             if isempty(p.Results.FiltersToApplyBeforeEmbedding)
-                SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true);
+                SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ApplySingularValues', p.Results.scale_singular_vectors);
             else
-                SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ExtendEmbedding', true, 'PreFilter', p.Results.FiltersToApplyBeforeEmbedding);
+                SubjectArray(i) = SubjectArray(i).generateEmbeddings(p.Results.tau, 'ApplySingularValues', p.Results.scale_singular_vectors, 'PreFilter', p.Results.FiltersToApplyBeforeEmbedding);
             end
         end
         % Remove Pre-filters if they are not also used as standard filters.
@@ -202,15 +204,17 @@ function WISC_MVPA(varargin)
     end
 
     % Report target infomation
+    LogicalString = {'FALSE', 'TRUE'};
     fprintf('\n');
     fprintf('Target Structure Summary\n');
     fprintf('------------------------\n');
-    fprintf('%12s: %s\n', 'target_label', p.Results.target_label);
-    fprintf('%12s: %s\n', 'type', p.Results.target_type);
-    fprintf('%12s: %s\n', 'sim_source', p.Results.sim_source);
-    fprintf('%12s: %s\n', 'sim_metric', p.Results.sim_metric);
+    fprintf('%24s: %s\n', 'target_label', p.Results.target_label);
+    fprintf('%24s: %s\n', 'type', p.Results.target_type);
+    fprintf('%24s: %s\n', 'sim_source', p.Results.sim_source);
+    fprintf('%24s: %s\n', 'sim_metric', p.Results.sim_metric);
+    fprintf('%24s: %s\n', 'scale_singular_vectors', LogicalString{p.Results.scale_singular_vectors + 1});
     fprintf('\n');
-    
+
     % Report Data information
     fprintf('Data Dimensions\n');
     fprintf('---------------\n');
@@ -235,20 +239,21 @@ function WISC_MVPA(varargin)
         load('checkpoint.mat', 'ModelInstances', 'bracket_index');
     else
         ModelInstances = ModelContainer( ...
-            'subject'          , SubjectsParameter, ...
-            'RandomSeed'       , p.Results.RandomSeed       , ...
-            'cvholdout'        , p.Results.cvholdout        , ...
-            'finalholdout'     , p.Results.finalholdout     , ...
-            'bias'             , p.Results.bias             , ...
-            'target_label'     , p.Results.target_label     , ...
-            'target_type'      , p.Results.target_type      , ...
-            'sim_metric'       , p.Results.sim_metric       , ...
-            'sim_source'       , p.Results.sim_source       , ...
-            'normalize_data'   , p.Results.normalize_data   , ...
-            'normalize_target' , p.Results.normalize_target , ...
-            'normalize_wrt'    , p.Results.normalize_wrt    , ...
-            'regularization'   , p.Results.regularization   , ...
-            'HYPERPARAMETERS'  , HYPERPARAMETERS);
+            'subject'                , SubjectsParameter                , ...
+            'RandomSeed'             , p.Results.RandomSeed             , ...
+            'cvholdout'              , p.Results.cvholdout              , ...
+            'finalholdout'           , p.Results.finalholdout           , ...
+            'bias'                   , p.Results.bias                   , ...
+            'target_label'           , p.Results.target_label           , ...
+            'target_type'            , p.Results.target_type            , ...
+            'sim_metric'             , p.Results.sim_metric             , ...
+            'sim_source'             , p.Results.sim_source             , ...
+            'normalize_data'         , p.Results.normalize_data         , ...
+            'normalize_target'       , p.Results.normalize_target       , ...
+            'normalize_wrt'          , p.Results.normalize_wrt          , ...
+            'scale_singular_vectors' , p.Results.scale_singular_vectors , ...
+            'regularization'         , p.Results.regularization         , ...
+            'HYPERPARAMETERS'        , HYPERPARAMETERS);
         % TODO: There is probably a smart way to incorporate this
         % functionality (basically, child fields that are associated with a
         % parent field) within the ModelContainer expansion function.
