@@ -1,6 +1,6 @@
 function ac = ModelContainer(varargin)
-% ADLASCONTAINER Expand metavariables to create a structured array, with a
-% field for an Model instance.
+% MODELCONTAINER Expand metavariables to create a structured array, with a
+% field for a Model instance.
 %
 % Input:
 % -----
@@ -115,4 +115,4 @@ function u = safeunique(x)
     end
     u = unique(x);
 end
-            
+
