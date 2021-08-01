@@ -242,7 +242,8 @@ function [am,pm,hm,fm] = run_searchlight_models(S, classifier, normalize_data, r
     end
 
     %coords = selectbyfield(S.coords,'orientation',orientation);
-    coords = S.getCoords('orig');
+    %coords = S.getCoords('orig');
+    coords = S.getCoords(orientation);
     [~,xi] = sort(coords.ind);
     [mask,dxyz] = coordsTo3dMask(coords.xyz);
 
