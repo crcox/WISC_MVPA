@@ -164,8 +164,8 @@ function y = normalize_columns(x, method, wrt)
     y(:,z) = bsxfun(@rdivide,y(:,z), ss(z));
     
     if any(~z)
-        warning('There are %d constant-valued voxels. These voxels are not normalized.', sum(z));
-        if VERBOSE
+        warning('There are %d constant-valued voxels. These voxels are not normalized.', sum(~z));
+        if p.Results.Verbose
             fprintf('Constant-valued voxel indexes:\n');
             disp(find(~z));
         end
