@@ -60,7 +60,7 @@ trap terminated SIGTERM SIGKILL
 set -e
 set -x
 
-EXECUTABLE=WISC_MVPA
+EXECUTABLE=$1
 JOB_DIR=$2
 PROXY_ROOT=$3
 isOSG=$4
