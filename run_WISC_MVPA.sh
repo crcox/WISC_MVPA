@@ -61,6 +61,10 @@ set -e
 set -x
 
 EXECUTABLE=$1
+shift 1
+for x in "$@"; do
+  cp "$x" .
+done
 
 # Run the Matlab application
 # CHTC
