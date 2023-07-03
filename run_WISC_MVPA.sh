@@ -61,46 +61,30 @@ set -e
 set -x
 
 EXECUTABLE=$1
-JOB_DIR=$2
-PROXY_ROOT=$3
-isOSG=$4
-
-## Download all large data files listed in URLS from SQUID
-# touch the files to ensure they exist
 
 # Run the Matlab application
-if [ $isOSG = "True" ]; then
-  # This script needs to run to the end, even if there are errors.
-  set +e
-  source /cvmfs/oasis.opensciencegrid.org/osg/modules/lmod/current/init/bash
-  set -e
-  module load matlab/2015b
+# CHTC
+echo "------------------------------------------"
+echo "Setting up environment variables"
+tar xzf "r2018b.tar.gz"
 
-else
-  # CHTC
-  echo "------------------------------------------"
-  echo "Setting up environment variables"
-  tar xzf "r2018b.tar.gz"
+# This is an attempt to fix broken environments by shipping libraries that are
+# missing on some nodes.
+MCR_ROOT="`pwd`/v95"
+mkdir cache && export MCR_CACHE_ROOT="`pwd`/cache"
 
-  # This is an attempt to fix broken environments by shipping libraries that are
-  # missing on some nodes.
-  MCR_ROOT="`pwd`/v95"
-  mkdir cache && export MCR_CACHE_ROOT="`pwd`/cache"
+echo "MCR_ROOT: ${MCR_ROOT}"
+echo "MCR_CACHE_ROOT: ${MCR_CACHE_ROOT}"
 
-  echo "MCR_ROOT: ${MCR_ROOT}"
-  echo "MCR_CACHE_ROOT: ${MCR_CACHE_ROOT}"
-
-  echo ---
-  LD_LIBRARY_PATH=.:${MCR_ROOT}/runtime/glnxa64 ;
-  LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCR_ROOT}/bin/glnxa64 ;
-  LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCR_ROOT}/sys/os/glnxa64;
-  LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:"./lib64"
-  XAPPLRESDIR=${MCR_ROOT}/X11/app-defaults ;
-  export XAPPLRESDIR;
-  export LD_LIBRARY_PATH;
-  echo LD_LIBRARY_PATH is ${LD_LIBRARY_PATH};
-
-fi
+echo ---
+LD_LIBRARY_PATH=.:${MCR_ROOT}/runtime/glnxa64 ;
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCR_ROOT}/bin/glnxa64 ;
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCR_ROOT}/sys/os/glnxa64;
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:"./lib64"
+XAPPLRESDIR=${MCR_ROOT}/X11/app-defaults ;
+export XAPPLRESDIR;
+export LD_LIBRARY_PATH;
+echo LD_LIBRARY_PATH is ${LD_LIBRARY_PATH};
 
 chmod +x ${EXECUTABLE}
 eval "./${EXECUTABLE}"
