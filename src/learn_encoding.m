@@ -4,7 +4,6 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
     addRequired(p  , 'SubjectArray');
     addRequired(p  , 'regularization');
     addParameter(p , 'options' , struct() );
-    addParameter(p , 'Verbose'   , true     );
     parse(p, ModelInstances, SubjectArray, regularization, varargin{:});
 
     for i = 1:numel(ModelInstances)
@@ -107,17 +106,8 @@ function ModelInstances = learn_encoding(ModelInstances, SubjectArray, regulariz
             switch upper(ModelInstances(i).regularization)
                 case {'RIDGE','LASSO','SOSLASSO'}
                     ModelInstances(i).Model = SOSLasso(lamSOS,lamL1,G,train_set, bias,options);
-%                     if ~iscell(X), X = {X}; end
-%                     if ~iscell(Y), Y = {Y}; end
                 case {'L1L2','GROWL','GROWL2'}
-                    % LambdaSeq must be a column vector (or scalar)
-                    % train_set{1} is intentional---Adlas only models one
-                    % subject at a time.
-%                     if length(train_set) > 1
-%                         error('There should only be one training set filter specified for Adlas');
-%                     end
                     ModelInstances(i).Model = Adlas(size(X),size(Y),lamseq(:), train_set, bias, options);
-
             end
             ModelInstances(i).Model = ModelInstances(i).Model.train(X,Y,options);
             ModelInstances(i).Model = ModelInstances(i).Model.test(X,Y);
@@ -165,136 +155,5 @@ function y = normalize_columns(x, method, wrt)
     
     if any(~z)
         warning('There are %d constant-valued voxels. These voxels are not normalized.', sum(~z));
-        if p.Results.Verbose
-            fprintf('Constant-valued voxel indexes:\n');
-            disp(find(~z));
-        end
     end
 end
-
-% OLD PERMUTATION ALGORITHM
-% -------------------------
-%     PERMUTATION_INDEXES = cell(1, max(cvind));
-%     for ic = unique(cvind)'
-%         disp(sprintf('Permuting CV %d...', ic));
-%         c = C(cvind==ic,:);
-%         n = size(c,1);
-%         if VERBOSE
-%             fprintf('Permuting %d rows of C, independently by its %d columns.\n', n, r);
-%             fprintf('First 10 rows of C, before shuffling.\n')
-%             disp(c)
-%         end
-%         permix = randperm(n);
-%         C(cvind==ic, :) = c(permix, :);
-%         if VERBOSE
-%             fprintf('First 10 rows of C, after shuffling.\n')
-%             disp(c(permix,:))
-%         end
-%     end
-
-% COMPARISON AGAINST FULL RANK AND LIMITED RANK SQUARE MATRIX
-% ===========================================================
-% St = C{subix}*C{subix}';
-% if strcmpi(target_type,'similarity')
-%     lt1  = logical(tril(true(nnz(test_set)),0));
-%     s1   = S{subix}(test_set,test_set);
-%     sz1  = Sz(test_set,test_set);
-%     st1  = St(test_set,test_set);
-%     s1   = s1(lt1);
-%     sz1  = sz1(lt1);
-%     st1  = st1(lt1);
-% 
-%     lt2 = logical(tril(true(nnz(train_set)),0));
-%     s2  = S{subix}(train_set,train_set);
-%     sz2 = Sz(train_set,train_set);
-%     st2 = St(train_set,train_set);
-%     s2  = s2(lt2);
-%     sz2 = sz2(lt2);
-%     st2 = st2(lt2);
-% end
-
-% COLLECT RESULTS
-% ===============
-% if ~SMALL
-%     results(iii).Uz  = uz;
-%     results(iii).Uix = uint32(ix(:)');
-%     results(iii).Cz  = Cz;
-%     results(iii).Sz  = Sz;
-% end
-% % Metadata
-% results(iii).nzv            = uint32(Unz); % number of nonzero rows
-% results(iii).nvox           = uint32(nv); % total number of voxels
-% results(iii).subject        = subix;
-% results(iii).cvholdout      = icv; % cross validation index
-% results(iii).finalholdout   = []; % handled in parent function
-% if strcmpi(regularization, 'L1L2_GLMNET')
-%     results(iii).lambda1    = info.lambda;
-% else
-%     results(iii).lambda1    = lam1;
-% end
-% results(iii).lambda         = lam;
-% results(iii).LambdaSeq      = LambdaSeq;
-% results(iii).regularization = regularization;
-% results(iii).bias           = BIAS;
-% results(iii).normalize_data = normalize_data;
-% 
-% if any(test_set)
-%     results(iii).err1 = norm(Ch - Chz,'fro')/norm(Ch,'fro');
-% end
-% results(iii).err2 = norm(Ct - Ctz,'fro')/norm(Ct,'fro');
-% 
-% if isempty(lambda)
-%     lambda_j = nan;
-% else
-%     lambda_j = lambda(j);
-% end
-% if isempty(lambda1)
-%     lambda1_k = nan;
-%     if strcmpi(regularization, 'L1L2_GLMNET')
-%         lambda1_k = info.lambda;
-%     end
-% else
-%     lambda1_k = lambda1(k);
-% end
-% 
-% if strcmpi(regularization, 'L1L2_GLMNET')
-%     results(iii).iter = info.npasses;
-%     info.iter = info.npasses;
-% else
-%     results(iii).iter = info.iter;
-% end
-
-% Old results computation
-% =======================
-% % KEY
-% % ===
-% % Our models assume that S = V*W*V'
-% % V  : The fMRI data.
-% % W  : A matrix of weights.
-% % S  : The true similarity matrix.
-% % Sz : The predicted similarity matrix.
-% % C  : The square root of S, truncated to the first r columns (low rank assumption)
-% % Cz : The predicted C.
-% % St : The approximated S, reconstructed from actual C.
-% % Uz : The estimated voxel weights, with a r weights per voxel.
-% 
-% nz_rows = any(Uz,2);
-% ix = find(nz_rows);
-% nv = size(Uz,1);
-% Unz = nnz(nz_rows);
-% uz = Uz(ix,:);
-% 
-% % Prepare to evaluate solutions
-% Cz = V(:,ix)*uz;
-% Ctz = Cz(train_set,:);
-% Chz = Cz(test_set,:);
-% 
-% if any(test_set)
-%     err1 = nrsa_loss(Ch, Chz);
-%     %cor1 = nrsa_corr(Ch*Ch', Chz*Chz');
-% else
-%     err1 = [];
-%     %cor1 = [];
-% end
-% err2 = nrsa_loss(Ct, Ctz);
-% %cor2 = nrsa_corr(Ct*Ct', Ctz*Ctz');
