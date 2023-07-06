@@ -1,3 +1,5 @@
+#       .viminfo
+#       requiredMCRProducts.txt
 **/*~
 **/*.swp
 **/*.mat
@@ -23,3 +25,7 @@ src/learn_category_encoding.m.rej
 dependencies/Searchmight/CoreToolbox/ExternalPackages.Linux_x86_64/libsvm/svm.o
 dependencies/Searchmight/CoreToolbox/ExternalPackages.Linux_x86_64/libsvm/svm_model_matlab.o
 dependencies/Searchmight/CoreToolbox/ExternalPackages.Linux_x86_64/libsvm/svmpredict.mexa64
+.bash_history
+.viminfo
+requiredMCRProducts.txt
+

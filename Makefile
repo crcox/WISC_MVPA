@@ -1,5 +1,5 @@
 MFLAGS=-m -R -singleCompThread -R -nodisplay -R -nojvm
-MATLABDIR ?= /buildsoftware/manual/MATLAB/R2018b
+MATLABDIR ?= /localbuildsoftware/matlab/R2018b
 MCC=$(MATLABDIR)/bin/mcc
 MEX=$(MATLABDIR)/bin/mex
 SRCTAR=source_code.tar.gz
