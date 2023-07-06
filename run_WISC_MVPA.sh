@@ -96,7 +96,8 @@ chmod +x ${EXECUTABLE}
 eval "./${EXECUTABLE}"
 
 # Copy results to STAGING_PATH
-mv -v results.mat ${STAGING_PATH}/results-${JOBID}.mat
+mkdir ${STAGING_PATH}/${JOBID}
+mv -v results.mat ${STAGING_PATH}/${JOBID}/results.mat
 
 # Exit successfully. Hooray!
 trap success EXIT SIGTERM
