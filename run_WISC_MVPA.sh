@@ -9,6 +9,11 @@ cleanup() {
   if [ -f "r2018b.tar.gz" ]; then
     rm -v "r2018b.tar.gz"
   fi
+  
+  for x in "$@"; do
+    rm -fv $(basename "$x")
+  done
+  
   echo "all clean"
 }
 abort() {
