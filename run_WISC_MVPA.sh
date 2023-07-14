@@ -59,8 +59,8 @@ success() {
 
 # If an exit or interrupt occurs while the script is executing, run the abort
 # function.
-trap "abort $@" EXIT
-trap "terminated  $@" SIGTERM SIGKILL
+trap 'abort "$@"' EXIT
+trap 'terminated  "$@"' SIGTERM SIGKILL
 
 set -e
 set -x
@@ -105,4 +105,4 @@ mkdir ${STAGING_PATH}/${JOBID}
 mv -v results.mat ${STAGING_PATH}/${JOBID}/results.mat
 
 # Exit successfully. Hooray!
-trap "success $@" EXIT SIGTERM
+trap 'success "$@"' EXIT SIGTERM
