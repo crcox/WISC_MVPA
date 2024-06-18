@@ -66,9 +66,7 @@ set -e
 set -x
 
 EXECUTABLE=$1
-STAGING_PATH=$2
-JOBID=$3
-shift 3
+shift 1
 for x in "$@"; do
   cp "$x" .
 done
@@ -99,10 +97,6 @@ echo LD_LIBRARY_PATH is ${LD_LIBRARY_PATH};
 
 chmod +x ${EXECUTABLE}
 eval "./${EXECUTABLE}"
-
-# Copy results to STAGING_PATH
-mkdir ${STAGING_PATH}/${JOBID}
-mv -v results.mat ${STAGING_PATH}/${JOBID}/results.mat
 
 # Exit successfully. Hooray!
 trap 'success "$@"' EXIT SIGTERM
