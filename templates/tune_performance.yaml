@@ -1,0 +1,107 @@
+# Network RSA
+# ===========
+regularization: growl2
+PermutationTest: false
+SaveResultsAs: mat
+SearchWithHyperband: true
+
+# Parameters
+# ----------
+bias: 0
+lambda: {args: [0, 6], distribution: uniform}
+lambda1: {args: [0, 6], distribution: uniform}
+HYPERBAND: {aggressiveness: 3, budget: 200, hyperparameters: [lambda,lambda1]}
+LambdaSeq: "linear"
+normalize_data: zscore
+normalize_target: center
+normalize_wrt: training_set
+
+# Data and Metadata Paths
+# =======================
+data:
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-001.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-002.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-003.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-004.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-007.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-009.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-010.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-011.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-012.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-013.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-014.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-015.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-016.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-017.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-018.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-019.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-020.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-021.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-022.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-023.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-024.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-026.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-028.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-029.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-030.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-031.mat
+  - /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/sub-032.mat
+data_var: X
+metadata: /staging/groups/psych_rogers_group/saskia/7T/data/wholebrain/averaged/metadata.mat
+metadata_var: metadata
+
+# Metadata Field References
+# =========================
+# K-fold Cross Validation
+# -----------------------
+cvscheme: 1
+cvholdout:
+  - [2,3,4,5,6,7,8,9,10]
+  - [1,3,4,5,6,7,8,9,10]
+  - [1,2,4,5,6,7,8,9,10]
+  - [1,2,3,5,6,7,8,9,10]
+  - [1,2,3,4,6,7,8,9,10]
+  - [1,2,3,4,5,7,8,9,10]
+  - [1,2,3,4,5,6,8,9,10]
+  - [1,2,3,4,5,6,7,9,10]
+  - [1,2,3,4,5,6,7,8,10]
+  - [1,2,3,4,5,6,7,8,9]
+finalholdout: [1,2,3,4,5,6,7,8,9,10]
+
+# Targets
+# -------
+target_label: "semantic"
+target_type: "similarity"
+sim_source: "Dilkina_Normalized"
+sim_metric: "cosine"
+tau: 3
+
+# Coordinates
+# -----------
+orientation: mni
+
+# Filters
+# -------
+filters:
+  - rowfilter
+  - colfilter
+
+# WISC_MVPA Options
+# =================
+SmallFootprint: 1
+subject_id_fmt: sub-%03d.mat
+executable: "/home/sfrisby/GitHub/WISC_MVPA/WISC_MVPA"
+wrapper: "/home/sfrisby/GitHub/WISC_MVPA/run_WISC_MVPA.sh"
+
+# condortools/setupJob Options
+# ============================
+EXPAND:
+  - data
+  - [finalholdout, cvholdout]
+COPY:
+  - executable
+  - wrapper
+URLS:
+  - data
+  - metadata
+

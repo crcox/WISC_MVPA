@@ -1,0 +1,21 @@
++WantFlocking = true
+
+executable = ./shared/run_WISC_MVPA.sh
+arguments = WISC_MVPA $(data) $(metadata) $(permindex)
+
+initialdir = ./$(jobdir)
+output = ../log/perm_$(jobdir).out
+error = ../log/perm_$(jobdir).err
+log = ../log/perm_$(jobdir).log
+
+request_cpus = 1
+request_memory = 12GB
+request_disk = 16GB
+
+requirements = (OpSysMajorVer =?= 8 && Target.HasCHTCStaging == true)
+concurrency_limits = MATLAB:1
+
+should_transfer_files = YES
+transfer_input_files = ./,../shared/,/squid/r2018b.tar.gz
+
+queue jobdir,data,metadata,permindex from queue_input.csv
