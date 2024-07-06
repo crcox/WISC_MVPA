@@ -136,7 +136,8 @@ classdef SOSLasso
             if obj.num_tasks == 1
                 W = Wall;
             else
-                W = Wall(p.Results.subjects);
+                % W = Wall(p.Results.subjects);
+                W = Wall(1:length(p.Results.subjects));
             end
             if obj.ModelHasBiasUnit && p.Results.dropBias
                 W = cellfun(@(w) w(1:end,:), W, 'UniformOutput', 0);
