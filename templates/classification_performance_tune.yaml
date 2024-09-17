@@ -1,19 +1,21 @@
-# Network RSA
-# ===========
-regularization: growl2
+# SOS LASSO
+# =========
+regularization: soslasso
 PermutationTest: false
-SaveResultsAs: mat
 SearchWithHyperband: true
 
 # Parameters
 # ----------
 bias: 0
-lambda: {args: [0, 6], distribution: uniform}
-lambda1: {args: [0, 6], distribution: uniform}
-HYPERBAND: {aggressiveness: 3, budget: 200, hyperparameters: [lambda,lambda1]}
+alpha: {args: [0.05, 0.95], distribution: uniform}
+lambda: {args: [0.2, 3], distribution: uniform}
+HYPERBAND: {aggressiveness: 3, budget: 25, hyperparameters: [alpha,lambda]}
 LambdaSeq: "linear"
+shape: sphere
+diameter: 18
+overlap: 9
 normalize_data: zscore
-normalize_target: center
+normalize_target: none
 normalize_wrt: training_set
 
 # Data and Metadata Paths
@@ -66,15 +68,12 @@ cvholdout:
   - [1,2,3,4,5,6,7,9,10]
   - [1,2,3,4,5,6,7,8,10]
   - [1,2,3,4,5,6,7,8,9]
-finalholdout: 0
+finalholdout: [1,2,3,4,5,6,7,8,9,10]
 
 # Targets
 # -------
-target_label: "semantic"
-target_type: "similarity"
-sim_source: "Dilkina_Normalized"
-sim_metric: "cosine"
-tau: 3
+target_label: animacy
+target_type: category
 
 # Coordinates
 # -----------
@@ -87,7 +86,7 @@ filters:
   - colfilter
 
 # WISC_MVPA Options
-# =================
+# =======================
 SmallFootprint: 1
 subject_id_fmt: sub-%03d.mat
 executable: "/home/sfrisby/GitHub/WISC_MVPA/WISC_MVPA"
@@ -96,12 +95,12 @@ wrapper: "/home/sfrisby/GitHub/WISC_MVPA/run_WISC_MVPA.sh"
 # condortools/setupJob Options
 # ============================
 EXPAND:
-  - data
-  - cvholdout
+  - [finalholdout,cvholdout]
+  - alpha
+  - lambda
+URLS:
+  - metadata
 COPY:
   - executable
   - wrapper
-URLS:
   - data
-  - metadata
-

@@ -1,0 +1,22 @@
++WantFlocking = true
+
+executable = ./shared/run_WISC_MVPA.sh
+arguments = WISC_MVPA $(metadata)
+
+initialdir = ./$(jobdir)
+output = ../log/tune_$(jobdir).out
+error = ../log/tune_$(jobdir).err
+log = ../log/tune_$(jobdir).log
+
+request_cpus = 1
+request_memory = 20GB
+request_disk = 16GB
+
+requirements = (OpSysMajorVer =?= 8 && Target.HasCHTCStaging == true)
+concurrency_limits = MATLAB:1
+
+should_transfer_files = YES
+transfer_input_files = ./,../shared/,/squid/r2018b.tar.gz
+
+queue jobdir,metadata from queue_input.csv
+
