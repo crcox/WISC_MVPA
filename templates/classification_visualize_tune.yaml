@@ -9,7 +9,7 @@ SearchWithHyperband: true
 bias: 0
 alpha: {args: [0.05, 0.95], distribution: uniform}
 lambda: {args: [0.2, 3], distribution: uniform}
-HYPERBAND: {aggressiveness: 3, budget: 25, hyperparameters: [alpha,lambda]}
+HYPERBAND: {aggressiveness: 3, budget: 200, hyperparameters: [alpha,lambda]}
 LambdaSeq: "linear"
 shape: sphere
 diameter: 18
