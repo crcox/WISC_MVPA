@@ -1,0 +1,23 @@
++WantFlocking = true
+
+container_image = file:///staging/sfrisby/WISC_MVPA.sif
+
+executable = ./shared/run_WISC_MVPA_Apptainer.sh
+arguments = $(data) $(metadata)
+
+initialdir = ./$(jobdir)
+output = ../log/tune_$(jobdir).out
+error = ../log/tune_$(jobdir).err
+log = ../log/tune_$(jobdir).log
+
+request_cpus = 1
+request_memory = 12GB
+request_disk = 16GB
+
+requirements = (OpSysMajorVer =?= 8 && Target.HasCHTCStaging == true)
+
+should_transfer_files = YES
+transfer_input_files = ./,../shared/
+
+queue jobdir,data,metadata from queue_input.csv
+
