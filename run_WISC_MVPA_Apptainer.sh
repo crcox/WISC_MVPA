@@ -1,4 +1,4 @@
-#!bin/bash
+#!/bin/bash
 
 # executable for running WISC_MVPA with Apptainer on CHTC. 
 
@@ -8,7 +8,7 @@
 cleanup(){
 	# for all data files (i.e. every argument in the list of arguments), remove it
 	for x in "$@"; do
-		rm -fv $(basename "$x")
+		rm ./$(basename "$x")
 	done
 	# declare finished
 	echo "all clean"	
@@ -92,7 +92,8 @@ done
 # run the analysis
 /WISC_MVPA
 
-
+# clean up
+cleanup "$@"
 
 
 
