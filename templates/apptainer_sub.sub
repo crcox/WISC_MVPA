@@ -1,6 +1,6 @@
 +WantFlocking = true
 
-container_image = file:///staging/sfrisby/WISC_MVPA.sif
+container_image = osdf:///chtc/staging/sfrisby/WISC_MVPA.sif
 
 executable = ./shared/run_WISC_MVPA_Apptainer.sh
 arguments = $(data) $(metadata)
