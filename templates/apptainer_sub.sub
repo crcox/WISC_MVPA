@@ -14,7 +14,7 @@ request_cpus = 1
 request_memory = 12GB
 request_disk = 16GB
 
-requirements = (OpSysMajorVer =?= 8 && Target.HasCHTCStaging == true)
+requirements = (OpSysMajorVer =?= 8 && Target.HasCHTCStaging == true && BackfillSlot =!= true)
 
 should_transfer_files = YES
 transfer_input_files = ./,../shared/
