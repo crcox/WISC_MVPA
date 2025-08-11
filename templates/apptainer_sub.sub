@@ -1,6 +1,6 @@
 want_ospool = true
 
-container_image = osdf:///chtc/staging/sfrisby/WISC_MVPA.sif
+container_image = WISC_MVPA.sif
 
 executable = ./shared/run_WISC_MVPA_Apptainer.sh
 arguments = $(data) $(metadata)
@@ -12,12 +12,14 @@ output = ../log/tune_$(jobdir).out
 error = ../log/tune_$(jobdir).err
 log = ../log/tune_$(jobdir).log
 
+requirements = (BackfillSlot =!= true)
+
 request_cpus = 1
 request_memory = 12GB
 request_disk = 16GB
 
 should_transfer_files = YES
-transfer_input_files = ./,../shared/
+transfer_input_files = ./,../shared/,$(data),$(metadata),osfd:///chtc/staging/sfrisby/WISC_MVPA.sif
 
 queue jobdir,data,metadata from queue_input.csv
 
