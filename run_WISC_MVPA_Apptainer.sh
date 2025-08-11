@@ -84,11 +84,6 @@ trap 'terminated "$@" ' SIGTERM
 # print every command run. This helps with debugging
 set -x
 
-# For all data files (i.e. every argument in the list of arguments), copy them to the submit node
-for x in "$@"; do
-	cp "$x" .
-done
-
 # run the analysis
 /WISC_MVPA
 
